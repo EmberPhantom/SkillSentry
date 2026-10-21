@@ -1,0 +1,2992 @@
+{
+  "CacheStatsResponse": {
+    "additionalProperties": false,
+    "properties": {
+      "dbSizeBytes": {
+        "title": "Dbsizebytes",
+        "type": "integer"
+      },
+      "engineVersion": {
+        "title": "Engineversion",
+        "type": "string"
+      },
+      "entries": {
+        "title": "Entries",
+        "type": "integer"
+      },
+      "hitRate": {
+        "title": "Hitrate",
+        "type": "number"
+      },
+      "modelVersion": {
+        "title": "Modelversion",
+        "type": "string"
+      }
+    },
+    "required": [
+      "entries",
+      "hitRate",
+      "dbSizeBytes",
+      "engineVersion",
+      "modelVersion"
+    ],
+    "title": "CacheStatsResponse",
+    "type": "object"
+  },
+  "ErrorResponse": {
+    "$defs": {
+      "ErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "degraded": {
+            "default": false,
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "scanId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scanid"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Stage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "error": {
+        "$ref": "#/$defs/ErrorDetail"
+      }
+    },
+    "required": [
+      "error"
+    ],
+    "title": "ErrorResponse",
+    "type": "object"
+  },
+  "HealthResponse": {
+    "additionalProperties": false,
+    "properties": {
+      "db": {
+        "enum": [
+          "ok",
+          "down"
+        ],
+        "title": "Db",
+        "type": "string"
+      },
+      "demoMode": {
+        "default": false,
+        "title": "Demomode",
+        "type": "boolean"
+      },
+      "docker": {
+        "enum": [
+          "ok",
+          "down"
+        ],
+        "title": "Docker",
+        "type": "string"
+      },
+      "ollama": {
+        "enum": [
+          "ok",
+          "down"
+        ],
+        "title": "Ollama",
+        "type": "string"
+      }
+    },
+    "required": [
+      "ollama",
+      "docker",
+      "db"
+    ],
+    "title": "HealthResponse",
+    "type": "object"
+  },
+  "MetaResponse": {
+    "additionalProperties": false,
+    "properties": {
+      "backendActive": {
+        "title": "Backendactive",
+        "type": "string"
+      },
+      "contractVersion": {
+        "title": "Contractversion",
+        "type": "string"
+      },
+      "demoMode": {
+        "title": "Demomode",
+        "type": "boolean"
+      },
+      "gemmaBadge": {
+        "title": "Gemmabadge",
+        "type": "string"
+      },
+      "version": {
+        "title": "Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "version",
+      "backendActive",
+      "gemmaBadge",
+      "demoMode",
+      "contractVersion"
+    ],
+    "title": "MetaResponse",
+    "type": "object"
+  },
+  "ScanListResponse": {
+    "$defs": {
+      "ScanStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cached-hit"
+        ],
+        "title": "ScanStatus",
+        "type": "string"
+      },
+      "ScanSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Durationms"
+          },
+          "keyFinding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Keyfinding"
+          },
+          "riskScore": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Riskscore"
+          },
+          "scanId": {
+            "format": "uuid",
+            "title": "Scanid",
+            "type": "string"
+          },
+          "skill": {
+            "title": "Skill",
+            "type": "string"
+          },
+          "skillId": {
+            "format": "uuid",
+            "title": "Skillid",
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "title": "Startedat",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/ScanStatus"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/VerdictTier"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "scanId",
+          "skillId",
+          "skill",
+          "status",
+          "startedAt"
+        ],
+        "title": "ScanSummary",
+        "type": "object"
+      },
+      "VerdictTier": {
+        "enum": [
+          "SAFE",
+          "SUSPICIOUS",
+          "MALICIOUS"
+        ],
+        "title": "VerdictTier",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "scans": {
+        "items": {
+          "$ref": "#/$defs/ScanSummary"
+        },
+        "title": "Scans",
+        "type": "array"
+      }
+    },
+    "title": "ScanListResponse",
+    "type": "object"
+  },
+  "ScanRequest": {
+    "$defs": {
+      "Backend": {
+        "enum": [
+          "auto",
+          "local",
+          "cloud",
+          "demo"
+        ],
+        "title": "Backend",
+        "type": "string"
+      },
+      "ScanOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "backend": {
+            "$ref": "#/$defs/Backend",
+            "default": "auto"
+          },
+          "no_cache": {
+            "default": false,
+            "title": "No Cache",
+            "type": "boolean"
+          },
+          "poisoned_well": {
+            "default": true,
+            "title": "Poisoned Well",
+            "type": "boolean"
+          },
+          "sandbox": {
+            "default": true,
+            "title": "Sandbox",
+            "type": "boolean"
+          },
+          "timeout_s": {
+            "default": 60,
+            "maximum": 600,
+            "minimum": 5,
+            "title": "Timeout S",
+            "type": "integer"
+          }
+        },
+        "title": "ScanOptions",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "options": {
+        "$ref": "#/$defs/ScanOptions"
+      },
+      "path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Path"
+      }
+    },
+    "title": "ScanRequest",
+    "type": "object"
+  },
+  "ScanStartResponse": {
+    "$defs": {
+      "ScanStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cached-hit"
+        ],
+        "title": "ScanStatus",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "scanId": {
+        "format": "uuid",
+        "title": "Scanid",
+        "type": "string"
+      },
+      "status": {
+        "$ref": "#/$defs/ScanStatus",
+        "default": "queued"
+      },
+      "stream": {
+        "title": "Stream",
+        "type": "string"
+      }
+    },
+    "required": [
+      "scanId",
+      "stream"
+    ],
+    "title": "ScanStartResponse",
+    "type": "object"
+  },
+  "ScanStatusResponse": {
+    "$defs": {
+      "ScanStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cached-hit"
+        ],
+        "title": "ScanStatus",
+        "type": "string"
+      },
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "elapsedMs": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Elapsedms"
+      },
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error"
+      },
+      "scanId": {
+        "format": "uuid",
+        "title": "Scanid",
+        "type": "string"
+      },
+      "skill": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Skill"
+      },
+      "stage": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Stage"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "startedAt": {
+        "format": "date-time",
+        "title": "Startedat",
+        "type": "string"
+      },
+      "status": {
+        "$ref": "#/$defs/ScanStatus"
+      }
+    },
+    "required": [
+      "scanId",
+      "status",
+      "startedAt"
+    ],
+    "title": "ScanStatusResponse",
+    "type": "object"
+  },
+  "ScanSummary": {
+    "$defs": {
+      "ScanStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cached-hit"
+        ],
+        "title": "ScanStatus",
+        "type": "string"
+      },
+      "VerdictTier": {
+        "enum": [
+          "SAFE",
+          "SUSPICIOUS",
+          "MALICIOUS"
+        ],
+        "title": "VerdictTier",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "cached": {
+        "default": false,
+        "title": "Cached",
+        "type": "boolean"
+      },
+      "durationMs": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Durationms"
+      },
+      "keyFinding": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Keyfinding"
+      },
+      "riskScore": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Riskscore"
+      },
+      "scanId": {
+        "format": "uuid",
+        "title": "Scanid",
+        "type": "string"
+      },
+      "skill": {
+        "title": "Skill",
+        "type": "string"
+      },
+      "skillId": {
+        "format": "uuid",
+        "title": "Skillid",
+        "type": "string"
+      },
+      "startedAt": {
+        "format": "date-time",
+        "title": "Startedat",
+        "type": "string"
+      },
+      "status": {
+        "$ref": "#/$defs/ScanStatus"
+      },
+      "verdict": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/VerdictTier"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "scanId",
+      "skillId",
+      "skill",
+      "status",
+      "startedAt"
+    ],
+    "title": "ScanSummary",
+    "type": "object"
+  },
+  "SkillDetail": {
+    "$defs": {
+      "ActiveDefense": {
+        "additionalProperties": false,
+        "properties": {
+          "actualBehavior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Actualbehavior"
+          },
+          "c2Indicators": {
+            "items": {
+              "type": "string"
+            },
+            "title": "C2Indicators",
+            "type": "array"
+          },
+          "canaryMarker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Canarymarker"
+          },
+          "contextAwareCanary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContextCanary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "declaredIntent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Declaredintent"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Encoding"
+          },
+          "exfilChannel": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExfilChannel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "iocExport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Iocexport"
+          },
+          "sandboxEvasionDetected": {
+            "default": false,
+            "title": "Sandboxevasiondetected",
+            "type": "boolean"
+          },
+          "secondaryCanary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Secondarycanary"
+          },
+          "targetedAssets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targetedassets",
+            "type": "array"
+          },
+          "triggered": {
+            "default": false,
+            "title": "Triggered",
+            "type": "boolean"
+          }
+        },
+        "title": "ActiveDefense",
+        "type": "object"
+      },
+      "ContextCanary": {
+        "enum": [
+          "AWS",
+          "GITHUB",
+          "SLACK",
+          "SSH",
+          "GENERIC"
+        ],
+        "title": "ContextCanary",
+        "type": "string"
+      },
+      "ExfilChannel": {
+        "enum": [
+          "DNS_TUNNELING",
+          "HTTP_POST",
+          "RAW_SOCKET"
+        ],
+        "title": "ExfilChannel",
+        "type": "string"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "$ref": "#/$defs/FindingEvidence"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          },
+          "stage": {
+            "$ref": "#/$defs/Stage"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Type"
+          }
+        },
+        "required": [
+          "stage",
+          "severity",
+          "message"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingEvidence": {
+        "additionalProperties": true,
+        "description": "Free-form evidence.  Common keys are typed; extras are preserved.",
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "c2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "C2"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Domain"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ip"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Marker"
+          },
+          "ocr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ocr"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Process"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          }
+        },
+        "title": "FindingEvidence",
+        "type": "object"
+      },
+      "IOCGraph": {
+        "additionalProperties": false,
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/$defs/IOCGraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/$defs/IOCGraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "title": "IOCGraph",
+        "type": "object"
+      },
+      "IOCGraphEdge": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "label"
+        ],
+        "title": "IOCGraphEdge",
+        "type": "object"
+      },
+      "IOCGraphNode": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evidence"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "IOCGraphNode",
+        "type": "object"
+      },
+      "NetLog": {
+        "additionalProperties": false,
+        "properties": {
+          "bodyB64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bodyb64"
+          },
+          "protocol": {
+            "enum": [
+              "dns",
+              "http"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "queryOrUrl": {
+            "title": "Queryorurl",
+            "type": "string"
+          },
+          "responderAction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Responderaction"
+          },
+          "ts": {
+            "format": "date-time",
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "protocol",
+          "queryOrUrl"
+        ],
+        "title": "NetLog",
+        "type": "object"
+      },
+      "PoisonedWellView": {
+        "additionalProperties": false,
+        "properties": {
+          "activeDefense": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ActiveDefense"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "graph": {
+            "$ref": "#/$defs/IOCGraph"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/$defs/TimelineRow"
+            },
+            "title": "Timeline",
+            "type": "array"
+          }
+        },
+        "title": "PoisonedWellView",
+        "type": "object"
+      },
+      "ReportLinks": {
+        "additionalProperties": false,
+        "properties": {
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Markdown"
+          },
+          "sarif": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sarif"
+          },
+          "stix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stix"
+          }
+        },
+        "title": "ReportLinks",
+        "type": "object"
+      },
+      "SandboxEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Detail"
+          },
+          "eventType": {
+            "title": "Eventtype",
+            "type": "string"
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Marker"
+          },
+          "pathOrChannel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pathorchannel"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Process"
+          },
+          "ts": {
+            "format": "date-time",
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "eventType"
+        ],
+        "title": "SandboxEvent",
+        "type": "object"
+      },
+      "SandboxTrace": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/$defs/SandboxEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "netLogs": {
+            "items": {
+              "$ref": "#/$defs/NetLog"
+            },
+            "title": "Netlogs",
+            "type": "array"
+          },
+          "resourceUsage": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resourceusage"
+          }
+        },
+        "title": "SandboxTrace",
+        "type": "object"
+      },
+      "Severity": {
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical",
+          "note"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      },
+      "StaticFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor": {
+            "default": false,
+            "title": "Anchor",
+            "type": "boolean"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "highlight": {
+            "default": true,
+            "title": "Highlight",
+            "type": "boolean"
+          },
+          "line": {
+            "minimum": 1,
+            "title": "Line",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          },
+          "stage": {
+            "$ref": "#/$defs/Stage"
+          }
+        },
+        "required": [
+          "file",
+          "line",
+          "stage",
+          "severity",
+          "message"
+        ],
+        "title": "StaticFinding",
+        "type": "object"
+      },
+      "TimelineRow": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Detail"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Marker"
+          },
+          "ts": {
+            "format": "date-time",
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "label",
+          "kind"
+        ],
+        "title": "TimelineRow",
+        "type": "object"
+      },
+      "Verdict": {
+        "additionalProperties": false,
+        "description": "Verdict JSON Contract v1 (FROZEN).\n\n``skillId`` / ``scanId`` are additive fields agreed before the M0 freeze so\n``GET /skills/{skill_id}`` is addressable for folder-of-skills scans.",
+        "properties": {
+          "activeDefense": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ActiveDefense"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cached": {
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "riskScore": {
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Riskscore",
+            "type": "integer"
+          },
+          "scanDurationMs": {
+            "minimum": 0,
+            "title": "Scandurationms",
+            "type": "integer"
+          },
+          "scanId": {
+            "format": "uuid",
+            "title": "Scanid",
+            "type": "string"
+          },
+          "skill": {
+            "title": "Skill",
+            "type": "string"
+          },
+          "skillId": {
+            "format": "uuid",
+            "title": "Skillid",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/$defs/VerdictTier"
+          }
+        },
+        "required": [
+          "skill",
+          "skillId",
+          "scanId",
+          "verdict",
+          "riskScore",
+          "confidence",
+          "cached",
+          "scanDurationMs"
+        ],
+        "title": "Verdict",
+        "type": "object"
+      },
+      "VerdictTier": {
+        "enum": [
+          "SAFE",
+          "SUSPICIOUS",
+          "MALICIOUS"
+        ],
+        "title": "VerdictTier",
+        "type": "string"
+      },
+      "VisionEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "bboxes": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Bboxes",
+            "type": "array"
+          },
+          "confidence": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "imageName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Imagename"
+          },
+          "ocr": {
+            "title": "Ocr",
+            "type": "string"
+          },
+          "positionNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Positionnote"
+          },
+          "viewModes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Viewmodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "image",
+          "ocr"
+        ],
+        "title": "VisionEvidence",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "poisonedWell": {
+        "$ref": "#/$defs/PoisonedWellView"
+      },
+      "reportLinks": {
+        "$ref": "#/$defs/ReportLinks"
+      },
+      "sandboxTrace": {
+        "$ref": "#/$defs/SandboxTrace"
+      },
+      "staticFindings": {
+        "items": {
+          "$ref": "#/$defs/StaticFinding"
+        },
+        "title": "Staticfindings",
+        "type": "array"
+      },
+      "verdict": {
+        "$ref": "#/$defs/Verdict"
+      },
+      "visionEvidence": {
+        "items": {
+          "$ref": "#/$defs/VisionEvidence"
+        },
+        "title": "Visionevidence",
+        "type": "array"
+      }
+    },
+    "required": [
+      "verdict"
+    ],
+    "title": "SkillDetail",
+    "type": "object"
+  },
+  "StageResult": {
+    "$defs": {
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "$ref": "#/$defs/FindingEvidence"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          },
+          "stage": {
+            "$ref": "#/$defs/Stage"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Type"
+          }
+        },
+        "required": [
+          "stage",
+          "severity",
+          "message"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingEvidence": {
+        "additionalProperties": true,
+        "description": "Free-form evidence.  Common keys are typed; extras are preserved.",
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "c2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "C2"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Domain"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ip"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Marker"
+          },
+          "ocr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ocr"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Process"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          }
+        },
+        "title": "FindingEvidence",
+        "type": "object"
+      },
+      "OverrideSignal": {
+        "additionalProperties": false,
+        "description": "Hard evidence that overrides weighted fusion.",
+        "properties": {
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/Stage"
+          },
+          "verdict": {
+            "$ref": "#/$defs/VerdictTier",
+            "default": "MALICIOUS"
+          }
+        },
+        "required": [
+          "reason",
+          "source"
+        ],
+        "title": "OverrideSignal",
+        "type": "object"
+      },
+      "Severity": {
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical",
+          "note"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      },
+      "VerdictTier": {
+        "enum": [
+          "SAFE",
+          "SUSPICIOUS",
+          "MALICIOUS"
+        ],
+        "title": "VerdictTier",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Result returned by every stage (interface I3).\n\n``signals`` keys consumed by fusion: ``anchors``, ``semantic``, ``vision``,\n``sandbox`` and ``typosquat``.  Values are normalised 0-100.",
+    "properties": {
+      "degraded": {
+        "default": false,
+        "title": "Degraded",
+        "type": "boolean"
+      },
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error"
+      },
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/Finding"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "override": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/OverrideSignal"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "signals": {
+        "additionalProperties": {
+          "type": "number"
+        },
+        "title": "Signals",
+        "type": "object"
+      },
+      "stage": {
+        "$ref": "#/$defs/Stage"
+      },
+      "telemetry": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Telemetry"
+      }
+    },
+    "required": [
+      "stage"
+    ],
+    "title": "StageResult",
+    "type": "object"
+  },
+  "Verdict": {
+    "$defs": {
+      "ActiveDefense": {
+        "additionalProperties": false,
+        "properties": {
+          "actualBehavior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Actualbehavior"
+          },
+          "c2Indicators": {
+            "items": {
+              "type": "string"
+            },
+            "title": "C2Indicators",
+            "type": "array"
+          },
+          "canaryMarker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Canarymarker"
+          },
+          "contextAwareCanary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContextCanary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "declaredIntent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Declaredintent"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Encoding"
+          },
+          "exfilChannel": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExfilChannel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "iocExport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Iocexport"
+          },
+          "sandboxEvasionDetected": {
+            "default": false,
+            "title": "Sandboxevasiondetected",
+            "type": "boolean"
+          },
+          "secondaryCanary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Secondarycanary"
+          },
+          "targetedAssets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targetedassets",
+            "type": "array"
+          },
+          "triggered": {
+            "default": false,
+            "title": "Triggered",
+            "type": "boolean"
+          }
+        },
+        "title": "ActiveDefense",
+        "type": "object"
+      },
+      "ContextCanary": {
+        "enum": [
+          "AWS",
+          "GITHUB",
+          "SLACK",
+          "SSH",
+          "GENERIC"
+        ],
+        "title": "ContextCanary",
+        "type": "string"
+      },
+      "ExfilChannel": {
+        "enum": [
+          "DNS_TUNNELING",
+          "HTTP_POST",
+          "RAW_SOCKET"
+        ],
+        "title": "ExfilChannel",
+        "type": "string"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "$ref": "#/$defs/FindingEvidence"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          },
+          "stage": {
+            "$ref": "#/$defs/Stage"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Type"
+          }
+        },
+        "required": [
+          "stage",
+          "severity",
+          "message"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingEvidence": {
+        "additionalProperties": true,
+        "description": "Free-form evidence.  Common keys are typed; extras are preserved.",
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "c2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "C2"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Domain"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ip"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Marker"
+          },
+          "ocr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ocr"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Process"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          }
+        },
+        "title": "FindingEvidence",
+        "type": "object"
+      },
+      "Severity": {
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical",
+          "note"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      },
+      "VerdictTier": {
+        "enum": [
+          "SAFE",
+          "SUSPICIOUS",
+          "MALICIOUS"
+        ],
+        "title": "VerdictTier",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Verdict JSON Contract v1 (FROZEN).\n\n``skillId`` / ``scanId`` are additive fields agreed before the M0 freeze so\n``GET /skills/{skill_id}`` is addressable for folder-of-skills scans.",
+    "properties": {
+      "activeDefense": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ActiveDefense"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "cached": {
+        "title": "Cached",
+        "type": "boolean"
+      },
+      "confidence": {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "title": "Confidence",
+        "type": "number"
+      },
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/Finding"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "riskScore": {
+        "maximum": 100,
+        "minimum": 0,
+        "title": "Riskscore",
+        "type": "integer"
+      },
+      "scanDurationMs": {
+        "minimum": 0,
+        "title": "Scandurationms",
+        "type": "integer"
+      },
+      "scanId": {
+        "format": "uuid",
+        "title": "Scanid",
+        "type": "string"
+      },
+      "skill": {
+        "title": "Skill",
+        "type": "string"
+      },
+      "skillId": {
+        "format": "uuid",
+        "title": "Skillid",
+        "type": "string"
+      },
+      "verdict": {
+        "$ref": "#/$defs/VerdictTier"
+      }
+    },
+    "required": [
+      "skill",
+      "skillId",
+      "scanId",
+      "verdict",
+      "riskScore",
+      "confidence",
+      "cached",
+      "scanDurationMs"
+    ],
+    "title": "Verdict",
+    "type": "object"
+  },
+  "VerdictsResponse": {
+    "$defs": {
+      "ActiveDefense": {
+        "additionalProperties": false,
+        "properties": {
+          "actualBehavior": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Actualbehavior"
+          },
+          "c2Indicators": {
+            "items": {
+              "type": "string"
+            },
+            "title": "C2Indicators",
+            "type": "array"
+          },
+          "canaryMarker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Canarymarker"
+          },
+          "contextAwareCanary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContextCanary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "declaredIntent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Declaredintent"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Encoding"
+          },
+          "exfilChannel": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExfilChannel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "iocExport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Iocexport"
+          },
+          "sandboxEvasionDetected": {
+            "default": false,
+            "title": "Sandboxevasiondetected",
+            "type": "boolean"
+          },
+          "secondaryCanary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Secondarycanary"
+          },
+          "targetedAssets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targetedassets",
+            "type": "array"
+          },
+          "triggered": {
+            "default": false,
+            "title": "Triggered",
+            "type": "boolean"
+          }
+        },
+        "title": "ActiveDefense",
+        "type": "object"
+      },
+      "ContextCanary": {
+        "enum": [
+          "AWS",
+          "GITHUB",
+          "SLACK",
+          "SSH",
+          "GENERIC"
+        ],
+        "title": "ContextCanary",
+        "type": "string"
+      },
+      "ExfilChannel": {
+        "enum": [
+          "DNS_TUNNELING",
+          "HTTP_POST",
+          "RAW_SOCKET"
+        ],
+        "title": "ExfilChannel",
+        "type": "string"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "$ref": "#/$defs/FindingEvidence"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          },
+          "stage": {
+            "$ref": "#/$defs/Stage"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Type"
+          }
+        },
+        "required": [
+          "stage",
+          "severity",
+          "message"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingEvidence": {
+        "additionalProperties": true,
+        "description": "Free-form evidence.  Common keys are typed; extras are preserved.",
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "c2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "C2"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Domain"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ip"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line"
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Marker"
+          },
+          "ocr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ocr"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Process"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          }
+        },
+        "title": "FindingEvidence",
+        "type": "object"
+      },
+      "Severity": {
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical",
+          "note"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      },
+      "Verdict": {
+        "additionalProperties": false,
+        "description": "Verdict JSON Contract v1 (FROZEN).\n\n``skillId`` / ``scanId`` are additive fields agreed before the M0 freeze so\n``GET /skills/{skill_id}`` is addressable for folder-of-skills scans.",
+        "properties": {
+          "activeDefense": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ActiveDefense"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cached": {
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "riskScore": {
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Riskscore",
+            "type": "integer"
+          },
+          "scanDurationMs": {
+            "minimum": 0,
+            "title": "Scandurationms",
+            "type": "integer"
+          },
+          "scanId": {
+            "format": "uuid",
+            "title": "Scanid",
+            "type": "string"
+          },
+          "skill": {
+            "title": "Skill",
+            "type": "string"
+          },
+          "skillId": {
+            "format": "uuid",
+            "title": "Skillid",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/$defs/VerdictTier"
+          }
+        },
+        "required": [
+          "skill",
+          "skillId",
+          "scanId",
+          "verdict",
+          "riskScore",
+          "confidence",
+          "cached",
+          "scanDurationMs"
+        ],
+        "title": "Verdict",
+        "type": "object"
+      },
+      "VerdictTier": {
+        "enum": [
+          "SAFE",
+          "SUSPICIOUS",
+          "MALICIOUS"
+        ],
+        "title": "VerdictTier",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "scanId": {
+        "format": "uuid",
+        "title": "Scanid",
+        "type": "string"
+      },
+      "verdicts": {
+        "items": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "title": "Verdicts",
+        "type": "array"
+      }
+    },
+    "required": [
+      "scanId"
+    ],
+    "title": "VerdictsResponse",
+    "type": "object"
+  },
+  "WSMessage": {
+    "$defs": {
+      "Stage": {
+        "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+        "enum": [
+          "cache",
+          "spec",
+          "typosquat",
+          "deterministicAnchor",
+          "semantic",
+          "vision",
+          "sandbox",
+          "poisonedWell",
+          "evasion",
+          "verdict"
+        ],
+        "title": "Stage",
+        "type": "string"
+      },
+      "WSEventType": {
+        "enum": [
+          "started",
+          "progress",
+          "finding",
+          "override",
+          "completed",
+          "error",
+          "cached"
+        ],
+        "title": "WSEventType",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "detail": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Detail"
+      },
+      "event": {
+        "$ref": "#/$defs/WSEventType"
+      },
+      "skill": {
+        "title": "Skill",
+        "type": "string"
+      },
+      "stage": {
+        "$ref": "#/$defs/Stage"
+      },
+      "ts": {
+        "format": "date-time",
+        "title": "Ts",
+        "type": "string"
+      }
+    },
+    "required": [
+      "stage",
+      "skill",
+      "event",
+      "ts"
+    ],
+    "title": "WSMessage",
+    "type": "object"
+  }
+}

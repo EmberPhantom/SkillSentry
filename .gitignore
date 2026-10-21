@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# SkillSentry runtime state
+skillsentry.toml
+*.db
+*.db-wal
+*.db-shm
+reports/
+
+# Reports produced during local runs
+*.sarif
+stix-bundle.json
+
+# Frontend
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
