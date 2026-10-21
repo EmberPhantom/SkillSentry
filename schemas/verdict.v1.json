@@ -1,0 +1,463 @@
+{
+  "$defs": {
+    "ActiveDefense": {
+      "additionalProperties": false,
+      "properties": {
+        "actualBehavior": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actualbehavior"
+        },
+        "c2Indicators": {
+          "items": {
+            "type": "string"
+          },
+          "title": "C2Indicators",
+          "type": "array"
+        },
+        "canaryMarker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canarymarker"
+        },
+        "contextAwareCanary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextCanary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "declaredIntent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declaredintent"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encoding"
+        },
+        "exfilChannel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExfilChannel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "iocExport": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Iocexport"
+        },
+        "sandboxEvasionDetected": {
+          "default": false,
+          "title": "Sandboxevasiondetected",
+          "type": "boolean"
+        },
+        "secondaryCanary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secondarycanary"
+        },
+        "targetedAssets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Targetedassets",
+          "type": "array"
+        },
+        "triggered": {
+          "default": false,
+          "title": "Triggered",
+          "type": "boolean"
+        }
+      },
+      "title": "ActiveDefense",
+      "type": "object"
+    },
+    "ContextCanary": {
+      "enum": [
+        "AWS",
+        "GITHUB",
+        "SLACK",
+        "SSH",
+        "GENERIC"
+      ],
+      "title": "ContextCanary",
+      "type": "string"
+    },
+    "ExfilChannel": {
+      "enum": [
+        "DNS_TUNNELING",
+        "HTTP_POST",
+        "RAW_SOCKET"
+      ],
+      "title": "ExfilChannel",
+      "type": "string"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/FindingEvidence"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "stage": {
+          "$ref": "#/$defs/Stage"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "required": [
+        "stage",
+        "severity",
+        "message"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FindingEvidence": {
+      "additionalProperties": true,
+      "description": "Free-form evidence.  Common keys are typed; extras are preserved.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "c2": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "C2"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File"
+        },
+        "ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ip"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "marker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker"
+        },
+        "ocr": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ocr"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "process": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Process"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "title": "FindingEvidence",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical",
+        "note"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Stage": {
+      "description": "Canonical pipeline stage identifiers (docs/05 \u00a75.4).",
+      "enum": [
+        "cache",
+        "spec",
+        "typosquat",
+        "deterministicAnchor",
+        "semantic",
+        "vision",
+        "sandbox",
+        "poisonedWell",
+        "evasion",
+        "verdict"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "VerdictTier": {
+      "enum": [
+        "SAFE",
+        "SUSPICIOUS",
+        "MALICIOUS"
+      ],
+      "title": "VerdictTier",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Verdict JSON Contract v1 (FROZEN).\n\n``skillId`` / ``scanId`` are additive fields agreed before the M0 freeze so\n``GET /skills/{skill_id}`` is addressable for folder-of-skills scans.",
+  "properties": {
+    "activeDefense": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActiveDefense"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cached": {
+      "title": "Cached",
+      "type": "boolean"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "riskScore": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Riskscore",
+      "type": "integer"
+    },
+    "scanDurationMs": {
+      "minimum": 0,
+      "title": "Scandurationms",
+      "type": "integer"
+    },
+    "scanId": {
+      "format": "uuid",
+      "title": "Scanid",
+      "type": "string"
+    },
+    "skill": {
+      "title": "Skill",
+      "type": "string"
+    },
+    "skillId": {
+      "format": "uuid",
+      "title": "Skillid",
+      "type": "string"
+    },
+    "verdict": {
+      "$ref": "#/$defs/VerdictTier"
+    }
+  },
+  "required": [
+    "skill",
+    "skillId",
+    "scanId",
+    "verdict",
+    "riskScore",
+    "confidence",
+    "cached",
+    "scanDurationMs"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

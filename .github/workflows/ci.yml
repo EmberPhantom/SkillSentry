@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-contract:
+    name: Lint + contract tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check skillsentry tests scripts
+
+      - name: Ruff format
+        run: ruff format --check skillsentry tests scripts
+
+      - name: Unit + contract tests
+        run: pytest tests/unit tests/contract -q
+
+      - name: Schema export is reproducible
+        run: |
+          python scripts/export_schema.py
+          git diff --exit-code -- schemas/
+          test -z "$(git status --porcelain -- schemas/)"
+
+  demo-smoke:
+    name: Demo server smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Boot demo server
+        run: |
+          python -m skillsentry.server.demo_mode --port 8000 --speed 0 &
+          python - <<'PY'
+          import json
+          import time
+          import urllib.request
+
+          for _ in range(50):
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8000/meta", timeout=1) as response:
+                      meta = json.load(response)
+                  break
+              except Exception:
+                  time.sleep(0.2)
+          else:
+              raise SystemExit("demo server did not become healthy")
+
+          assert meta["demoMode"] is True
+          with urllib.request.urlopen("http://127.0.0.1:8000/scans", timeout=2) as response:
+              scans = json.load(response)["scans"]
+          assert len(scans) == 7, len(scans)
+          assert {row["verdict"] for row in scans} == {"SAFE", "MALICIOUS"}
+          print("demo smoke OK:", len(scans), "skills")
+          PY
