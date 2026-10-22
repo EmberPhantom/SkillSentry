@@ -14,7 +14,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from skillsentry.core.contracts import SandboxEvent, format_utc, utc_now
-from skillsentry.core.poisoned_well.canary_gen import CanarySet
+from skillsentry.core.poisoned_well.canary_gen import MARKER_RE, CanarySet
+
+MAX_LOG_BYTES = 4 * 1024 * 1024
+MAX_LOG_LINES = 10_000
+MAX_LINE_CHARS = 16_384
+MAX_EVENTS = 5_000
+MAX_PATH_CHARS = 1_024
+MAX_DETAIL_JSON_CHARS = 8_192
 
 CANARY_EVENT_TYPES = frozenset(
     {
@@ -84,6 +91,8 @@ def _parse_ts(value: Any) -> datetime | None:
 
 
 def parse_monitor_line(line: str) -> MonitorEvent | None:
+    if len(line) > MAX_LINE_CHARS:
+        return None
     try:
         payload = json.loads(line)
     except (TypeError, ValueError):
@@ -92,21 +101,37 @@ def parse_monitor_line(line: str) -> MonitorEvent | None:
         return None
     ts = _parse_ts(payload.get("ts"))
     event_type = payload.get("event_type")
-    if ts is None or not isinstance(event_type, str) or not event_type:
+    if ts is None or not isinstance(event_type, str) or event_type not in CANARY_EVENT_TYPES:
         return None
     path = payload.get("path")
     if path is None:
         path = payload.get("path_or_channel")
+    if path is not None and (not isinstance(path, str) or len(path) > MAX_PATH_CHARS):
+        return None
     marker = payload.get("marker")
+    if marker is not None and (
+        not isinstance(marker, str) or not MARKER_RE.fullmatch(marker)
+    ):
+        # A marker is evidence, not a free-form field.  Drop forged/broken
+        # values rather than trusting arbitrary log content.
+        marker = None
     process = payload.get("process")
     detail = payload.get("detail")
+    if isinstance(detail, dict):
+        try:
+            if len(json.dumps(detail, sort_keys=True)) > MAX_DETAIL_JSON_CHARS:
+                detail = {"truncated": True}
+        except (TypeError, ValueError):
+            detail = {}
+    else:
+        detail = {}
     return MonitorEvent(
         ts=ts,
         event_type=event_type,
         path_or_channel=path if isinstance(path, str) else None,
         marker=marker if isinstance(marker, str) and marker else None,
-        process=process if isinstance(process, str) else None,
-        detail=detail if isinstance(detail, dict) else {},
+        process=process[:256] if isinstance(process, str) else None,
+        detail=detail,
     )
 
 
@@ -114,10 +139,17 @@ def parse_monitor_log(text: str | bytes | None) -> ParseResult:
     if text is None:
         return ParseResult(events=[])
     if isinstance(text, bytes):
+        if len(text) > MAX_LOG_BYTES:
+            text = text[-MAX_LOG_BYTES:]
         text = text.decode("utf-8", errors="replace")
+    elif len(text) > MAX_LOG_BYTES:
+        text = text[-MAX_LOG_BYTES:]
     events: list[MonitorEvent] = []
     skipped = 0
-    for line in text.splitlines():
+    for index, line in enumerate(text.splitlines()):
+        if index >= MAX_LOG_LINES:
+            skipped += 1
+            break
         line = line.strip()
         if not line:
             continue
@@ -126,8 +158,29 @@ def parse_monitor_log(text: str | bytes | None) -> ParseResult:
             skipped += 1
         else:
             events.append(event)
+            if len(events) >= MAX_EVENTS:
+                skipped += 1
+                break
     events.sort(key=lambda event: event.ts)
     return ParseResult(events=events, skipped=skipped)
+
+
+def is_seeded_canary_read(event: MonitorEvent, canaries: CanarySet) -> bool:
+    """True only for an exact seeded file or environment canary.
+
+    The LD_PRELOAD shim logs every read under ``/home/sandbox`` because it
+    cannot know the host-side seed set.  Treating such a read as canary
+    evidence would turn ordinary cache/config reads into false positives.
+    """
+
+    if event.event_type != "canary_read":
+        return False
+    path = event.path_or_channel
+    if not path:
+        return False
+    if path.startswith("env:"):
+        return path.removeprefix("env:") in canaries.env
+    return canaries.file_for(path) is not None
 
 
 def normalise_paths(events: list[MonitorEvent], canaries: CanarySet) -> list[MonitorEvent]:
@@ -137,16 +190,21 @@ def normalise_paths(events: list[MonitorEvent], canaries: CanarySet) -> list[Mon
         if path and path.startswith("/"):
             path = canaries.display_path(path)
         marker = event.marker
-        if event.event_type == "canary_read" and path:
+        if event.event_type == "canary_read":
+            # Drop shim reads that do not hit a seeded canary.  This is the
+            # host-side source of truth; the shim's broader path heuristic must
+            # never become a finding by itself.
+            if not path:
+                continue
             if path.startswith("env:"):
-                # The shim preserves the spelling it found in the fake value,
-                # which may be uppercase (AWS key ids).  Report the canonical
-                # per-scan marker instead.
+                if path.removeprefix("env:") not in canaries.env:
+                    continue
                 marker = canaries.marker
-            elif marker is None:
+            else:
                 file = canaries.file_for(path)
-                if file is not None:
-                    marker = file.marker
+                if file is None:
+                    continue
+                marker = file.marker
         normalised.append(
             MonitorEvent(
                 ts=event.ts,

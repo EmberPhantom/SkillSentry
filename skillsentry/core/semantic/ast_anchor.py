@@ -1,0 +1,262 @@
+"""Deterministic AST/regex anchors (stage 2).
+
+These facts are computed *before* any model runs and are injected into the
+semantic prompt as ground truth.  The rules are intentionally high-signal:
+a match is evidence, never merely a suspicion.  Every finding carries the
+relative file, a 1-based line, and the exact source line.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from skillsentry.core.contracts import (
+    Finding,
+    FindingEvidence,
+    Severity,
+    Stage,
+    StageResult,
+)
+from skillsentry.core.parser import SkillPackage, TextFile
+
+MAX_FINDINGS = 80
+
+
+@dataclass(frozen=True)
+class AnchorRule:
+    type: str
+    severity: Severity
+    pattern: re.Pattern[str]
+    message: str
+
+
+_RULES: tuple[AnchorRule, ...] = (
+    AnchorRule(
+        "dns-lookup",
+        Severity.HIGH,
+        re.compile(r"\b(?:nslookup|dig|host)\b", re.IGNORECASE),
+        "DNS lookup command detected - potential DNS tunnelling",
+    ),
+    AnchorRule(
+        "credential-path",
+        Severity.CRITICAL,
+        re.compile(
+            r"(?:~|/home/[^/\s]+|/root)/\.aws/credentials|"
+            r"AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|"
+            r"\.aws[/\\]credentials",
+            re.IGNORECASE,
+        ),
+        "AWS credential file or environment variable referenced",
+    ),
+    AnchorRule(
+        "credential-path",
+        Severity.CRITICAL,
+        re.compile(
+            r"(?:~|/home/[^/\s]+|/root)/\.ssh/(?:id_[a-z0-9]+|authorized_keys)|"
+            r"\.ssh[/\\]id_",
+            re.IGNORECASE,
+        ),
+        "SSH private key referenced",
+    ),
+    AnchorRule(
+        "secret-access",
+        Severity.CRITICAL,
+        re.compile(
+            r"\$\{?(?:SLACK_(?:BOT|USER)_TOKEN|GITHUB_TOKEN|GH_TOKEN|"
+            r"AWS_SECRET_ACCESS_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY)\}?",
+            re.IGNORECASE,
+        ),
+        "High-value secret environment variable referenced",
+    ),
+    AnchorRule(
+        "obfuscation",
+        Severity.HIGH,
+        re.compile(r"\bbase64\b(?:\s+-[a-zA-Z]*d|\s+--decode|\s+-w0)", re.IGNORECASE),
+        "base64 encoding/decoding detected - possible obfuscation",
+    ),
+    AnchorRule(
+        "exfil-http-post",
+        Severity.HIGH,
+        re.compile(
+            r"\b(?:curl|wget)\b[^\n]*(?:-X\s*POST|--data|-d\s|--upload-file)|"
+            r"\brequests\.post\s*\(|\bhttpx\.post\s*\(|"
+            r"\burllib\.request\.urlopen\s*\(",
+            re.IGNORECASE,
+        ),
+        "Outbound HTTP POST/upload capability detected",
+    ),
+    AnchorRule(
+        "sandbox-artifact",
+        Severity.HIGH,
+        re.compile(
+            r"/\.dockerenv|/proc/(?:1|self)/(?:cgroup|mountinfo)|"
+            r"/sys/(?:class/dmi|hypervisor)|/dev/kmsg",
+            re.IGNORECASE,
+        ),
+        "Sandbox/VM artifact probe path detected",
+    ),
+    AnchorRule(
+        "raw-socket",
+        Severity.CRITICAL,
+        re.compile(r"/dev/tcp/|\bsocket\.socket\s*\(|SOCK_STREAM", re.IGNORECASE),
+        "Raw socket / reverse-shell primitive detected",
+    ),
+    AnchorRule(
+        "dynamic-code",
+        Severity.MEDIUM,
+        re.compile(r"\b(?:eval|exec)\s*\(|\b__import__\s*\(", re.IGNORECASE),
+        "Dynamic code execution primitive detected",
+    ),
+    AnchorRule(
+        "shell-exec",
+        Severity.HIGH,
+        re.compile(
+            r"\bos\.system\s*\(|\bsubprocess\.(?:run|call|Popen|check_output)\s*\([^\n]*"
+            r"shell\s*=\s*True",
+            re.IGNORECASE,
+        ),
+        "Shell command execution detected",
+    ),
+    AnchorRule(
+        "unsafe-deserialization",
+        Severity.HIGH,
+        re.compile(r"\b(?:pickle|dill|marshal)\.loads?\s*\(", re.IGNORECASE),
+        "Unsafe deserialization primitive detected",
+    ),
+    AnchorRule(
+        "encoded-powershell",
+        Severity.HIGH,
+        re.compile(r"powershell(?:\.exe)?[^\n]*-e(?:nc(?:odedcommand)?)?\b", re.IGNORECASE),
+        "Encoded PowerShell command detected",
+    ),
+    AnchorRule(
+        "permission-change",
+        Severity.MEDIUM,
+        re.compile(r"\bchmod\s+(?:777|a\+rwx)\b", re.IGNORECASE),
+        "World-writable permission change detected",
+    ),
+    AnchorRule(
+        "destructive-command",
+        Severity.MEDIUM,
+        re.compile(r"\brm\s+-rf\s+(?:/|~|\$HOME|\*)", re.IGNORECASE),
+        "Destructive filesystem command detected",
+    ),
+)
+
+_INSTRUCTION_RULES: tuple[AnchorRule, ...] = (
+    AnchorRule(
+        "instruction-injection",
+        Severity.CRITICAL,
+        re.compile(
+            r"(?:ignore|disregard|forget)\s+(?:all\s+)?(?:previous|prior|above)\s+"
+            r"(?:instructions?|rules?|prompts?)",
+            re.IGNORECASE,
+        ),
+        "Prompt-injection phrase detected",
+    ),
+    AnchorRule(
+        "instruction-injection",
+        Severity.CRITICAL,
+        re.compile(
+            r"(?:read|open|include|send|upload|exfiltrate)[^\n]{0,80}"
+            r"(?:~|/home/[^/\s]+)/\.ssh/|"
+            r"include\s+its\s+contents[^\n]{0,80}(?:http|request|api)",
+            re.IGNORECASE,
+        ),
+        "Instruction asks the agent to read private keys and transmit them",
+    ),
+    AnchorRule(
+        "instruction-injection",
+        Severity.HIGH,
+        re.compile(
+            r"(?:do\s+not|don't|never)\s+(?:tell|inform|reveal|mention)[^\n]{0,80}"
+            r"(?:user|human|operator)",
+            re.IGNORECASE,
+        ),
+        "Instruction asks the agent to conceal behaviour from the user",
+    ),
+    AnchorRule(
+        "hidden-instruction",
+        Severity.HIGH,
+        re.compile(
+            r"(?:white[-\s]on[-\s]white|hidden\s+(?:text|instruction)|"
+            r"invisible\s+(?:text|instruction)|zero[-\s]width)",
+            re.IGNORECASE,
+        ),
+        "Hidden or concealed instruction pattern detected",
+    ),
+)
+
+_SEVERITY_SCORE = {
+    Severity.CRITICAL: 95,
+    Severity.HIGH: 72,
+    Severity.MEDIUM: 42,
+    Severity.LOW: 18,
+    Severity.NOTE: 0,
+}
+
+
+def _scan_file(
+    text_file: TextFile,
+    rules: tuple[AnchorRule, ...],
+    *,
+    seen: set[tuple[str, str, int]],
+    findings: list[Finding],
+) -> None:
+    for line_number, line in enumerate(text_file.text.splitlines(), start=1):
+        if len(line) > 4000:
+            line = line[:4000]
+        for rule in rules:
+            if not rule.pattern.search(line):
+                continue
+            key = (rule.type, text_file.relative, line_number)
+            if key in seen:
+                continue
+            seen.add(key)
+            findings.append(
+                Finding(
+                    stage=Stage.DETERMINISTIC_ANCHOR,
+                    severity=rule.severity,
+                    message=rule.message,
+                    type=rule.type,
+                    evidence=FindingEvidence(
+                        file=text_file.relative,
+                        line=line_number,
+                        code=line.strip()[:500],
+                    ),
+                )
+            )
+            if len(findings) >= MAX_FINDINGS:
+                return
+
+
+def scan_anchors(package: SkillPackage) -> StageResult:
+    """Run all deterministic rules and return a normalised stage result."""
+
+    findings: list[Finding] = []
+    seen: set[tuple[str, str, int]] = set()
+    # SKILL.md first so prompt-injection evidence is prominent in the UI.
+    ordered = sorted(package.text_files, key=lambda item: (item.relative != "SKILL.md", item.relative))
+    for text_file in ordered:
+        _scan_file(text_file, _RULES + _INSTRUCTION_RULES, seen=seen, findings=findings)
+        if len(findings) >= MAX_FINDINGS:
+            break
+
+    score = 0.0
+    if findings:
+        highest = max(_SEVERITY_SCORE[item.severity] for item in findings)
+        score = min(100.0, highest + min(12, (len(findings) - 1) * 3))
+    return StageResult(
+        stage=Stage.DETERMINISTIC_ANCHOR,
+        findings=findings,
+        signals={"anchors": score},
+        telemetry={
+            "files_scanned": len(package.text_files),
+            "findings": len(findings),
+            "prompt_injection_rules": len(_INSTRUCTION_RULES),
+        },
+    )
+
+
+__all__ = ["AnchorRule", "scan_anchors"]
