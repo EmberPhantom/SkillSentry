@@ -143,7 +143,11 @@ def _split_frontmatter(text: str) -> tuple[str, str, bool]:
         return "", text, False
     if text[:first_newline].strip() != "---":
         return "", text, False
-    closing = re.search(r"(?m)^---[ \t]*$", text[first_newline + 1 :])
+    # Accept CRLF as well as LF.  On Windows, checked-out SKILL.md files and
+    # Path.write_text() both commonly use CRLF; treating the trailing carriage
+    # return as content made every such manifest look like it had no
+    # frontmatter (and therefore produced a spurious high-severity issue).
+    closing = re.search(r"(?m)^---[ \t]*\r?$", text[first_newline + 1 :])
     if closing is None:
         return "", text, False
     start = first_newline + 1

@@ -71,8 +71,8 @@ def test_typosquat_bonus_and_signal_detection():
     ]
     fused = fuse(results)
     assert fused.typosquat_bonus == 15
-    assert fused.risk_score == 25
-    assert fused.verdict == VerdictTier.SAFE
+    assert fused.risk_score == 30
+    assert fused.verdict == VerdictTier.SUSPICIOUS
 
 
 def test_typosquat_alone_can_produce_a_score():
@@ -90,8 +90,9 @@ def test_typosquat_alone_can_produce_a_score():
             )
         ]
     )
-    assert fused.risk_score == 15
+    assert fused.risk_score == 30
     assert fused.typosquat_bonus == 15
+    assert fused.verdict == VerdictTier.SUSPICIOUS
 
 
 def test_override_forces_malicious_95_and_confidence_one():
@@ -128,7 +129,7 @@ def test_override_works_without_weighted_signals():
             )
         ]
     )
-    assert fused.risk_score == 95
+    assert fused.risk_score == 100
     assert fused.verdict == VerdictTier.MALICIOUS
     assert fused.confidence == 1.0
 
@@ -187,3 +188,90 @@ def test_invalid_configuration_is_rejected():
         score_to_verdict(10, safe_max=-1)
     with pytest.raises(ValueError):
         score_to_verdict(10, malicious_min=101)
+
+
+def _finding(stage: Stage, severity: Severity) -> Finding:
+    return Finding(stage=stage, severity=severity, message=f"{severity.value} evidence")
+
+
+def test_high_finding_floor_prevents_safe_verdict():
+    fused = fuse(
+        [
+            _result(Stage.SEMANTIC, signals={"semantic": 5}, findings=[_finding(Stage.SEMANTIC, Severity.HIGH)]),
+            _result(Stage.VISION, signals={"vision": 0}),
+            _result(Stage.SANDBOX, signals={"sandbox": 0}),
+        ]
+    )
+    assert fused.risk_score >= 70
+    assert fused.verdict == VerdictTier.SUSPICIOUS
+    assert fused.evidence_floor == 70
+
+
+def test_critical_finding_floor_is_malicious_95():
+    fused = fuse(
+        [
+            _result(Stage.VISION, signals={"vision": 5}, findings=[_finding(Stage.VISION, Severity.CRITICAL)]),
+            _result(Stage.SEMANTIC, signals={"semantic": 0}),
+        ]
+    )
+    assert fused.risk_score >= 95
+    assert fused.verdict == VerdictTier.MALICIOUS
+    assert fused.evidence_floor == 95
+
+
+def test_medium_finding_floor_is_suspicious_30():
+    fused = fuse(
+        [
+            _result(
+                Stage.DETERMINISTIC_ANCHOR,
+                signals={"anchors": 0},
+                findings=[_finding(Stage.DETERMINISTIC_ANCHOR, Severity.MEDIUM)],
+            )
+        ]
+    )
+    assert fused.risk_score == 30
+    assert fused.verdict == VerdictTier.SUSPICIOUS
+
+
+def test_svg_active_content_is_at_least_suspicious():
+    fused = fuse(
+        [
+            _result(
+                Stage.DETERMINISTIC_ANCHOR,
+                signals={"anchors": 0},
+            ),
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 5},
+            ),
+            _result(
+                Stage.VISION,
+                signals={"vision": 0},
+                findings=[
+                    Finding(
+                        stage=Stage.VISION,
+                        severity=Severity.HIGH,
+                        message="Active content detected in SVG asset",
+                        finding_type="svg-active-content",
+                    )
+                ],
+            ),
+        ]
+    )
+    assert fused.verdict != VerdictTier.SAFE
+    assert fused.verdict == VerdictTier.SUSPICIOUS
+    assert fused.risk_score >= 70
+
+
+def test_benign_signals_without_high_findings_remain_safe():
+    fused = fuse(
+        [
+            _result(Stage.DETERMINISTIC_ANCHOR, signals={"anchors": 0}),
+            _result(Stage.SEMANTIC, signals={"semantic": 5}),
+            _result(Stage.VISION, signals={"vision": 0}),
+            _result(Stage.SANDBOX, signals={"sandbox": 0}),
+        ]
+    )
+    assert fused.verdict == VerdictTier.SAFE
+    assert fused.risk_score < 30
+    assert fused.evidence_floor == 0

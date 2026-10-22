@@ -81,7 +81,7 @@ _RULES: tuple[AnchorRule, ...] = (
         re.compile(
             r"\b(?:curl|wget)\b[^\n]*(?:-X\s*POST|--data|-d\s|--upload-file)|"
             r"\brequests\.post\s*\(|\bhttpx\.post\s*\(|"
-            r"\burllib\.request\.urlopen\s*\(",
+            r"\burllib\.request\.(?:urlopen|Request)\s*\([^\n]*(?:data\s*=|method\s*=\s*['\"]POST)",
             re.IGNORECASE,
         ),
         "Outbound HTTP POST/upload capability detected",
