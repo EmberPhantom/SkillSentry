@@ -1,0 +1,13 @@
+WARNING: MALICIOUS TEST FIXTURES
+================================
+
+Everything under fixtures/malicious/ is intentionally hostile security-test
+material.  Run it only through the SkillSentry sandbox and never execute it on
+a workstation.
+
+The C2 domains used here are fictional and unreachable outside the test
+sinkhole: evil-collector.net and evil-c2.com.  The "credentials" are generated
+canaries placed in the sandbox home directory; no real secrets are included.
+
+fixtures/ is excluded from packaging.  Do not import, curl, or copy these
+scripts into anything that can reach the public internet.

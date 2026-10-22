@@ -1,33 +1,31 @@
 """``skillsentry`` command-line interface.
 
-M0 surface: ``serve`` (demo + live), ``init``, ``scan --demo-mode``, and
-``self-audit``.  The full scan pipeline arrives with CL-D1-2..5.
+``serve`` (demo + live), ``init``, live ``scan``, and ``self-audit``.  Demo
+mode remains a separate, explicitly labelled path; live scans always go through
+the real :class:`ScanEngine`.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
 import sys
 from pathlib import Path
 
 import typer
 
-from skillsentry.core.config import ConfigError, write_default_config
-from skillsentry.core.contracts import ExportFormat, Verdict, VerdictTier
+from skillsentry.core.config import ConfigError, SkillsEntryConfig, load_config, write_default_config
+from skillsentry.core.contracts import ExportFormat, ScanOptions, Verdict, VerdictTier
+from skillsentry.core.engine import ScanEngine, ScanError, ScanOutcome
 from skillsentry.core.exit_codes import ExitCode
+from skillsentry.core.models.mock import MockGemma
 from skillsentry.core.reports import render_report
 from skillsentry.core.version import GEMMA_BADGE, __version__
 from skillsentry.server.demo_data import build_demo_store
 
 
 def _configure_stdio() -> None:
-    """Make CLI banners safe on legacy Windows consoles and redirected output.
-
-    Python defaults redirected stdout to the active code page (often cp1252),
-    while the CLI intentionally uses emoji and typographic punctuation.  A
-    UTF-8 stream with replacement avoids a startup crash such as the one that
-    made ``skillsentry serve`` exit before uvicorn bound its socket.
-    """
+    """Make CLI banners safe on legacy Windows consoles and redirected output."""
 
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -41,18 +39,20 @@ _configure_stdio()
 
 app = typer.Typer(
     name="skillsentry",
-    help="Audit AI Agent Skills before installation — fully local.",
+    help="Audit AI Agent Skills before installation - fully local.",
     no_args_is_help=True,
     add_completion=False,
 )
 
 _FAIL_ON = {"safe", "suspicious", "malicious"}
 _RANK = {VerdictTier.SAFE: 0, VerdictTier.SUSPICIOUS: 1, VerdictTier.MALICIOUS: 2}
+_FORMATS = {"text", "json", "sarif", "markdown"}
+_BACKENDS = {"auto", "local", "cloud", "demo"}
 
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"SkillSentry {__version__} · {GEMMA_BADGE}")
+        typer.echo(f"SkillSentry {__version__} - {GEMMA_BADGE}")
         raise typer.Exit(code=int(ExitCode.OK))
 
 
@@ -66,7 +66,7 @@ def main(
         help="Show the version and exit.",
     ),
 ) -> None:
-    """SkillSentry — a context-aware firewall for the Agent Skill supply chain."""
+    """SkillSentry - a context-aware firewall for the Agent Skill supply chain."""
     del version
 
 
@@ -83,18 +83,14 @@ def serve(
     if demo_mode:
         from skillsentry.server.demo_mode import create_demo_app
 
-        typer.echo(f"🛡 SkillSentry {__version__} · demo mode · http://{host}:{port}")
+        typer.echo(f"SkillSentry {__version__} - demo mode - http://{host}:{port}")
         uvicorn.run(create_demo_app(speed=speed), host=host, port=port)
         return
 
     from skillsentry.server.app import create_app
     from skillsentry.server.live_backend import LiveBackend
 
-    typer.echo(
-        "⚠️  Live pipeline not wired yet (CL-D1-2..5). "
-        "Use `skillsentry serve --demo-mode` for the frozen demo store.",
-        err=True,
-    )
+    typer.echo(f"SkillSentry {__version__} - live mode - http://{host}:{port}")
     uvicorn.run(create_app(LiveBackend()), host=host, port=port)
 
 
@@ -111,56 +107,156 @@ def init(
     except ConfigError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE)) from exc
-    typer.echo(f"✓ wrote {written}")
+    typer.echo(f"wrote {written}")
 
 
 @app.command()
 def scan(
-    path: Path = typer.Argument(..., help="Skill directory containing SKILL.md."),
+    path: Path = typer.Argument(..., help="Skill directory, or a folder containing skills."),
     demo_mode: bool = typer.Option(False, "--demo-mode", help="Use the canned demo store."),
     output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
     fail_on: str = typer.Option("malicious", "--fail-on", help="safe | suspicious | malicious"),
     quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
+    sandbox: bool = typer.Option(
+        True, "--sandbox/--no-sandbox", help="Execute the skill in Docker when available."
+    ),
+    backend: str = typer.Option(
+        "auto", "--backend", help="Model backend: auto | local | cloud | demo"
+    ),
+    timeout_s: int = typer.Option(60, "--timeout", min=5, max=600, help="Sandbox timeout (seconds)."),
+    output: Path | None = typer.Option(None, "--output", help="Write the rendered report to a file."),
+    sarif_out: Path | None = typer.Option(
+        None, "--sarif-out", help="Write a SARIF 2.1.0 report to a file."
+    ),
 ) -> None:
-    """Audit a skill directory."""
-    if output_format not in {"text", "json", "sarif", "markdown"}:
+    """Audit one skill directory or a folder of skills."""
+
+    if output_format not in _FORMATS:
         typer.echo(f"error: unsupported --format {output_format!r}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE))
     if fail_on not in _FAIL_ON:
         typer.echo(f"error: unsupported --fail-on {fail_on!r}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE))
+    if backend not in _BACKENDS:
+        typer.echo(f"error: unsupported --backend {backend!r}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
 
-    if not demo_mode:
-        typer.echo(
-            "error: live analysis is not wired yet (CL-D1-2..5). "
-            "Try `skillsentry scan <path> --demo-mode`.",
-            err=True,
-        )
+    if demo_mode:
+        verdict = _demo_verdict_for(path)
+        _print_verdict(verdict, output_format=output_format, quiet=quiet, backend="demo")
+        if _should_fail(verdict, fail_on):
+            raise typer.Exit(code=int(ExitCode.VERDICT))
+        raise typer.Exit(code=int(ExitCode.OK))
+
+    try:
+        config = _config_for_backend(backend)
+    except ConfigError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    engine = _make_engine(config, backend)
+    try:
+        roots = engine.discover(path)
+    except ScanError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
+
+    options = ScanOptions(
+        no_cache=no_cache,
+        backend=backend,  # type: ignore[arg-type]
+        sandbox=sandbox,
+        timeout_s=timeout_s,
+    )
+    outcomes: list[ScanOutcome] = []
+    failed = False
+    for root in roots:
+        try:
+            outcome = engine.scan(root, options=options)
+        except ScanError as exc:
+            failed = True
+            typer.echo(f"error: {root}: {exc}", err=True)
+            continue
+        outcomes.append(outcome)
+    engine.close()
+
+    if not outcomes:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
 
-    verdict = _demo_verdict_for(path)
-    _print_verdict(verdict, output_format=output_format, quiet=quiet)
-    if _should_fail(verdict, fail_on):
+    _emit_outcomes(
+        outcomes,
+        output_format=output_format,
+        quiet=quiet,
+        backend=backend,
+        output=output,
+        sarif_out=sarif_out,
+    )
+    if failed:
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+    if any(_should_fail(outcome.verdict, fail_on) for outcome in outcomes):
         raise typer.Exit(code=int(ExitCode.VERDICT))
     raise typer.Exit(code=int(ExitCode.OK))
 
 
 @app.command("self-audit")
-def self_audit() -> None:
+def self_audit(
+    output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
+    fail_on: str = typer.Option("malicious", "--fail-on", help="safe | suspicious | malicious"),
+    quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
+    sandbox: bool = typer.Option(True, "--sandbox/--no-sandbox"),
+    backend: str = typer.Option("auto", "--backend", help="auto | local | cloud | demo"),
+    timeout_s: int = typer.Option(60, "--timeout", min=5, max=600),
+) -> None:
     """Audit SkillSentry's own bundled Agent Skill."""
+
+    if output_format not in _FORMATS or fail_on not in _FAIL_ON or backend not in _BACKENDS:
+        typer.echo("error: invalid self-audit option", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
     skill_dir = Path(__file__).parent / "skill"
-    typer.echo(f"Scanning {skill_dir}…")
-    typer.echo(
-        "error: self-audit requires the live pipeline (CL-D1-5). "
-        "The bundled SKILL.md is present and valid.",
-        err=True,
+    if output_format == "text" and not quiet:
+        typer.echo(f"Scanning {skill_dir}...")
+    try:
+        config = _config_for_backend(backend)
+        engine = _make_engine(config, backend)
+        outcome = engine.scan(
+            skill_dir,
+            options=ScanOptions(
+                no_cache=no_cache,
+                backend=backend,  # type: ignore[arg-type]
+                sandbox=sandbox,
+                timeout_s=timeout_s,
+            ),
+        )
+        engine.close()
+    except (ConfigError, ScanError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
+    _print_verdict(
+        outcome.verdict, output_format=output_format, quiet=quiet, backend=backend
     )
-    raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+    if _should_fail(outcome.verdict, fail_on):
+        raise typer.Exit(code=int(ExitCode.VERDICT))
+    raise typer.Exit(code=int(ExitCode.OK))
 
 
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+def _config_for_backend(backend: str) -> SkillsEntryConfig:
+    config = load_config()
+    if backend == "auto":
+        return config
+    config = config.model_copy(deep=True)
+    config.model.backend = backend
+    return config
+
+
+def _make_engine(config: SkillsEntryConfig, backend: str) -> ScanEngine:
+    model = MockGemma() if backend == "demo" else None
+    return ScanEngine(config, model=model)
+
+
 def _demo_verdict_for(path: Path) -> Verdict:
     name = path.name.lower()
     for item in build_demo_store():
@@ -174,23 +270,79 @@ def _demo_verdict_for(path: Path) -> Verdict:
     raise typer.Exit(code=int(ExitCode.USAGE))
 
 
-def _print_verdict(verdict: Verdict, *, output_format: str, quiet: bool) -> None:
-    if output_format == "json":
-        typer.echo(verdict.model_dump_json(by_alias=True, indent=2))
-        return
-    if output_format == "sarif":
-        typer.echo(render_report(verdict, ExportFormat.SARIF).content.decode("utf-8"), nl=False)
-        return
-    if output_format == "markdown":
-        typer.echo(render_report(verdict, ExportFormat.MARKDOWN).content.decode("utf-8"), nl=False)
-        return
+def _emit_outcomes(
+    outcomes: list[ScanOutcome],
+    *,
+    output_format: str,
+    quiet: bool,
+    backend: str,
+    output: Path | None,
+    sarif_out: Path | None,
+) -> None:
+    if sarif_out is not None:
+        sarif_out.parent.mkdir(parents=True, exist_ok=True)
+        sarif_out.write_text(_combined_sarif(outcomes), encoding="utf-8")
+        if not quiet:
+            typer.echo(f"wrote {sarif_out}")
 
-    icon = {"SAFE": "✅", "SUSPICIOUS": "⚠️", "MALICIOUS": "🚫"}[verdict.verdict.value]
+    if output_format == "json":
+        payload = outcomes[0].verdict.model_dump(by_alias=True, mode="json")
+        if len(outcomes) > 1:
+            payload = [outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes]
+        rendered = json.dumps(payload, indent=2, ensure_ascii=False)
+    elif output_format == "sarif":
+        rendered = _combined_sarif(outcomes)
+    elif output_format == "markdown":
+        rendered = "\n\n---\n\n".join(
+            render_report(outcome.verdict, ExportFormat.MARKDOWN).content.decode("utf-8")
+            for outcome in outcomes
+        )
+    else:
+        rendered = "\n".join(
+            _verdict_text(outcome, quiet=quiet, backend=backend) for outcome in outcomes
+        )
+
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered, encoding="utf-8")
+        if output_format == "text":
+            typer.echo(rendered.rstrip())
+        elif not quiet:
+            typer.echo(f"wrote {output}")
+        return
+    typer.echo(rendered.rstrip())
+
+
+def _combined_sarif(outcomes: list[ScanOutcome]) -> str:
+    if len(outcomes) == 1:
+        return render_report(outcomes[0].verdict, ExportFormat.SARIF).content.decode("utf-8")
+    runs = []
+    for outcome in outcomes:
+        payload = json.loads(
+            render_report(outcome.verdict, ExportFormat.SARIF).content.decode("utf-8")
+        )
+        runs.extend(payload.get("runs", []))
+    return json.dumps(
+        {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": runs,
+        },
+        indent=2,
+        ensure_ascii=False,
+    )
+
+
+def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
+    verdict = outcome.verdict
+    lines: list[str] = []
     if not quiet:
-        typer.echo(f"🛡 SkillSentry {__version__} · {GEMMA_BADGE} · backend: demo")
-    typer.echo(
-        f"{icon} {verdict.skill} — {verdict.verdict.value} · "
-        f"risk {verdict.risk_score} · confidence {verdict.confidence:.2f}"
+        lines.append(f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}")
+    icon = {"SAFE": "[OK]", "SUSPICIOUS": "[!]", "MALICIOUS": "[X]"}[verdict.verdict.value]
+    cache = " (cached)" if verdict.cached else ""
+    lines.append(
+        f"{icon} {verdict.skill} - {verdict.verdict.value} - "
+        f"risk {verdict.risk_score} - confidence {verdict.confidence:.2f}{cache}"
     )
     finding = verdict.key_finding
     if finding is not None and finding.severity.value not in {"note"}:
@@ -200,14 +352,54 @@ def _print_verdict(verdict: Verdict, *, output_format: str, quiet: bool) -> None
             if finding.evidence.line:
                 location += f":{finding.evidence.line}"
             location += ")"
-        typer.echo(f"   {finding.message}{location}")
+        lines.append(f"   {finding.message}{location}")
     active = verdict.active_defense
     if active is not None and active.triggered:
         channel = active.exfil_channel.value if active.exfil_channel else "egress"
-        typer.echo(
-            f"   ☠️  Poisoned Well: {channel} → {', '.join(active.c2_indicators) or 'unknown'} "
-            f"(marker {active.canary_marker})"
+        lines.append(
+            f"   Poisoned Well: {channel} -> "
+            f"{', '.join(active.c2_indicators) or 'unknown'} (marker {active.canary_marker})"
         )
+    return "\n".join(lines)
+
+
+def _backend_label(backend: str) -> str:
+    return {
+        "auto": "auto (local -> cloud -> unavailable)",
+        "local": "local (ollama)",
+        "cloud": "cloud (gemini)",
+        "demo": "demo/mock",
+    }.get(backend, backend)
+
+
+def _print_verdict(
+    verdict: Verdict,
+    *,
+    output_format: str,
+    quiet: bool,
+    backend: str = "demo",
+) -> None:
+    if output_format == "json":
+        typer.echo(verdict.model_dump_json(by_alias=True, indent=2))
+        return
+    if output_format == "sarif":
+        typer.echo(render_report(verdict, ExportFormat.SARIF).content.decode("utf-8"), nl=False)
+        return
+    if output_format == "markdown":
+        typer.echo(render_report(verdict, ExportFormat.MARKDOWN).content.decode("utf-8"), nl=False)
+        return
+    outcome = ScanOutcome(
+        scan_id=verdict.scan_id,
+        skill_id=verdict.skill_id,
+        skill_name=verdict.skill,
+        verdict=verdict,
+        detail=None,  # type: ignore[arg-type]
+        stage_results=[],
+        cached=verdict.cached,
+        started_at=None,  # type: ignore[arg-type]
+        duration_ms=verdict.scan_duration_ms,
+    )
+    typer.echo(_verdict_text(outcome, quiet=quiet, backend=backend))
 
 
 def _should_fail(verdict: Verdict, fail_on: str) -> bool:

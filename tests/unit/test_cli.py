@@ -52,13 +52,58 @@ def test_unknown_demo_skill_exits_usage():
     assert result.exit_code == 2
 
 
-def test_live_scan_is_explicitly_operational_error():
-    result = runner.invoke(app, ["scan", "cloud-sync-pro"])
-    assert result.exit_code == 3
-    assert "not wired yet" in result.output
+def _write_benign_skill(tmp_path: Path) -> Path:
+    skill = tmp_path / "pdf-summarizer"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        """---
+name: pdf-summarizer
+description: Summarize PDF documents locally without network access.
+---
+
+# PDF Summarizer
+
+Extract text from a PDF and print a short summary.
+""",
+        encoding="utf-8",
+    )
+    return skill
 
 
-def test_self_audit_is_honest_until_pipeline_lands():
-    result = runner.invoke(app, ["self-audit"])
+def test_live_scan_uses_the_engine_and_returns_json(tmp_path: Path):
+    skill = _write_benign_skill(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(skill),
+            "--format",
+            "json",
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "cli.sqlite")},
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["verdict"] == "SAFE"
+    assert payload["skill"] == "pdf-summarizer"
+    assert payload["riskScore"] < 30
+
+
+def test_live_scan_missing_path_is_operational_error():
+    result = runner.invoke(app, ["scan", "definitely-not-a-skill"])
     assert result.exit_code == 3
-    assert "SKILL.md" in result.output
+    assert "does not exist" in result.output
+    assert "not wired" not in result.output
+
+
+def test_self_audit_runs_the_live_pipeline():
+    result = runner.invoke(
+        app,
+        ["self-audit", "--backend", "demo", "--no-sandbox", "--no-cache"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "skillsentry-audit" in result.output

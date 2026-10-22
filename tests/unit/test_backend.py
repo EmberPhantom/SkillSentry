@@ -103,12 +103,21 @@ def test_stix_export_without_iocs_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_live_backend_refuses_scans_instead_of_fabricating_verdicts():
-    backend = LiveBackend()
+async def test_live_backend_validates_paths_instead_of_fabricating_verdicts(tmp_path):
+    from skillsentry.core.cache import SQLiteStore
+    from skillsentry.core.engine import ScanEngine
+    from skillsentry.core.models.mock import MockGemma
+
+    engine = ScanEngine(
+        store=SQLiteStore(tmp_path / "live.sqlite"),
+        model=MockGemma(profile="benign"),
+    )
+    backend = LiveBackend(engine=engine)
     with pytest.raises(ApiError) as exc:
         await backend.start_scan(ScanRequest(path="anything"))
-    assert exc.value.status_code == 503
-    assert exc.value.code == "engine_not_ready"
+    assert exc.value.status_code == 404
+    assert exc.value.code == "no_skill_manifest"
     assert exc.value.degraded is True
     assert (await backend.list_scans()).scans == []
     assert (await backend.meta()).demo_mode is False
+    backend.close()

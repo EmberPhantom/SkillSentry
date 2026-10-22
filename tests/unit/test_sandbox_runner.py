@@ -338,7 +338,9 @@ def test_run_creates_isolated_container_and_returns_events(tmp_path):
     assert kwargs["memswap_limit"] == "512m"
     assert kwargs["nano_cpus"] == 1_000_000_000
     assert kwargs["network"] == "skillsentry-sinkhole"
-    assert kwargs["dns"] == ["127.0.0.1"]
+    # No explicit resolver is supplied without a per-scan sinkhole sidecar.
+    # Loopback must never be used as a fake sinkhole.
+    assert "dns" not in kwargs
     assert kwargs["working_dir"] == "/skill"
     assert kwargs["hostname"] == "devbox"
     assert kwargs["environment"]["LD_PRELOAD"] == "/opt/skillsentry/masquerade.so"
