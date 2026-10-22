@@ -15,10 +15,12 @@ Security invariants:
 from __future__ import annotations
 
 import io
+import ipaddress
 import shutil
 import tarfile
 import tempfile
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -55,6 +57,7 @@ from skillsentry.core.sandbox.monitor import (
     parse_monitor_log,
     synthetic_event,
 )
+from skillsentry.core.sandbox.sidecar import SinkholeObservation, SinkholeSidecar
 
 LABEL_KEY = "skillsentry"
 LABEL_VALUE = "true"
@@ -93,10 +96,13 @@ class SandboxConfig:
     timeout_s: float = 60.0
     poll_interval_s: float = 0.1
     stop_timeout_s: float = 1.0
-    # Until the sinkhole sidecar is wired, point the container at its own
-    # loopback so Docker's embedded resolver cannot forward queries upstream.
-    # The Poisoned Well sidecar will override this with its internal address.
-    dns_server: str | None = "127.0.0.1"
+    # None means "no explicit resolver": the live engine supplies the
+    # per-scan sinkhole sidecar's internal address.  Never default to loopback;
+    # a container's loopback is not a sinkhole and would hide egress.
+    dns_server: str | None = None
+    sidecar_subnet: str = "172.30.77.0/24"
+    sidecar_ip: str = "172.30.77.2"
+    sidecar_image: str = "python:3.11-slim"
     verify_masquerade: bool = True
     cleanup_stale: bool = True
     cleanup_network: bool = True
@@ -114,6 +120,19 @@ class SandboxConfig:
             raise ValueError("pids_limit must be at least 16")
         if self.timeout_s <= 0:
             raise ValueError("timeout_s must be positive")
+        if self.dns_server:
+            try:
+                if ipaddress.ip_address(self.dns_server).is_loopback:
+                    raise ValueError("sandbox DNS server must not be loopback")
+            except ValueError:
+                # Hostnames are not valid Docker --dns targets in this design.
+                raise
+        try:
+            network = ipaddress.ip_network(self.sidecar_subnet, strict=False)
+            if ipaddress.ip_address(self.sidecar_ip) not in network:
+                raise ValueError("sidecar_ip must belong to sidecar_subnet")
+        except ValueError:
+            raise
 
     @property
     def all_labels(self) -> dict[str, str]:
@@ -135,6 +154,7 @@ class SandboxResult:
     started_at: datetime = field(default_factory=utc_now)
     events: list[MonitorEvent] = field(default_factory=list)
     net_logs: list[NetLog] = field(default_factory=list)
+    sinkhole_observations: list[SinkholeObservation] = field(default_factory=list)
     resource_usage: dict[str, Any] | None = None
     masquerade: MasqueradeCheck | None = None
     cleanup_ok: bool = True
@@ -248,10 +268,14 @@ class SandboxRunner:
         self,
         client: Any | None = None,
         config: SandboxConfig | None = None,
+        *,
+        sidecar_factory: Callable[[Any], SinkholeSidecar] | None = None,
     ) -> None:
         self.config = config or SandboxConfig()
         self._client = client
         self._cleaned = False
+        self._sidecar_factory = sidecar_factory
+        self._active_dns_server: str | None = self.config.dns_server
 
     @property
     def client(self) -> Any:
@@ -318,6 +342,7 @@ class SandboxRunner:
         network = None
         network_created = False
         container = None
+        sidecar: SinkholeSidecar | None = None
         result: SandboxResult | None = None
         masquerade_dir: Path | None = None
         masquerade_config = self.config.masquerade
@@ -327,6 +352,10 @@ class SandboxRunner:
         try:
             masquerade_dir, masquerade_config = self._prepare_masquerade_files()
             network, network_created = self._ensure_network(client)
+            if self._sidecar_factory is not None:
+                sidecar = self._sidecar_factory(client)
+                sidecar.start(network, request.scan_id, image=self.config.sidecar_image)
+                self._active_dns_server = sidecar.ip
             container = self._create_container(
                 client, request, skill_dir, canaries, network, masquerade_config
             )
@@ -380,6 +409,13 @@ class SandboxRunner:
         except Exception as exc:
             raise SandboxError(f"sandbox execution failed: {exc}") from exc
         finally:
+            sidecar_observations: list[SinkholeObservation] = []
+            if sidecar is not None:
+                try:
+                    sidecar_observations = sidecar.stop()
+                except Exception as exc:  # teardown must never mask the verdict
+                    if result is not None and result.error is None:
+                        result.error = f"sinkhole sidecar teardown failed: {exc}"
             cleanup_ok, cleanup_errors = self._teardown(container, network, network_created)
             if masquerade_dir is not None:
                 shutil.rmtree(masquerade_dir, ignore_errors=True)
@@ -387,6 +423,8 @@ class SandboxRunner:
                 result.cleanup_ok = cleanup_ok
                 if cleanup_errors and result.error is None:
                     result.error = "; ".join(cleanup_errors)
+                result.sinkhole_observations = sidecar_observations
+                result.net_logs = [_net_log(observation) for observation in sidecar_observations]
 
     # -- Docker pieces ------------------------------------------------------
     def _prepare_masquerade_files(self) -> tuple[Path, MasqueradeConfig]:
@@ -417,14 +455,19 @@ class SandboxRunner:
                     "refusing to run with NAT"
                 )
             return network, False
-        network = client.networks.create(
-            self.config.network_name,
-            driver="bridge",
-            internal=True,
-            attachable=False,
-            enable_ipv6=False,
-            labels={**self.config.all_labels, f"{LABEL_KEY}.role": "sinkhole"},
-        )
+        kwargs: dict[str, Any] = {
+            "driver": "bridge",
+            "internal": True,
+            "attachable": False,
+            "enable_ipv6": False,
+            "labels": {**self.config.all_labels, f"{LABEL_KEY}.role": "sinkhole"},
+        }
+        if self._sidecar_factory is not None:
+            kwargs["ipam"] = {
+                "Driver": "default",
+                "Config": [{"Subnet": self.config.sidecar_subnet}],
+            }
+        network = client.networks.create(self.config.network_name, **kwargs)
         return network, True
 
     def _create_container(
@@ -480,8 +523,9 @@ class SandboxRunner:
             "stdin_open": False,
             "tty": False,
         }
-        if self.config.dns_server:
-            kwargs["dns"] = [self.config.dns_server]
+        dns_server = self._active_dns_server or self.config.dns_server
+        if dns_server:
+            kwargs["dns"] = [dns_server]
         return client.containers.create(**kwargs)
 
     def _seed_canaries(self, container: Any, canaries: CanarySet) -> None:
@@ -660,6 +704,16 @@ def _setup_tar() -> bytes:
             info.mtime = 0
             archive.addfile(info, io.BytesIO(payload))
     return buffer.getvalue()
+
+
+def _net_log(observation: SinkholeObservation) -> NetLog:
+    return NetLog(
+        ts=observation.ts,
+        protocol=observation.protocol,  # type: ignore[arg-type]
+        query_or_url=observation.query_or_url,
+        body_b64=observation.body_b64,
+        responder_action=observation.responder_action,
+    )
 
 
 def _truncate(value: str, limit: int = 100_000) -> str:

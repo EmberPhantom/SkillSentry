@@ -66,6 +66,7 @@ def fuse(
     safe_max: int = 30,
     malicious_min: int = 70,
     typosquat_detected: bool | None = None,
+    typosquat_floor: int = 30,
 ) -> FusionResult:
     """Fuse stage results into a risk score and tier.
 
@@ -86,6 +87,8 @@ def fuse(
         raise ValueError("malicious_min must be between 0 and 100")
     if safe_max >= malicious_min:
         raise ValueError("safe_max must be lower than malicious_min")
+    if not 0 <= typosquat_floor <= 100:
+        raise ValueError("typosquat_floor must be between 0 and 100")
 
     normalised_weights = _normalise_weights(weights)
     signals, typo_signal = _collect_signals(results, normalised_weights)
@@ -113,6 +116,11 @@ def fuse(
     )
     bonus = int(typosquat_bonus) if detected else 0
     score = _clamp_score(round(weighted) + bonus)
+    # A detected imitation must never be presented as SAFE merely because the
+    # imitation itself is functionally harmless.  The internal +15 bonus is
+    # retained, but the final score is floored at SUSPICIOUS.
+    if detected:
+        score = max(score, int(typosquat_floor))
     coverage = (
         sum(normalised_weights[key] for key in present) / sum(normalised_weights.values())
         if present

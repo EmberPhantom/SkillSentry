@@ -12,7 +12,13 @@ RUN gcc -shared -fPIC -O2 -Wall -Wextra -o /src/masquerade.so /src/masquerade.c 
 
 FROM python:3.11-slim
 
-RUN mkdir -p /opt/skillsentry /home/sandbox \
+# Fixtures and real skills commonly use curl/dig for declared network access.
+# Installing them makes the sandbox representative; the internal sinkhole
+# network still prevents any upstream connection.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl dnsutils ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /opt/skillsentry /home/sandbox \
     && chown -R 65534:65534 /home/sandbox
 COPY --from=build /src/masquerade.so /opt/skillsentry/masquerade.so
 COPY run_skill.sh /opt/skillsentry/run_skill.sh
