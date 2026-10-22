@@ -52,7 +52,7 @@ skillsentry scan ./fixtures/malicious/cloud-sync-pro
 [4/7] sandbox    🚨 CANARY READ ~/.aws/credentials (T+1.2s)
 [4.5] ☠ well     🔍 marker SKS-7f3a9c21 decoded from DNS query → CONFIRMED
 [5/7] evasion    ✓ no probes
-[6/7] verdict    🚫 MALICIOUS · risk 97 · confidence 1.0 (hard evidence)
+[6/7] verdict    🚫 MALICIOUS · risk 99 · confidence 1.0 (hard evidence)
 
 C2 indicators: evil-collector.net (DNS_TUNNELING, base64)
 Report: ~/.skillsentry/reports/3f9c…/report.sarif
@@ -60,17 +60,18 @@ Report: ~/.skillsentry/reports/3f9c…/report.sarif
 
 | Flag | Default | Description |
 |:---|:---|:---|
-| `--sarif-out <file>` | — | Write SARIF 2.1.0 report to file (plan) |
-| `--format text\|json\|sarif\|markdown` | `text` | Console output format (proposed) |
-| `--no-cache` | off | Bypass Stage 0 read **and** write (plan: `cache: true` toggle; flag proposed) |
-| `--demo-mode` | off | Canned responses; no Docker/model needed (plan) |
-| `--backend auto\|local\|cloud` | `auto` | Model backend selection (plan: dual backend) |
-| `--no-sandbox` | off | Static stages only; verdict flagged `sandbox-unavailable` (proposed) |
-| `--timeout <s>` | `60` | Sandbox execution window (plan) |
-| `--watch` | off | Re-scan on filesystem changes (plan, Phase 1: `skillsentry scan --watch`) |
-| `--fail-on safe\|suspicious\|malicious` | `malicious` | CI gate threshold (plan: GitHub Action `fail-on`) |
-| `--upload-sarif` | off | Emit SARIF to `$GITHUB_STEP_SUMMARY`/results path when in Actions (plan) |
-| `-q, --quiet` | off | Verdict line only (proposed) |
+| `--format text\|json\|sarif\|markdown` | `text` | Console/report format. Folders emit a JSON array (or concatenated SARIF runs). |
+| `--fail-on safe\|suspicious\|malicious` | `malicious` | CI gate: exit `1` when any verdict meets or exceeds this tier. `safe` therefore always passes. |
+| `--output <file>` | — | Write the rendered report to a file instead of stdout (text reports are also echoed). |
+| `--sarif-out <file>` | — | Write a SARIF 2.1.0 sidecar in addition to the selected `--format`. |
+| `--no-cache` | off | Bypass Stage 0 read **and** write for this scan. |
+| `--sandbox / --no-sandbox` | sandbox on | `--no-sandbox` is an explicitly labelled static-only scan; it never reads or writes the reusable verdict cache. |
+| `--backend auto\|local\|cloud\|demo` | `auto` | Model backend selection. `demo` runs the real engine with the deterministic `MockGemma`; it is not the canned `--demo-mode` store. |
+| `--timeout <s>` | `60` | Sandbox execution window, 5–600 seconds. Non-default timeouts bypass the cache. |
+| `-q, --quiet` | off | Verdict line only (suppresses the banner and progress chatter). |
+| `--demo-mode` | off | Serve the canned 7-skill demo verdict. Kept separate from live scans; no fabricated live evidence. |
+
+`scan` accepts either one skill directory or a folder. Discovery recurses deterministically, skips symlinked/ignored directories, and refuses more than 500 skills rather than silently truncating. `--watch`, `--upload-sarif`, and managed `cache`/`export` commands remain roadmap items, not M1 CLI flags.
 
 ### `skillsentry init` (plan, Phase 1 DX)
 
@@ -111,7 +112,7 @@ image_max_px = 1024              # vision downscale (plan §4)
 
 [sandbox]
 enabled = true
-base_image = "python:3.11-slim"
+base_image = "skillsentry-sandbox:local"   # built from assets/Dockerfile.sandbox
 timeout_s = 60
 memory_mb = 512
 cpus = 1
@@ -147,15 +148,17 @@ upload_sarif = false
 | `GEMINI_API_KEY` | Required for cloud backend; never logged, never embedded in reports |
 | `OLLAMA_HOST` | Passed through to the Ollama client |
 
-## 7.5 Exit Codes (CI contract) — Spec (proposed)
+## 7.5 Exit Codes (CI contract)
 
 | Code | Meaning | CI usage |
 |:--|:---|:---|
-| `0` | All scanned skills ≤ `--fail-on` threshold | Merge allowed |
-| `1` | Verdict above threshold found (default: any MALICIOUS) | **Blocks PR merge** |
-| `2` | Usage error (bad path/flags) | Pipeline config bug |
-| `3` | Operational error (Docker down, DB locked) — *never* a verdict | Retry/alert |
-| `4` | Model unavailable and no fallback enabled | Fix backend config |
+| `0` | All scanned skills are below the `--fail-on` threshold | Merge allowed |
+| `1` | At least one verdict meets/exceeds `--fail-on` (default: MALICIOUS) | **Blocks PR merge** |
+| `2` | Usage error (unsupported `--format`, `--fail-on`, `--backend`, or invalid option) | Pipeline config bug |
+| `3` | Operational error (missing/invalid skill path, Docker/DB failure, no scan completed) — *never* a fabricated verdict | Retry/alert |
+| `4` | Reserved for a future hard model-unavailable abort. Current live scans degrade model-dependent stages honestly, emit an explicit degradation finding, and still return a verdict. | Fix backend config |
+
+A parent folder containing a valid skill and an invalid/unscannable child returns the completed reports and exits `3`; partial success is never reported as a clean CI pass. Usage errors are checked before any scan starts.
 
 GitHub Action `skillsentry/scan@v1` maps `fail-on: malicious` to this contract (see [09-deployment-and-production.md](09-deployment-and-production.md)).
 

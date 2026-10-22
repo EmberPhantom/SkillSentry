@@ -121,3 +121,42 @@ async def test_live_backend_validates_paths_instead_of_fabricating_verdicts(tmp_
     assert (await backend.list_scans()).scans == []
     assert (await backend.meta()).demo_mode is False
     backend.close()
+
+
+@pytest.mark.asyncio
+async def test_live_health_and_meta_use_the_injected_model(tmp_path):
+    from skillsentry.core.cache import SQLiteStore
+    from skillsentry.core.engine import ScanEngine
+    from skillsentry.core.models.mock import MockGemma
+
+    engine = ScanEngine(
+        store=SQLiteStore(tmp_path / "health.sqlite"),
+        model=MockGemma(profile="benign"),
+    )
+    backend = LiveBackend(engine=engine)
+    try:
+        health = await backend.health()
+        assert health.ollama == "ok"
+        assert health.db == "ok"
+        # No Docker is present in this test environment.
+        assert health.docker == "down"
+        assert (await backend.meta()).backend_active == "mock"
+    finally:
+        backend.close()
+
+
+@pytest.mark.asyncio
+async def test_live_health_reports_a_broken_database_as_down():
+    from skillsentry.core.config import SkillsEntryConfig
+
+    class BrokenStore:
+        def ping(self) -> bool:
+            raise RuntimeError("database is locked")
+
+    config = SkillsEntryConfig()
+    config.model.backend = "demo"
+    backend = LiveBackend(config=config, store=BrokenStore())
+    health = await backend.health()
+    assert health.db == "down"
+    assert health.ollama == "ok"
+    assert (await backend.meta()).backend_active == "mock"

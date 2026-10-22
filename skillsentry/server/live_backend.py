@@ -1,4 +1,4 @@
-﻿"""Live REST/WebSocket backend backed by :class:`ScanEngine`.
+"""Live REST/WebSocket backend backed by :class:`ScanEngine`.
 
 The backend owns only scheduling and presentation.  All analysis is performed
 by the synchronous engine on a worker thread; events are replayed to every
@@ -11,13 +11,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import threading
-import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4, uuid5
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -42,10 +41,10 @@ from skillsentry.core.contracts import (
     WSMessage,
     utc_now,
 )
-from skillsentry.core.engine import SCAN_NAMESPACE, ScanEngine, ScanError, ScanOutcome
+from skillsentry.core.engine import ScanEngine, ScanError, ScanOutcome
 from skillsentry.core.reports import RenderedReport, render_report
-from skillsentry.core.version import CONTRACT_VERSION, GEMMA_BADGE, __version__, engine_version
 from skillsentry.core.verdict.stix_report import NoIOCsError
+from skillsentry.core.version import CONTRACT_VERSION, GEMMA_BADGE, __version__, engine_version
 from skillsentry.server.errors import ApiError
 
 _MAX_EVENTS = 5_000
@@ -84,6 +83,7 @@ class LiveBackend:
         self.config = config or load_config()
         self._engine = engine
         self._store = store
+        self._engines: dict[str, ScanEngine] = {}
         self._scans: dict[UUID, _LiveScan] = {}
         self._by_skill: dict[UUID, UUID] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -106,6 +106,9 @@ class LiveBackend:
     def close(self) -> None:
         if self._engine is not None:
             self._engine.close()
+        for engine in self._engines.values():
+            engine.close()
+        self._engines.clear()
 
     # -- scan lifecycle ----------------------------------------------------
     async def start_scan(self, request: ScanRequest) -> ScanStartResponse:
@@ -140,7 +143,9 @@ class LiveBackend:
             # Allow a folder-of-skills by selecting the first package, but make
             # the limitation explicit rather than silently scanning one child.
             children = sorted(
-                child for child in path.iterdir() if child.is_dir() and (child / "SKILL.md").is_file()
+                child
+                for child in path.iterdir()
+                if child.is_dir() and (child / "SKILL.md").is_file()
             )
             if not children:
                 raise ApiError(
@@ -237,12 +242,18 @@ class LiveBackend:
     def _engine_for(self, request: ScanRequest) -> ScanEngine:
         if self._engine is not None:
             return self._engine
-        backend = request.options.backend
-        if backend.value == "auto":
+        backend = request.options.backend.value
+        if backend == "auto":
             return self.engine
-        cfg = self.config.model_copy(deep=True)
-        cfg.model.backend = backend.value
-        engine = ScanEngine(cfg, store=self.store)
+        # A non-auto backend override is a per-request choice.  Keep one
+        # engine per backend so repeated API scans do not leak a new store
+        # owner/thread pool on every request, and close them with the backend.
+        engine = self._engines.get(backend)
+        if engine is None:
+            cfg = self.config.model_copy(deep=True)
+            cfg.model.backend = backend
+            engine = ScanEngine(cfg, store=self.store)
+            self._engines[backend] = engine
         return engine
 
     def _on_event(self, item: _LiveScan, message: WSMessage) -> None:
@@ -275,7 +286,9 @@ class LiveBackend:
         return ScanStatusResponse(
             scan_id=record.scan_id,
             status=record.status,
-            stage=Stage.VERDICT if record.status in {ScanStatus.COMPLETED, ScanStatus.CACHED_HIT} else None,
+            stage=Stage.VERDICT
+            if record.status in {ScanStatus.COMPLETED, ScanStatus.CACHED_HIT}
+            else None,
             skill=record.skill_name,
             started_at=record.started_at,
             elapsed_ms=record.duration_ms,
@@ -331,28 +344,33 @@ class LiveBackend:
                     key_finding=row["key_finding"],
                 )
             )
-        # Surface a just-started scan before its engine row is visible.
-        seen = {summary.scan_id for summary in summaries}
-        for item in self._scans.values():
-            if item.scan_id in seen or status is not None and item.status is not status:
-                continue
-            if item.outcome is not None:
-                outcome = item.outcome
-                summaries.append(
-                    ScanSummary(
-                        scan_id=item.scan_id,
-                        skill_id=outcome.skill_id,
-                        skill=outcome.skill_name,
-                        verdict=outcome.verdict.verdict,
-                        risk_score=outcome.verdict.risk_score,
-                        cached=outcome.cached,
-                        status=outcome.status,
-                        started_at=item.started_at,
-                        duration_ms=outcome.duration_ms,
-                        key_finding=_key_finding(outcome.verdict),
+        # Surface a just-started scan before its engine row is visible.  The
+        # store has already applied pagination; only page zero may include the
+        # in-memory rows, and the final list must not be sliced a second time.
+        if offset == 0:
+            seen = {summary.scan_id for summary in summaries}
+            live: list[ScanSummary] = []
+            for item in self._scans.values():
+                if item.scan_id in seen or (status is not None and item.status is not status):
+                    continue
+                if item.outcome is not None:
+                    outcome = item.outcome
+                    live.append(
+                        ScanSummary(
+                            scan_id=item.scan_id,
+                            skill_id=outcome.skill_id,
+                            skill=outcome.skill_name,
+                            verdict=outcome.verdict.verdict,
+                            risk_score=outcome.verdict.risk_score,
+                            cached=outcome.cached,
+                            status=outcome.status,
+                            started_at=item.started_at,
+                            duration_ms=outcome.duration_ms,
+                            key_finding=_key_finding(outcome.verdict),
+                        )
                     )
-                )
-        return ScanListResponse(scans=summaries[offset : offset + limit])
+            summaries = live + summaries
+        return ScanListResponse(scans=summaries[:limit])
 
     async def get_skill(self, skill_id: UUID) -> SkillDetail:
         scan_id = self._by_skill.get(skill_id)
@@ -422,23 +440,39 @@ class LiveBackend:
 
     # -- meta / health -----------------------------------------------------
     async def health(self) -> HealthResponse:
-        db_ok = await asyncio.to_thread(self.store.ping)
-        docker_ok = False
-        with contextlib.suppress(Exception):
-            from skillsentry.core.sandbox.runner import SandboxConfig, SandboxRunner
+        db_ok = False
+        try:
+            store = self.store
+            db_ok = bool(await asyncio.to_thread(store.ping))
+        except Exception:
+            # Health is diagnostic: a broken database must produce "down", not
+            # a 500 response that hides the rest of the system state.
+            db_ok = False
 
-            runner = SandboxRunner(config=SandboxConfig(image=self.config.sandbox.base_image))
-            docker_ok = await asyncio.to_thread(runner.available)
+        backend = await asyncio.to_thread(self._active_backend)
         ollama_ok = False
-        if self.config.model.backend == "demo":
+        if backend in {"mock", "demo"}:
             ollama_ok = True
-        else:
+        elif backend == "local":
             with contextlib.suppress(Exception):
                 async with httpx.AsyncClient(timeout=0.75) as client:
                     response = await client.get(
                         f"{self.config.model.ollama_url.rstrip('/')}/api/tags"
                     )
                     ollama_ok = response.status_code == 200
+        elif backend == "cloud":
+            with contextlib.suppress(Exception):
+                from skillsentry.core.models.selector import select_model
+
+                model = select_model(self.config, probe=False)
+                ollama_ok = bool(await asyncio.to_thread(model.health))
+
+        docker_ok = False
+        with contextlib.suppress(Exception):
+            from skillsentry.core.sandbox.runner import SandboxConfig, SandboxRunner
+
+            runner = SandboxRunner(config=SandboxConfig(image=self.config.sandbox.base_image))
+            docker_ok = await asyncio.to_thread(runner.available)
         return HealthResponse(
             ollama="ok" if ollama_ok else "down",
             docker="ok" if docker_ok else "down",
@@ -446,13 +480,32 @@ class LiveBackend:
             demo_mode=False,
         )
 
-    async def meta(self) -> MetaResponse:
-        backend = "unavailable"
-        with contextlib.suppress(Exception):
+    def _active_backend(self) -> str:
+        """Report the model identity this backend will actually use.
+
+        An injected engine may be running ``MockGemma`` even when the TOML says
+        ``auto``; re-running selection here would lie about that.  Only fall
+        back to configuration when there is no engine to inspect.
+        """
+
+        # Do not trigger a real health probe/selection from a status endpoint.
+        # If a model has already been selected (including an injected one),
+        # report it; otherwise fall back to configuration.
+        if self._engine is not None and getattr(self._engine, "_model_selected", False):
+            try:
+                backend, _ = self._engine.model_identity()
+                return backend
+            except Exception:
+                return "unavailable"
+        try:
             from skillsentry.core.models.selector import select_model
 
-            model = select_model(self.config, probe=False)
-            backend = model.backend
+            return str(select_model(self.config, probe=False).backend)
+        except Exception:
+            return "unavailable"
+
+    async def meta(self) -> MetaResponse:
+        backend = await asyncio.to_thread(self._active_backend)
         return MetaResponse(
             version=__version__,
             backend_active=backend,
@@ -465,11 +518,15 @@ class LiveBackend:
         entries, hit_rate = await asyncio.to_thread(self.store.cache_stats)
         size = await asyncio.to_thread(lambda: self.store.size_bytes)
         model_version = "unavailable"
-        with contextlib.suppress(Exception):
-            from skillsentry.core.models.selector import select_model
+        if self._engine is not None and getattr(self._engine, "_model_selected", False):
+            with contextlib.suppress(Exception):
+                _backend, model_version = self._engine.model_identity()
+        else:
+            with contextlib.suppress(Exception):
+                from skillsentry.core.models.selector import select_model
 
-            model = select_model(self.config, probe=False)
-            model_version = model.model_version
+                model = select_model(self.config, probe=False)
+                model_version = model.model_version
         return CacheStatsResponse(
             entries=entries,
             hit_rate=hit_rate,

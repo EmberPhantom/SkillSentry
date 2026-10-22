@@ -237,7 +237,9 @@ def scan_anchors(package: SkillPackage) -> StageResult:
     findings: list[Finding] = []
     seen: set[tuple[str, str, int]] = set()
     # SKILL.md first so prompt-injection evidence is prominent in the UI.
-    ordered = sorted(package.text_files, key=lambda item: (item.relative != "SKILL.md", item.relative))
+    ordered = sorted(
+        package.text_files, key=lambda item: (item.relative != "SKILL.md", item.relative)
+    )
     for text_file in ordered:
         _scan_file(text_file, _RULES + _INSTRUCTION_RULES, seen=seen, findings=findings)
         if len(findings) >= MAX_FINDINGS:

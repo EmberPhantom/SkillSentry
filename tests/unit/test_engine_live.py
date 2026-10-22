@@ -119,8 +119,7 @@ def test_live_pipeline_uses_deceptive_model_profile(tmp_path: Path):
         assert outcome.verdict.verdict.value == "MALICIOUS"
         assert outcome.verdict.risk_score >= 95
         assert any(
-            finding.stage.value == "semantic"
-            and finding.severity.value == "critical"
+            finding.stage.value == "semantic" and finding.severity.value == "critical"
             for finding in outcome.verdict.findings
         )
     finally:
@@ -228,6 +227,19 @@ def test_static_scan_cannot_poison_a_later_full_scan(tmp_path: Path):
         )
         assert shorter.cached is False
         assert runner.calls == 2
+
+        # Poisoned Well mode is also part of the evidence mode; a passive run
+        # must not reuse a full active-defense cache row.
+        passive = engine.scan(
+            skill,
+            options=ScanOptions(
+                sandbox=True,
+                poisoned_well=False,
+                timeout_s=config.sandbox.timeout_s,
+            ),
+        )
+        assert passive.cached is False
+        assert runner.calls == 3
     finally:
         engine.close()
         store.close()

@@ -14,6 +14,7 @@ is unavailable.  They are never turned into a passing static result.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import tempfile
@@ -92,9 +93,7 @@ def _scan_one(name: str, expected: dict[str, Any], *, sandbox: bool) -> CheckRes
             if isinstance(full_min, int) and risk < full_min:
                 return CheckResult(name, "FAIL", f"full-scan risk {risk} < {full_min}")
             active = verdict.active_defense
-            if e2e.get("active_defense") and not (
-                active is not None and active.triggered
-            ):
+            if e2e.get("active_defense") and not (active is not None and active.triggered):
                 return CheckResult(
                     name,
                     "FAIL",
@@ -112,9 +111,7 @@ def _scan_one(name: str, expected: dict[str, Any], *, sandbox: bool) -> CheckRes
                     "FAIL",
                     f"expected exfil channel {channel}, got {actual!r}",
                 )
-            if e2e.get("evasion") and not (
-                active is not None and active.sandbox_evasion_detected
-            ):
+            if e2e.get("evasion") and not (active is not None and active.sandbox_evasion_detected):
                 return CheckResult(name, "FAIL", "sandbox evasion was not detected")
     return CheckResult(name, "PASS", f"{verdict.verdict.value} risk={risk}")
 
@@ -147,10 +144,8 @@ def docker_prerequisites() -> tuple[bool, str]:
     except Exception as exc:  # pragma: no cover - depends on the host
         return False, f"Docker/sandbox image unavailable: {exc}"
     finally:
-        try:
+        with contextlib.suppress(Exception):
             client.close()
-        except Exception:
-            pass
     return True, "ready"
 
 
@@ -236,16 +231,12 @@ def _check_row(
         active = row.get("active_defense")
         if e2e.get("min_risk") is not None and risk < int(e2e["min_risk"]):
             errors.append(f"{name}: full-scan risk {risk} < required {e2e['min_risk']}")
-        if e2e.get("active_defense") and not (
-            isinstance(active, dict) and active.get("triggered")
-        ):
+        if e2e.get("active_defense") and not (isinstance(active, dict) and active.get("triggered")):
             errors.append(f"{name}: Poisoned Well did not trigger in full-scan mode")
         channel = e2e.get("exfil_channel")
-        if channel and isinstance(active, dict) and active.get("exfil_channel") != channel:
-            errors.append(
-                f"{name}: expected exfil channel {channel}, got "
-                f"{active.get('exfil_channel')!r}"
-            )
+        if channel and (not isinstance(active, dict) or active.get("exfil_channel") != channel):
+            actual = active.get("exfil_channel") if isinstance(active, dict) else None
+            errors.append(f"{name}: expected exfil channel {channel}, got {actual!r}")
         if e2e.get("evasion") and not (
             isinstance(active, dict) and active.get("sandbox_evasion_detected")
         ):
@@ -255,13 +246,51 @@ def _check_row(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("report", type=Path, help="SARIF or JSON report")
+    parser.add_argument(
+        "report",
+        type=Path,
+        nargs="?",
+        help="SARIF or JSON report (omit with --static-only/--full to run the engine directly)",
+    )
     parser.add_argument(
         "--allow-static",
         action="store_true",
         help="Do not enforce full-scan (Docker/Poisoned Well) requirements.",
     )
+    parser.add_argument(
+        "--static-only",
+        action="store_true",
+        help="Run all fixtures through the real engine with MockGemma and no Docker.",
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run Docker-dependent fixtures, or enforce full requirements on a report.",
+    )
     args = parser.parse_args(argv)
+
+    if args.static_only and args.full:
+        parser.error("--static-only and --full are mutually exclusive")
+
+    if args.static_only:
+        results = check_static()
+        for result in results:
+            print(f"{result.status} static {result.skill} ({result.detail})")
+        return 1 if any(result.status == "FAIL" for result in results) else 0
+
+    if args.full and args.report is None:
+        results = check_full()
+        for result in results:
+            print(f"{result.status} full {result.skill}: {result.detail}")
+        if any(result.status == "FAIL" for result in results):
+            return 1
+        if any(result.status == "SKIP" for result in results):
+            # A skipped Docker prerequisite is not a passing acceptance run.
+            return 3
+        return 0
+
+    if args.report is None:
+        parser.error("a report is required unless --static-only or --full is used")
 
     expected = _expected()
     payload = json.loads(args.report.read_text(encoding="utf-8"))

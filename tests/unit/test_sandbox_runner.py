@@ -6,6 +6,8 @@ import base64
 import io
 import json
 import tarfile
+import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +20,7 @@ from skillsentry.core.sandbox.masquerade import (
     MasqueradeError,
 )
 from skillsentry.core.sandbox.runner import (
+    MAX_CAPTURED_OUTPUT_BYTES,
     SandboxConfig,
     SandboxError,
     SandboxRequest,
@@ -111,6 +114,15 @@ class FakeContainer:
             return FakeExecResult()
         if cmd[:2] == ["/bin/sh", "-c"] and "SKILLSENTRY_DOCKERENV" in cmd[2]:
             return FakeExecResult(output=self.client.verify_output)
+        if cmd[:1] == ["head"] and cmd[1:2] == ["-c"]:
+            path = cmd[3]
+            if path.endswith("events.jsonl"):
+                return FakeExecResult(output=self.events_log)
+            if path.endswith("stdout.log"):
+                return FakeExecResult(output=self.client.stdout)
+            if path.endswith("stderr.log"):
+                return FakeExecResult(output=self.client.stderr)
+            return FakeExecResult(output=b"")
         if cmd[:1] == ["cat"]:
             path = cmd[1]
             if path.endswith("events.jsonl"):
@@ -538,3 +550,56 @@ def test_request_requires_an_existing_skill_directory(tmp_path):
     runner = SandboxRunner(client=FakeDocker(), config=_config())
     with pytest.raises(SandboxError):
         runner.run(SandboxRequest(scan_id=SCAN_ID, skill_dir=tmp_path / "missing"))
+
+
+def test_captured_output_is_bounded():
+    client = FakeDocker()
+    client.stdout = b"x" * (MAX_CAPTURED_OUTPUT_BYTES + 123)
+    runner = SandboxRunner(client=client, config=_config())
+    container = client.containers.create(image="skillsentry-sandbox:local")
+    text = runner._read_text(container, "/tmp/skillsentry/stdout.log")
+    assert len(text) == MAX_CAPTURED_OUTPUT_BYTES
+    command = container.exec_calls[-1][0]
+    assert command[0] == "head"
+    assert command[1:3] == ["-c", str(MAX_CAPTURED_OUTPUT_BYTES)]
+
+
+def test_run_serializes_scans_sharing_a_sidecar_network(tmp_path):
+    """Concurrent scans must not race for the fixed sidecar IP/network."""
+
+    class ProbeRunner(SandboxRunner):
+        def __init__(self) -> None:
+            super().__init__(client=FakeDocker(), config=_config())
+            self._probe_lock = threading.Lock()
+            self.active = 0
+            self.max_active = 0
+
+        def _run_locked(self, request: SandboxRequest):
+            with self._probe_lock:
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            time.sleep(0.03)
+            with self._probe_lock:
+                self.active -= 1
+            return None
+
+    runner = ProbeRunner()
+    barrier = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def call() -> None:
+        try:
+            barrier.wait(timeout=1)
+            runner.run(SandboxRequest(scan_id=SCAN_ID, skill_dir=tmp_path))
+        except BaseException as exc:  # pragma: no cover - failure reporting
+            errors.append(exc)
+
+    threads = [threading.Thread(target=call) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=2)
+
+    assert not errors
+    assert all(not thread.is_alive() for thread in threads)
+    assert runner.max_active == 1

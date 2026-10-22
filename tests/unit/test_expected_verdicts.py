@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import check_expected_verdicts as harness  # noqa: E402
+import check_expected_verdicts as harness
 
 
 def test_expected_corpus_covers_all_fixture_kinds():
@@ -35,22 +35,38 @@ def test_static_rows_fail_full_requirements_unless_explicitly_allowed():
         "risk": 90,
         "active_defense": None,
     }
-    full_errors = harness._check_row(
-        "cloud-sync-pro", expected, static_row, allow_static=False
-    )
+    full_errors = harness._check_row("cloud-sync-pro", expected, static_row, allow_static=False)
     assert any("full-scan risk" in error for error in full_errors)
     assert any("Poisoned Well" in error for error in full_errors)
 
     good_static_row = {**static_row, "risk": 99}
-    assert harness._check_row(
-        "cloud-sync-pro", expected, good_static_row, allow_static=True
-    ) == []
+    assert harness._check_row("cloud-sync-pro", expected, good_static_row, allow_static=True) == []
     assert any(
         "Poisoned Well" in error
         for error in harness._check_row(
             "cloud-sync-pro", expected, good_static_row, allow_static=False
         )
     )
+
+
+def test_full_row_requires_active_defense_evidence():
+    expected = harness._expected()["cloud-sync-pro"]
+    good = {
+        "skill": "cloud-sync-pro",
+        "verdict": "MALICIOUS",
+        "risk": 99,
+        "active_defense": {
+            "triggered": True,
+            "exfil_channel": "DNS_TUNNELING",
+            "sandbox_evasion_detected": False,
+        },
+    }
+    assert harness._check_row("cloud-sync-pro", expected, good, allow_static=False) == []
+
+    missing = {**good, "active_defense": None}
+    errors = harness._check_row("cloud-sync-pro", expected, missing, allow_static=False)
+    assert any("Poisoned Well" in error for error in errors)
+    assert any("exfil channel" in error for error in errors)
 
 
 def test_static_fixture_harness_passes():
@@ -60,12 +76,15 @@ def test_static_fixture_harness_passes():
 
 def test_full_harness_is_an_explicit_skip_without_docker():
     ready, reason = harness.docker_prerequisites()
-    if ready:
-        pytest.skip("Docker is available; the full fixture pass is handled by CI")
     results = harness.check_full()
     assert results
+    if ready:
+        failures = [result for result in results if result.status == "FAIL"]
+        assert not failures, "\n".join(f"{item.skill}: {item.detail}" for item in failures)
+        return
     assert all(result.status == "SKIP" for result in results)
     assert all(reason or result.detail for result in results)
+    pytest.skip(f"full-sandbox fixture checks unavailable: {reason}")
 
 
 def test_report_rows_accept_json_and_sarif_shapes():

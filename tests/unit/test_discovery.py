@@ -75,6 +75,26 @@ def test_discovery_skips_ignored_and_symlinked_directories(tmp_path: Path):
         store.close()
 
 
+def test_discovery_rejects_a_symlinked_manifest(tmp_path: Path):
+    corpus = tmp_path / "corpus"
+    skill = corpus / "linked-manifest"
+    skill.mkdir(parents=True)
+    target = tmp_path / "outside-SKILL.md"
+    target.write_text("---\nname: outside\ndescription: outside\n---\n", encoding="utf-8")
+    try:
+        os.symlink(target, skill / "SKILL.md")
+    except (OSError, NotImplementedError):
+        pytest.skip("this platform/user cannot create file symlinks")
+    engine, store = _engine(tmp_path)
+    try:
+        with pytest.raises(ScanError) as excinfo:
+            engine.discover(corpus)
+        assert excinfo.value.code == "no_skill_manifest"
+    finally:
+        engine.close()
+        store.close()
+
+
 def test_discovery_bounds_hostile_corpora(tmp_path: Path):
     corpus = tmp_path / "many"
     for index in range(MAX_DISCOVERED_SKILLS + 1):

@@ -80,6 +80,23 @@ def test_normalise_paths_maps_container_home_and_fills_marker():
     assert normalised[1].marker == MARKER
 
 
+def test_non_seeded_home_reads_are_not_canary_evidence():
+    canaries = _canaries()
+    innocent = [
+        synthetic_event(
+            "canary_read",
+            path_or_channel="/home/sandbox/.cache/tool/state.json",
+            ts=NOW,
+        ),
+        synthetic_event(
+            "canary_read",
+            path_or_channel="env:NOT_A_SEEDED_CANARY",
+            ts=NOW,
+        ),
+    ]
+    assert normalise_paths(innocent, canaries) == []
+
+
 def test_contract_conversion_and_summary_are_stable():
     canaries = _canaries()
     events = [

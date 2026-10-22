@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import os
 import socket
@@ -78,10 +79,11 @@ def _response(query: bytes) -> bytes:
     return query[:2] + struct.pack("!HHHHH", flags, 1, ancount, 0, 0) + query[12:end] + answer
 
 
-def dns_loop() -> None:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(("0.0.0.0", DNS_PORT))
+def dns_loop(sock: socket.socket | None = None) -> None:
+    if sock is None:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", DNS_PORT))
     while True:
         try:
             data, peer = sock.recvfrom(4096)
@@ -103,14 +105,12 @@ def dns_loop() -> None:
                 "responder_action": "fake-A" if qtype == 1 else "NOERROR",
             }
         )
-        try:
+        with contextlib.suppress(OSError):
             sock.sendto(_response(data), peer)
-        except OSError:
-            pass
 
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args):  # noqa: A002
+    def log_message(self, fmt, *args):
         return
 
     def _handle(self) -> None:
@@ -150,9 +150,20 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    threading.Thread(target=dns_loop, daemon=True).start()
+    dns_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    dns_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    dns_sock.bind(("0.0.0.0", DNS_PORT))
+    threading.Thread(target=dns_loop, args=(dns_sock,), daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler)
     server.daemon_threads = True
+    _emit(
+        {
+            "event": "ready",
+            "dns_port": DNS_PORT,
+            "http_port": HTTP_PORT,
+            "ip": ANSWER_IP,
+        }
+    )
     server.serve_forever()
 
 
