@@ -1,0 +1,56 @@
+{
+  "skills": {
+    "pdf-summarizer": {
+      "verdict": "SAFE",
+      "max_risk": 29,
+      "static": true
+    },
+    "git-helper": {
+      "verdict": "SAFE",
+      "max_risk": 29,
+      "static": true
+    },
+    "image-resizer": {
+      "verdict": "SAFE",
+      "max_risk": 29,
+      "static": true
+    },
+    "weather-fetch": {
+      "verdict": "SAFE",
+      "max_risk": 29,
+      "static": true,
+      "note": "Declared network access must not be treated as exfiltration."
+    },
+    "cloud-sync-pro": {
+      "verdict": "MALICIOUS",
+      "min_risk": 91,
+      "static": true,
+      "e2e": {
+        "min_risk": 91,
+        "active_defense": true,
+        "exfil_channel": "DNS_TUNNELING"
+      }
+    },
+    "invoice-helper": {
+      "verdict": "MALICIOUS",
+      "min_risk": 86,
+      "static": true
+    },
+    "slack-notif-mal": {
+      "verdict": "MALICIOUS",
+      "min_risk": 95,
+      "static": true,
+      "e2e": {
+        "min_risk": 100,
+        "active_defense": true,
+        "evasion": true
+      }
+    },
+    "g1t-translate": {
+      "verdict": "SUSPICIOUS",
+      "min_risk": 30,
+      "max_risk": 70,
+      "static": true
+    }
+  }
+}
