@@ -244,17 +244,17 @@ These are known and intentional while the live pipeline lands, not silent fallba
 
 | Gap | Behaviour |
 |:---|:---|
-| Live analysis pipeline (CL-D1-2..5) | `skillsentry serve` starts, but `POST /scan` returns `503 engine_not_ready` with `degraded: true`. It never fabricates a verdict. |
-| Docker / sandbox / Poisoned Well | Source implemented: `sandbox/runner.py`, `canary_fs.py`, `context_honeypot.py`, `dns_sinkhole.py`, `fake_http.py`, `monitor.py`; `poisoned_well/` and `evasion/`. Demo mode still serves canned payloads; the live pipeline is not wired yet. |
-| Real Docker integration | Docker Desktop is installed but its daemon is not running. The image `skillsentry-sandbox:local` has not been built, so no live container, `curl 1.1.1.1` no-NAT check, or 10/10 fixture run has been performed. Mocked lifecycle tests assert `internal=True`, limits, read-only mounts, canary seeding, timeout teardown, and fail-closed masquerade. DNS defaults to container loopback until the sinkhole sidecar is wired, so Docker's embedded resolver cannot forward queries upstream. |
+| Live analysis pipeline (CL-D1-2..5) | `POST /scan` is wired to `ScanEngine`; live scans return real verdicts or an explicit error. `--demo-mode` remains the separate canned store. |
+| Docker / sandbox / Poisoned Well | Source implemented: `sandbox/runner.py`, `canary_fs.py`, `context_honeypot.py`, `sinkhole_sidecar.py`, `monitor.py`; `poisoned_well/` and `evasion/`. The sidecar now has readiness wait, archive-before-start, resource limits, bounded log reads, and lifecycle locking. Demo mode still serves canned payloads. |
+| Real Docker integration | Docker Desktop is installed but its daemon is not running. The image `skillsentry-sandbox:local` has not been built, so no live container, `curl 1.1.1.1` no-NAT check, or full fixture run has been performed. Mocked lifecycle tests assert `internal=True`, limits, read-only mounts, canary seeding, timeout teardown, sidecar readiness/teardown, bounded log capture, and fail-closed masquerade. |
 | Masquerade shim | `assets/masquerade.c` and the multi-stage `Dockerfile.sandbox` are present; local `gcc` is unavailable, so `masquerade.so` is only compiled inside the image. Shim hiding is not yet verified against a real kernel. Because Docker's `--tmpfs` cannot target the `/proc/1/cgroup` file, the runner bind-mounts a per-scan fake cgroup/mountinfo file read-only and the shim redirects `/proc/self/*` lookups. |
-| Model plumbing | `GemmaLocal` (Ollama), `GemmaCloud` (Gemini), schema-validation retry, 1024 px image downscaling with 20 MB/40 MP caps, delimited-evidence prompts, and the `auto/local/cloud/demo` selector are implemented. `MockGemma` remains the CI/demo backend. No live Ollama or Gemini credentials were available, so real-model latency and schema behaviour are unverified; `/health` reports `ollama: "down"` honestly. |
-| Verdict fusion | `core/verdict/fusion.py` implements weight renormalisation, the +15 typosquat bonus, tier boundaries, stage-degradation findings, and the Poisoned Well/evasion override (`>= 95`, confidence `1.0`). Orchestrator wiring is still pending the live pipeline. |
-| Cache/DB | Demo in-memory cache; SQLite layer lands with the cache package (Dev 2). |
+| Model plumbing | `GemmaLocal` (Ollama), `GemmaCloud` (Gemini), schema-validation retry, 1024 px image downscaling with 20 MB/40 MP caps, delimited-evidence prompts, and the `auto/local/cloud/demo` selector are implemented. `MockGemma` remains the CI/demo backend. No live Ollama or Gemini credentials were available, so real-model latency and schema behaviour are unverified; `/health` reports `ollama: "down"` honestly when the selected backend is unreachable. |
+| Verdict fusion | `core/verdict/fusion.py` implements weight renormalisation, the +15 typosquat bonus with a 30 floor, severity evidence floors (CRITICAL 95 / HIGH 70 / MEDIUM 30), tier boundaries, stage-degradation findings, and the Poisoned Well/evasion overrides (95/100, confidence 1.0). The orchestrator is wired through the live pipeline. |
+| Cache/DB | SQLite cache, scan history, findings, canary events, and IOC persistence are implemented. Static-only, non-default-timeout, differing Poisoned-Well-mode, and degraded scans bypass cache writes; `--no-cache` bypasses read and write. |
 | STIX `sample_refs` (SHA-256) | Not emitted until the directory hash exists; bundle still carries the skill name and scan/skill IDs. |
-| `--watch`, MCP proxy, signed verdicts | Not in M0. |
+| `--watch`, MCP proxy, signed verdicts | Not in M1. |
 
-**Fail-safe rule:** none of these gaps may produce `SAFE`. The live server refuses the scan; a degraded real scan (when implemented) must floor at `SUSPICIOUS` and add `*-unavailable` findings. A masquerade verification failure raises `MasqueradeError` and never becomes a clean sandbox result.
+**Fail-safe rule:** none of these gaps may produce `SAFE`. A degraded real scan floors at `SUSPICIOUS`, adds explicit `*-unavailable` findings, and is never written to the reusable cache. A masquerade verification failure raises `MasqueradeError` and never becomes a clean sandbox result.
 
 ---
 

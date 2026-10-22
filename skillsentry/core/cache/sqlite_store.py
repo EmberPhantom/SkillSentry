@@ -19,8 +19,8 @@ import json
 import re
 import sqlite3
 import threading
-from collections.abc import Iterable, Sequence
-from contextlib import contextmanager
+from collections.abc import Sequence
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -29,13 +29,8 @@ from uuid import UUID, uuid4
 
 from skillsentry.core.cache.hash_utils import hash_bytes
 from skillsentry.core.contracts import (
-    ActiveDefense,
-    NetLog,
     ScanStatus,
-    SandboxEvent,
-    Severity,
     SkillDetail,
-    Stage,
     StageResult,
     Verdict,
     VerdictTier,
@@ -295,9 +290,7 @@ class SQLiteStore:
 
     # -- lifecycle ---------------------------------------------------------
     def _migrate(self) -> None:
-        columns = {
-            row["name"] for row in self._conn.execute("PRAGMA table_info(scans)").fetchall()
-        }
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(scans)").fetchall()}
         if "skill_id" not in columns:
             self._conn.execute("ALTER TABLE scans ADD COLUMN skill_id TEXT")
         cache_columns = {
@@ -357,10 +350,8 @@ class SQLiteStore:
         total = 0
         for suffix in ("", "-wal", "-shm"):
             candidate = Path(str(self._path) + suffix)
-            try:
+            with suppress(OSError):
                 total += candidate.stat().st_size
-            except OSError:
-                pass
         return total
 
     @property
@@ -498,7 +489,9 @@ class SQLiteStore:
                     str(scan_id),
                     verdict_json,
                     detail_json,
-                    _json([result.model_dump(by_alias=True, mode="json") for result in stage_results]),
+                    _json(
+                        [result.model_dump(by_alias=True, mode="json") for result in stage_results]
+                    ),
                     format_utc(finished),
                 ),
             )
@@ -720,8 +713,7 @@ class SQLiteStore:
         backend_strict: bool = False,
     ) -> CachedResult | None:
         sql = (
-            "SELECT * FROM scan_cache WHERE content_hash=? AND engine_version=? "
-            "AND model_version=?"
+            "SELECT * FROM scan_cache WHERE content_hash=? AND engine_version=? AND model_version=?"
         )
         params: list[Any] = [content_hash, engine_version, model_version]
         if backend_strict and model_backend:
@@ -810,7 +802,9 @@ class SQLiteStore:
             )
         return result
 
-    def get_result(self, scan_id: UUID) -> tuple[Verdict, SkillDetail, list[StageResult], bool] | None:
+    def get_result(
+        self, scan_id: UUID
+    ) -> tuple[Verdict, SkillDetail, list[StageResult], bool] | None:
         with self._lock:
             row = self._conn.execute(
                 "SELECT * FROM scan_results WHERE scan_id=?", (str(scan_id),)
@@ -866,13 +860,9 @@ class SQLiteStore:
     def clear_cache(self, older_than: str | None = None) -> tuple[int, int]:
         age = _parse_age(older_than)
         with self._lock:
-            total = int(
-                self._conn.execute("SELECT COUNT(*) AS n FROM scan_cache").fetchone()["n"]
-            )
+            total = int(self._conn.execute("SELECT COUNT(*) AS n FROM scan_cache").fetchone()["n"])
             if age is None:
-                deleted = int(
-                    self._conn.execute("DELETE FROM scan_cache").rowcount
-                )
+                deleted = int(self._conn.execute("DELETE FROM scan_cache").rowcount)
             else:
                 cutoff = format_utc(utc_now() - age)
                 deleted = int(
@@ -926,9 +916,9 @@ def _scan_record(row: sqlite3.Row) -> ScanRecord:
 
 __all__ = [
     "CACHE_KEY_VERSION",
+    "SCHEMA_VERSION",
     "CachedResult",
     "SQLiteStore",
-    "SCHEMA_VERSION",
     "ScanRecord",
     "StoreError",
     "cache_key",

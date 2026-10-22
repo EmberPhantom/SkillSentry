@@ -19,6 +19,7 @@ import ipaddress
 import shutil
 import tarfile
 import tempfile
+import threading
 import time
 from collections.abc import Callable
 from contextlib import suppress
@@ -62,6 +63,7 @@ from skillsentry.core.sandbox.sidecar import SinkholeObservation, SinkholeSideca
 LABEL_KEY = "skillsentry"
 LABEL_VALUE = "true"
 CANARY_HOME = CANARY_ROOT
+MAX_CAPTURED_OUTPUT_BYTES = 4 * 1024 * 1024
 
 
 class SandboxUnavailable(RuntimeError):
@@ -276,6 +278,10 @@ class SandboxRunner:
         self._cleaned = False
         self._sidecar_factory = sidecar_factory
         self._active_dns_server: str | None = self.config.dns_server
+        # Every scan currently shares one internal network and the sidecar's
+        # fixed address.  A second sidecar on that network would either fail to
+        # bind or hijack the first scan's DNS, so the runner serialises scans.
+        self._run_lock = threading.Lock()
 
     @property
     def client(self) -> Any:
@@ -322,6 +328,17 @@ class SandboxRunner:
         return removed
 
     def run(self, request: SandboxRequest) -> SandboxResult:
+        """Run one scan at a time on this runner.
+
+        The internal network name, subnet, and sidecar IP are intentionally
+        fixed.  Serialising here prevents concurrent API scans from colliding
+        on those resources while keeping each scan's teardown isolated.
+        """
+
+        with self._run_lock:
+            return self._run_locked(request)
+
+    def _run_locked(self, request: SandboxRequest) -> SandboxResult:
         skill_dir = Path(request.skill_dir).resolve()
         if not skill_dir.is_dir():
             raise SandboxError(f"skill directory does not exist: {skill_dir}")
@@ -620,12 +637,20 @@ class SandboxRunner:
         )
 
     def _read_text(self, container: Any, path: str) -> str:
+        # Never ask the container for an unbounded file.  A hostile skill can
+        # write forever to stdout.log; ``head`` closes the pipe early and the
+        # host-side slice protects against a fake/compromised container.
         with suppress(Exception):
-            result = container.exec_run(["cat", path], user=self.config.user)
+            result = container.exec_run(
+                ["head", "-c", str(MAX_CAPTURED_OUTPUT_BYTES), path],
+                user=self.config.user,
+            )
             if result.exit_code in (0, None) and result.output:
                 if isinstance(result.output, bytes):
-                    return result.output.decode("utf-8", errors="replace")
-                return str(result.output)
+                    text = result.output.decode("utf-8", errors="replace")
+                else:
+                    text = str(result.output)
+                return text[:MAX_CAPTURED_OUTPUT_BYTES]
         return ""
 
     def _resource_usage(self, container: Any, duration_ms: int) -> dict[str, Any] | None:

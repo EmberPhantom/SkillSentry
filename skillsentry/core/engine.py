@@ -9,31 +9,28 @@ the model, the sandbox, or an explicit degradation note.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4, uuid5
 
-from skillsentry.core.cache import HashError, SQLiteStore, hash_skill_dir
-from skillsentry.core.cache.sqlite_store import ScanRecord, StoreError
+from skillsentry.core.cache import HashError, SQLiteStore
+from skillsentry.core.cache.sqlite_store import StoreError
 from skillsentry.core.config import SkillsEntryConfig, load_config
 from skillsentry.core.contracts import (
     ActiveDefense,
-    ContextCanary,
-    ExfilChannel,
     Finding,
     FindingEvidence,
     IOCGraph,
     IOCGraphEdge,
     IOCGraphNode,
-    NetLog,
     PoisonedWellView,
-    SandboxEvent,
     SandboxTrace,
     ScanOptions,
     ScanStatus,
@@ -44,11 +41,9 @@ from skillsentry.core.contracts import (
     StaticFinding,
     TimelineRow,
     Verdict,
-    VerdictTier,
     VisionEvidence,
     WSEventType,
     WSMessage,
-    format_utc,
     utc_now,
 )
 from skillsentry.core.evasion.detector import EvasionResult, detect_probes
@@ -60,7 +55,6 @@ from skillsentry.core.parser.typosquat import TyposquatMatch, check_typosquat
 from skillsentry.core.poisoned_well.attacker_profile import build_attacker_profile
 from skillsentry.core.poisoned_well.canary_gen import (
     CanarySet,
-    generate_canary_set,
     normalize_intent,
 )
 from skillsentry.core.poisoned_well.exfil_tracker import Correlation, ExfilTracker
@@ -74,8 +68,8 @@ from skillsentry.core.sandbox.runner import (
 )
 from skillsentry.core.sandbox.sidecar import SinkholeConfig, SinkholeSidecar
 from skillsentry.core.semantic import analyze_semantics, scan_anchors
-from skillsentry.core.version import engine_version
 from skillsentry.core.verdict.fusion import FusionError, FusionResult, fuse
+from skillsentry.core.version import engine_version
 from skillsentry.core.vision import scan_vision
 
 SCAN_NAMESPACE = UUID("1b0f6d9e-3f7c-4a62-a2d8-2b9a0c6e5f41")
@@ -203,7 +197,8 @@ class ScanEngine:
                 stage=Stage.SPEC,
                 status_code=404,
             )
-        if (root / "SKILL.md").is_file():
+        manifest = root / "SKILL.md"
+        if manifest.is_file() and not manifest.is_symlink():
             return [root]
         found: list[Path] = []
         ignored = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__"}
@@ -214,7 +209,12 @@ class ScanEngine:
                 for name in dirnames
                 if name not in ignored and not (current_path / name).is_symlink()
             )
-            if "SKILL.md" in filenames:
+            current_manifest = current_path / "SKILL.md"
+            if (
+                "SKILL.md" in filenames
+                and current_manifest.is_file()
+                and not current_manifest.is_symlink()
+            ):
                 found.append(current_path)
                 if len(found) > MAX_DISCOVERED_SKILLS:
                     raise ScanError(
@@ -413,8 +413,10 @@ class ScanEngine:
         findings = list(fused.findings)
         # Ensure a confirmed profile's finding is present even if a caller
         # injected a custom stage list.
-        if active is not None and active.triggered and not any(
-            finding.severity.rank >= Severity.CRITICAL.rank for finding in findings
+        if (
+            active is not None
+            and active.triggered
+            and not any(finding.severity.rank >= Severity.CRITICAL.rank for finding in findings)
         ):
             profile_finding = self._profile_finding(ctx)
             if profile_finding is not None:
@@ -1035,7 +1037,9 @@ class ScanEngine:
                     marker=ctx.correlation.marker,
                     channel=ctx.correlation.channel.value,
                     c2=ctx.correlation.c2_indicators[0] if ctx.correlation.c2_indicators else None,
-                    path=ctx.correlation.targeted_assets[0] if ctx.correlation.targeted_assets else None,
+                    path=ctx.correlation.targeted_assets[0]
+                    if ctx.correlation.targeted_assets
+                    else None,
                     code=ctx.correlation.observation.query_or_url[:500],
                 ),
             )
@@ -1108,9 +1112,7 @@ class ScanEngine:
             return False
         if opts.timeout_s != self.config.sandbox.timeout_s:
             return False
-        if opts.poisoned_well != self.config.poisoned_well.enabled:
-            return False
-        return True
+        return opts.poisoned_well == self.config.poisoned_well.enabled
 
     def _check_cancel(self, cancel: threading.Event | None) -> None:
         if cancel is not None and cancel.is_set():
@@ -1132,6 +1134,16 @@ class ScanEngine:
             self._model = None
             self._model_error = f"model selection failed: {exc}"
         return self._model
+
+    def model_identity(self) -> tuple[str, str]:
+        """Return ``(backend, model_version)`` for the selected model.
+
+        Public because health/meta endpoints must report the identity the
+        engine will actually use (including an injected deterministic model),
+        rather than re-running backend selection and guessing.
+        """
+
+        return self._model_identity()
 
     def _model_identity(self) -> tuple[str, str]:
         model = self._get_model()
@@ -1180,7 +1192,8 @@ class ScanEngine:
     ) -> None:
         if callback is None:
             return
-        try:
+        # A broken UI subscriber must not break evidence collection.
+        with contextlib.suppress(Exception):
             callback(
                 WSMessage(
                     stage=stage,
@@ -1190,9 +1203,6 @@ class ScanEngine:
                     detail=detail,
                 )
             )
-        except Exception:
-            # A broken UI subscriber must not break evidence collection.
-            pass
 
 
 def _sarif_format():

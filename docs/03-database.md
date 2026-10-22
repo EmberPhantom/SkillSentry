@@ -292,6 +292,10 @@ WHERE content_hash = :hash
 3. On miss, the full pipeline runs and the verdict engine **upserts** `scan_cache` in the same transaction that writes `findings` / `active_defense`.
 4. `--no-cache` bypasses read *and* write (used for evaluating model upgrades).
 5. Malicious verdicts are cached like any other — re-scanning a known-bad skill is instant, which matters for registry cron re-scans.
+6. **Static-only scans bypass the cache entirely** (read and write). A `--no-sandbox` verdict lacks execution and Poisoned Well evidence; reusing it for a later full scan would poison the cache with an under-evidenced `SAFE`.
+7. **A full scan with a non-default analysis mode also bypasses the cache.** A different `--timeout` value or a differing Poisoned Well setting can change the evidence, but those modes are not part of the current cache key; bypassing prevents a cross-mode hit.
+8. **Degraded scans are never cached.** If any stage is degraded or errored (Docker unavailable, model unavailable, parser/storage degradation), the scan completes with an explicit finding but does not write a reusable cache row.
+9. Cache write failures never turn a verdict into a clean pass: the scan history is marked failed/degraded and the CLI/API surfaces an operational error.
 
 **Invalidation matrix:**
 

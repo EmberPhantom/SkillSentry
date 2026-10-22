@@ -14,7 +14,12 @@ from pathlib import Path
 
 import typer
 
-from skillsentry.core.config import ConfigError, SkillsEntryConfig, load_config, write_default_config
+from skillsentry.core.config import (
+    ConfigError,
+    SkillsEntryConfig,
+    load_config,
+    write_default_config,
+)
 from skillsentry.core.contracts import ExportFormat, ScanOptions, Verdict, VerdictTier
 from skillsentry.core.engine import ScanEngine, ScanError, ScanOutcome
 from skillsentry.core.exit_codes import ExitCode
@@ -124,8 +129,12 @@ def scan(
     backend: str = typer.Option(
         "auto", "--backend", help="Model backend: auto | local | cloud | demo"
     ),
-    timeout_s: int = typer.Option(60, "--timeout", min=5, max=600, help="Sandbox timeout (seconds)."),
-    output: Path | None = typer.Option(None, "--output", help="Write the rendered report to a file."),
+    timeout_s: int = typer.Option(
+        60, "--timeout", min=5, max=600, help="Sandbox timeout (seconds)."
+    ),
+    output: Path | None = typer.Option(
+        None, "--output", help="Write the rendered report to a file."
+    ),
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write a SARIF 2.1.0 report to a file."
     ),
@@ -249,9 +258,7 @@ def self_audit(
     except (ConfigError, ScanError) as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
-    _print_verdict(
-        outcome.verdict, output_format=output_format, quiet=quiet, backend=backend
-    )
+    _print_verdict(outcome.verdict, output_format=output_format, quiet=quiet, backend=backend)
     if _should_fail(outcome.verdict, fail_on):
         raise typer.Exit(code=int(ExitCode.VERDICT))
     raise typer.Exit(code=int(ExitCode.OK))
@@ -305,7 +312,9 @@ def _emit_outcomes(
     if output_format == "json":
         payload = outcomes[0].verdict.model_dump(by_alias=True, mode="json")
         if len(outcomes) > 1:
-            payload = [outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes]
+            payload = [
+                outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes
+            ]
         rendered = json.dumps(payload, indent=2, ensure_ascii=False)
     elif output_format == "sarif":
         rendered = _combined_sarif(outcomes)
@@ -352,7 +361,9 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
     verdict = outcome.verdict
     lines: list[str] = []
     if not quiet:
-        lines.append(f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}")
+        lines.append(
+            f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}"
+        )
     icon = {"SAFE": "[OK]", "SUSPICIOUS": "[!]", "MALICIOUS": "[X]"}[verdict.verdict.value]
     cache = " (cached)" if verdict.cached else ""
     lines.append(
@@ -422,9 +433,7 @@ def _print_verdict(
     backend: str = "demo",
 ) -> None:
     typer.echo(
-        _render_verdict(
-            verdict, output_format=output_format, quiet=quiet, backend=backend
-        ).rstrip()
+        _render_verdict(verdict, output_format=output_format, quiet=quiet, backend=backend).rstrip()
     )
 
 

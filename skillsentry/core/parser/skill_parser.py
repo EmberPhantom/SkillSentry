@@ -108,7 +108,11 @@ class SkillPackage:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return self.frontmatter.get("metadata") if isinstance(self.frontmatter.get("metadata"), dict) else {}
+        return (
+            self.frontmatter.get("metadata")
+            if isinstance(self.frontmatter.get("metadata"), dict)
+            else {}
+        )
 
     @property
     def declared_network(self) -> list[str]:
@@ -245,7 +249,11 @@ def _resolve_entrypoint(
         try:
             tokens = shlex.split(raw, posix=True)
         except ValueError as exc:
-            return None, True, PackageIssue("high", f"manifest entrypoint is not shell-parseable: {exc}")
+            return (
+                None,
+                True,
+                PackageIssue("high", f"manifest entrypoint is not shell-parseable: {exc}"),
+            )
     elif isinstance(raw, (list, tuple)) and all(isinstance(item, (str, int)) for item in raw):
         tokens = [str(item) for item in raw]
     else:
@@ -261,7 +269,11 @@ def _resolve_entrypoint(
         candidate_index = 1
     candidate = tokens[candidate_index]
     if candidate.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", candidate):
-        return None, True, PackageIssue("high", "manifest entrypoint must be relative to the skill root")
+        return (
+            None,
+            True,
+            PackageIssue("high", "manifest entrypoint must be relative to the skill root"),
+        )
     rel = Path(candidate)
     if ".." in rel.parts:
         return None, True, PackageIssue("high", "manifest entrypoint escapes the skill root")
@@ -271,10 +283,14 @@ def _resolve_entrypoint(
     except ValueError:
         return None, True, PackageIssue("high", "manifest entrypoint escapes the skill root")
     if not target.is_file():
-        return None, True, PackageIssue(
-            "high",
-            f"declared entrypoint does not exist: {candidate}",
-            code=candidate,
+        return (
+            None,
+            True,
+            PackageIssue(
+                "high",
+                f"declared entrypoint does not exist: {candidate}",
+                code=candidate,
+            ),
         )
     normalised = list(tokens)
     normalised[candidate_index] = str(rel).replace("\\", "/")

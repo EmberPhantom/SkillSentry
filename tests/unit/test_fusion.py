@@ -197,7 +197,11 @@ def _finding(stage: Stage, severity: Severity) -> Finding:
 def test_high_finding_floor_prevents_safe_verdict():
     fused = fuse(
         [
-            _result(Stage.SEMANTIC, signals={"semantic": 5}, findings=[_finding(Stage.SEMANTIC, Severity.HIGH)]),
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 5},
+                findings=[_finding(Stage.SEMANTIC, Severity.HIGH)],
+            ),
             _result(Stage.VISION, signals={"vision": 0}),
             _result(Stage.SANDBOX, signals={"sandbox": 0}),
         ]
@@ -210,7 +214,11 @@ def test_high_finding_floor_prevents_safe_verdict():
 def test_critical_finding_floor_is_malicious_95():
     fused = fuse(
         [
-            _result(Stage.VISION, signals={"vision": 5}, findings=[_finding(Stage.VISION, Severity.CRITICAL)]),
+            _result(
+                Stage.VISION,
+                signals={"vision": 5},
+                findings=[_finding(Stage.VISION, Severity.CRITICAL)],
+            ),
             _result(Stage.SEMANTIC, signals={"semantic": 0}),
         ]
     )

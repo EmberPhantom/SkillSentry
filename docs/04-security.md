@@ -52,10 +52,10 @@ Everything from a skill package is **untrusted input**, including text shown to 
 
 Two classes of evidence **override** the fused risk score:
 
-1. **Poisoned Well correlation** — canary marker `SKS-<8hex>` observed in outbound (sinkholed) traffic within N seconds of a canary read ⇒ `MALICIOUS`, `confidence: 1.0`. This is hard proof: only code that stole the fake credential can echo its marker.
-2. **Sandbox evasion probe** — touching sandbox-detection paths ⇒ `MALICIOUS`, `confidence: 1.0`. Legitimate skills have no business fingerprinting their execution environment.
+1. **Poisoned Well correlation** — canary marker `SKS-<8hex>` observed in outbound (sinkholed) traffic within N seconds of a canary read ⇒ `MALICIOUS`, `confidence: 1.0`, risk score at least 95. This is hard proof: only code that stole the fake credential can echo its marker.
+2. **Sandbox evasion probe** — touching sandbox-detection paths ⇒ `MALICIOUS`, `confidence: 1.0`, risk score 100. Legitimate skills have no business fingerprinting their execution environment.
 
-Everything else is weighted fusion (anchors 0.15 · semantic 0.20 · vision 0.20 · sandbox telemetry 0.25 · typosquat +15), tiered `SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS` (see [02-architecture.md](02-architecture.md) §2.4).
+Everything else is weighted fusion (anchors 0.15 · semantic 0.20 · vision 0.20 · sandbox telemetry 0.25 · typosquat +15), tiered `SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS` (see [02-architecture.md](02-architecture.md) §2.4). Explicit findings also impose evidence floors after fusion: CRITICAL ≥ 95, HIGH ≥ 70, MEDIUM ≥ 30; typosquat detection floors at 30. This prevents a strong deterministic or vision finding from being diluted below the tier implied by its evidence.
 
 ## 4.4 Poisoned Well — Active Defense: Ethics, Safety, Legal
 
@@ -79,7 +79,7 @@ The sandbox is the primary trust boundary; it runs untrusted code on purpose. De
 
 | Layer | Control |
 |:---|:---|
-| Container | `docker run` from `python:3.11-slim`; **non-root user**; `--security-opt no-new-privileges`; default **seccomp** profile; no extra capabilities; no volume mounts from the host except the read-only skill package |
+| Container | `docker run` from `skillsentry-sandbox:local`; **non-root user**; `--security-opt no-new-privileges`; default **seccomp** profile; no extra capabilities; no volume mounts from the host except the read-only skill package |
 | Resources | 60 s hard timeout (watchdog kill), 512 MB RAM, 1 CPU; PID limits to stop fork bombs |
 | Network | Dedicated Docker network whose only reachable endpoints are the DNS sinkhole (:53) and fake HTTP responder; **no NAT to the internet** |
 | Filesystem | Ephemeral overlay; canary FS seeded per scan; inotify (watchdog) monitors canary paths and sandbox-detection paths |
@@ -167,6 +167,8 @@ Production hardening checklist (Phase 1–2, from plan §12.5):
 5. **LLM non-determinism.** Semantic/vision judgments can vary run-to-run; anchors and hard-evidence overrides exist precisely to bound this, and cached verdicts pin the exact model version.
 6. **Vision OCR limits.** Extremely small or artistically obfuscated text can evade OCR; fixtures use 4–6 px payloads, but adversarial typography is an arms race.
 7. **Poisoned Well requires the thief to steal.** A malicious skill that harms without reading credential-shaped files won't trigger active defense (other stages still apply).
+8. **TLS is not intercepted in M1.** The sinkhole answers arbitrary DNS names and plain HTTP, but HTTPS bodies are opaque. Fixtures use HTTP for exfiltration evidence; HTTPS payloads remain explicitly unverified rather than being claimed as captured. Installing a custom trust anchor inside every scanned skill image would change the threat model, so it is deferred.
+9. **Shim log authenticity.** The in-container `/tmp/skillsentry/events.jsonl` is writable by the untrusted skill. Probe and canary-read events from it are corroborating indicators, not cryptographically attested proof; a hostile skill can forge or truncate them. Poisoned Well confirmation still requires the separate sidecar traffic capture, which the skill cannot write into, and scans never turn a missing/failed shim log into a clean result.
 
 ## 4.12 Vulnerability Disclosure Policy
 

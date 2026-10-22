@@ -92,9 +92,7 @@ def _ignored(rel: str, patterns: tuple[str, ...]) -> bool:
     parts = rel.split("/")
     candidates = ["/".join(parts[: i + 1]) for i in range(len(parts))]
     return any(
-        fnmatch.fnmatchcase(candidate, pattern)
-        for pattern in patterns
-        for candidate in candidates
+        fnmatch.fnmatchcase(candidate, pattern) for pattern in patterns for candidate in candidates
     )
 
 
@@ -164,9 +162,7 @@ def hash_skill_dir(path: str | Path) -> SkillHash:
             size = entry.stat(follow_symlinks=False).st_size
             total_bytes += size
             if total_bytes > MAX_TOTAL_BYTES:
-                raise HashError(
-                    f"skill package exceeds {MAX_TOTAL_BYTES // (1024 * 1024)} MiB"
-                )
+                raise HashError(f"skill package exceeds {MAX_TOTAL_BYTES // (1024 * 1024)} MiB")
 
             digest.update(b"file\0")
             digest.update(rel.encode("utf-8", "surrogateescape"))
@@ -192,9 +188,9 @@ def hash_skill_dir(path: str | Path) -> SkillHash:
 
 __all__ = [
     "DEFAULT_IGNORE_PATTERNS",
-    "HashError",
     "MAX_FILES",
     "MAX_TOTAL_BYTES",
+    "HashError",
     "SkillHash",
     "hash_bytes",
     "hash_skill_dir",

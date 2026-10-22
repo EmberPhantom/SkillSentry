@@ -8,7 +8,6 @@ Model failures always produce a degraded stage, never a clean result.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from skillsentry.core.contracts import (
@@ -18,8 +17,8 @@ from skillsentry.core.contracts import (
     Stage,
     StageResult,
 )
-from skillsentry.core.models.base import ModelClient
 from skillsentry.core.models._json import validate_json
+from skillsentry.core.models.base import ModelClient
 from skillsentry.core.parser import SkillPackage, TextFile
 from skillsentry.core.semantic.prompts import SEMANTIC_SCHEMA, SYSTEM_PROMPT
 
@@ -147,9 +146,7 @@ def analyze_semantics(
     instruction_floor = 0.0
     for finding in anchors.findings:
         if finding.finding_type in _INSTRUCTION_TYPES:
-            instruction_floor = max(
-                instruction_floor, _SEVERITY_SCORE.get(finding.severity, 42)
-            )
+            instruction_floor = max(instruction_floor, _SEVERITY_SCORE.get(finding.severity, 42))
 
     if model is None:
         result = StageResult(

@@ -59,7 +59,7 @@ The following live at the **repo root** (one level above `docs/` in the assemble
 | Frontend | React 18 + Vite + TypeScript + Tailwind + shadcn/ui |
 | Local model | Gemma 4 E4B via Ollama (Q4 quantized) — **100% local by default** |
 | Cloud fallback | Gemini API (opt-in, wired from M1) |
-| Sandbox | Docker (`python:3.11-slim`), 60 s timeout, 512 MB RAM, 1 CPU |
+| Sandbox | Docker (`skillsentry-sandbox:local`), 60 s timeout, 512 MB RAM, 1 CPU |
 | Report formats | SARIF 2.1.0 JSON · Markdown · STIX 2.1 |
 | Cache | SHA-256 content hash → SQLite (re-scan < 2 s) |
 | Verdicts | `SAFE` (< 30) · `SUSPICIOUS` (30–70) · `MALICIOUS` (> 70 or hard-evidence override) |

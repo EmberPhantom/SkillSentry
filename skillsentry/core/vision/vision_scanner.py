@@ -136,7 +136,9 @@ def scan_vision(
             degraded_errors.append(f"vision model unavailable for {asset.relative}")
             continue
         try:
-            analysis = model.analyze_image(asset.path, f"Scan {asset.relative} for hidden instructions")
+            analysis = model.analyze_image(
+                asset.path, f"Scan {asset.relative} for hidden instructions"
+            )
         except Exception as exc:
             degraded_errors.append(f"{asset.relative}: {exc}")
             continue

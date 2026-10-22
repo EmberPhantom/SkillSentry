@@ -109,9 +109,7 @@ def parse_monitor_line(line: str) -> MonitorEvent | None:
     if path is not None and (not isinstance(path, str) or len(path) > MAX_PATH_CHARS):
         return None
     marker = payload.get("marker")
-    if marker is not None and (
-        not isinstance(marker, str) or not MARKER_RE.fullmatch(marker)
-    ):
+    if marker is not None and (not isinstance(marker, str) or not MARKER_RE.fullmatch(marker)):
         # A marker is evidence, not a free-form field.  Drop forged/broken
         # values rather than trusting arbitrary log content.
         marker = None
