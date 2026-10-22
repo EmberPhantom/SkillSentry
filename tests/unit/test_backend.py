@@ -124,6 +124,36 @@ async def test_live_backend_validates_paths_instead_of_fabricating_verdicts(tmp_
 
 
 @pytest.mark.asyncio
+async def test_live_list_scans_does_not_paginate_the_store_twice():
+    from datetime import UTC, datetime
+
+    rows = [
+        {
+            "scan_id": uuid4(),
+            "skill_id": uuid4(),
+            "skill": f"skill-{index}",
+            "verdict": "SAFE",
+            "risk_score": 0,
+            "cached": False,
+            "status": ScanStatus.COMPLETED,
+            "started_at": datetime(2026, 10, 22, tzinfo=UTC),
+            "duration_ms": 1,
+            "key_finding": None,
+        }
+        for index in range(4)
+    ]
+
+    class PagedStore:
+        def list_scans(self, *, limit: int, offset: int, status):
+            del status
+            return rows[offset : offset + limit]
+
+    backend = LiveBackend(store=PagedStore())
+    page = await backend.list_scans(limit=2, offset=2)
+    assert [row.skill for row in page.scans] == ["skill-2", "skill-3"]
+
+
+@pytest.mark.asyncio
 async def test_live_health_and_meta_use_the_injected_model(tmp_path):
     from skillsentry.core.cache import SQLiteStore
     from skillsentry.core.engine import ScanEngine
