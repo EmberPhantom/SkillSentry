@@ -107,3 +107,113 @@ def test_self_audit_runs_the_live_pipeline():
     )
     assert result.exit_code == 0, result.output
     assert "skillsentry-audit" in result.output
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_live_scan_threshold_hit_exits_one(tmp_path: Path):
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "malicious" / "cloud-sync-pro"),
+            "--format",
+            "json",
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+            "--fail-on",
+            "malicious",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "threshold.sqlite")},
+    )
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["verdict"] == "MALICIOUS"
+
+
+def test_live_scan_clean_folder_recurses_and_exits_zero(tmp_path: Path):
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "benign"),
+            "--format",
+            "json",
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+            "--fail-on",
+            "suspicious",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "folder.sqlite")},
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert isinstance(payload, list)
+    assert {item["skill"] for item in payload} == {
+        "pdf-summarizer",
+        "git-helper",
+        "image-resizer",
+        "weather-fetch",
+    }
+    assert all(item["verdict"] == "SAFE" for item in payload)
+
+
+def test_live_scan_writes_json_output_file(tmp_path: Path):
+    target = tmp_path / "reports" / "verdict.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "malicious" / "cloud-sync-pro"),
+            "--format",
+            "json",
+            "--output",
+            str(target),
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "output.sqlite")},
+    )
+    assert result.exit_code == 1, result.output
+    assert target.is_file()
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["verdict"] == "MALICIOUS"
+
+
+def test_live_scan_writes_sarif_sidecar(tmp_path: Path):
+    target = tmp_path / "results.sarif"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "malicious" / "cloud-sync-pro"),
+            "--format",
+            "sarif",
+            "--sarif-out",
+            str(target),
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "sarif.sqlite")},
+    )
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["version"] == "2.1.0"
+    assert payload["runs"]
+    assert target.is_file()
+    assert json.loads(target.read_text(encoding="utf-8"))["version"] == "2.1.0"
+
+
+def test_live_scan_invalid_format_is_usage_error():
+    result = runner.invoke(app, ["scan", "fixtures", "--format", "xml"])
+    assert result.exit_code == 2
+    assert "unsupported --format" in result.output

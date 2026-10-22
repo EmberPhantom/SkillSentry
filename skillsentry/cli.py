@@ -144,7 +144,24 @@ def scan(
 
     if demo_mode:
         verdict = _demo_verdict_for(path)
-        _print_verdict(verdict, output_format=output_format, quiet=quiet, backend="demo")
+        if sarif_out is not None:
+            sarif_out.parent.mkdir(parents=True, exist_ok=True)
+            sarif_out.write_text(
+                render_report(verdict, ExportFormat.SARIF).content.decode("utf-8"),
+                encoding="utf-8",
+            )
+            if not quiet and output_format == "text":
+                typer.echo(f"wrote {sarif_out}")
+        rendered = _render_verdict(
+            verdict, output_format=output_format, quiet=quiet, backend="demo"
+        )
+        if output is not None:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(rendered, encoding="utf-8")
+            if output_format == "text":
+                typer.echo(rendered.rstrip())
+        else:
+            typer.echo(rendered.rstrip())
         if _should_fail(verdict, fail_on):
             raise typer.Exit(code=int(ExitCode.VERDICT))
         raise typer.Exit(code=int(ExitCode.OK))
@@ -282,7 +299,7 @@ def _emit_outcomes(
     if sarif_out is not None:
         sarif_out.parent.mkdir(parents=True, exist_ok=True)
         sarif_out.write_text(_combined_sarif(outcomes), encoding="utf-8")
-        if not quiet:
+        if not quiet and output_format == "text":
             typer.echo(f"wrote {sarif_out}")
 
     if output_format == "json":
@@ -307,8 +324,6 @@ def _emit_outcomes(
         output.write_text(rendered, encoding="utf-8")
         if output_format == "text":
             typer.echo(rendered.rstrip())
-        elif not quiet:
-            typer.echo(f"wrote {output}")
         return
     typer.echo(rendered.rstrip())
 
@@ -372,22 +387,19 @@ def _backend_label(backend: str) -> str:
     }.get(backend, backend)
 
 
-def _print_verdict(
+def _render_verdict(
     verdict: Verdict,
     *,
     output_format: str,
     quiet: bool,
     backend: str = "demo",
-) -> None:
+) -> str:
     if output_format == "json":
-        typer.echo(verdict.model_dump_json(by_alias=True, indent=2))
-        return
+        return verdict.model_dump_json(by_alias=True, indent=2)
     if output_format == "sarif":
-        typer.echo(render_report(verdict, ExportFormat.SARIF).content.decode("utf-8"), nl=False)
-        return
+        return render_report(verdict, ExportFormat.SARIF).content.decode("utf-8")
     if output_format == "markdown":
-        typer.echo(render_report(verdict, ExportFormat.MARKDOWN).content.decode("utf-8"), nl=False)
-        return
+        return render_report(verdict, ExportFormat.MARKDOWN).content.decode("utf-8")
     outcome = ScanOutcome(
         scan_id=verdict.scan_id,
         skill_id=verdict.skill_id,
@@ -399,7 +411,21 @@ def _print_verdict(
         started_at=None,  # type: ignore[arg-type]
         duration_ms=verdict.scan_duration_ms,
     )
-    typer.echo(_verdict_text(outcome, quiet=quiet, backend=backend))
+    return _verdict_text(outcome, quiet=quiet, backend=backend)
+
+
+def _print_verdict(
+    verdict: Verdict,
+    *,
+    output_format: str,
+    quiet: bool,
+    backend: str = "demo",
+) -> None:
+    typer.echo(
+        _render_verdict(
+            verdict, output_format=output_format, quiet=quiet, backend=backend
+        ).rstrip()
+    )
 
 
 def _should_fail(verdict: Verdict, fail_on: str) -> bool:

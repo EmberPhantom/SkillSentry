@@ -38,7 +38,7 @@ class ModelSettings(_ConfigModel):
 
 class SandboxSettings(_ConfigModel):
     enabled: bool = True
-    base_image: str = "python:3.11-slim"
+    base_image: str = "skillsentry-sandbox:local"
     timeout_s: int = Field(default=60, ge=5, le=600)
     memory_mb: int = Field(default=512, ge=128)
     cpus: float = Field(default=1.0, gt=0)
@@ -107,7 +107,7 @@ request_timeout_s = 180
 
 [sandbox]
 enabled = true
-base_image = "python:3.11-slim"
+base_image = "skillsentry-sandbox:local"   # built from assets/Dockerfile.sandbox
 timeout_s = 60
 memory_mb = 512
 cpus = 1.0
