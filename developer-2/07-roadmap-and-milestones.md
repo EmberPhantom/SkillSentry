@@ -49,30 +49,34 @@ DEVELOPER 2 MILESTONE PROGRESSION TIMELINE
 
 ## 2. Milestone Breakdown & Work Package Allocation
 
+## 2. Milestone Breakdown & Work Package Allocation
+
 ### Milestone M0: Contracts & Scaffold (Entry Gate)
 - **Work Package**: Pre-W2.1 setup (CL-D2-0).
 - **Primary Tasks**:
   1. Review and freeze Interface **I1** (shared constants, stage names, severities, verdicts).
-  2. Formalize Interface **I3** (`StageResult` dataclass) with Developer 1.
-  3. Define the 4 benign fixture concepts (`pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`).
-  4. Establish local development environment and pre-commit hooks (`ruff check`, `ruff format`).
+  2. Formalize Interface **I3** (`StageResult` dataclass) and **INT-4** (`SandboxActionInstruction` contract) with Developer 1.
+  3. Formalize Interface **INT-5** (Windows PowerShell CLI scan command, options, and exit code contract).
+  4. Define the 4 benign fixture concepts (`pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`).
+  5. Establish local Windows development environment and pre-commit hooks (`ruff check`, `ruff format`).
 - **Entry Criteria**: None (starts immediately).
-- **Exit Gate ("Done means")**: Developer 2 can state all `StageResult` fields and legal enums; contract schemas signed off.
+- **Exit Gate ("Done means")**: Developer 2 can state all `StageResult` and `SandboxActionInstruction` fields and legal enums; contract schemas signed off.
 
 ---
 
 ### Milestone M1: Deterministic Analysis & Cache Core
 - **Work Packages**: W2.1 (Parser & Typosquat), W2.2 (AST Anchors), W2.3 (Semantic Analysis), W2.5 (Cache Store).
 - **Primary Tasks**:
-  1. **CL-D2-1**: Implement `parser/skill_parser.py` (YAML validation, size caps, traversal defense) and `parser/typosquat.py` (homoglyph fold + Levenshtein $\le 2$).
-  2. **CL-D2-2**: Implement `semantic/ast_anchor.py` (Python `ast` walk, regex scanner, line citation generator, anchor block serializer).
-  3. **CL-D2-3**: Implement `semantic/prompts.py` (frozen structured prompt) and `semantic/analyzer.py` (I2 caller, JSON retry logic, intent keyword extraction).
-  4. **CL-D2-4**: Implement `cache/hash_utils.py` (deterministic POSIX directory hasher) and `cache/sqlite_store.py` (SQLite WAL repository, invalidation logic, migrations).
+  1. **CL-D2-1**: Implement `parser/skill_parser.py` (YAML validation, size caps, traversal defense, Windows PowerShell path normalization) and `parser/typosquat.py` (homoglyph fold + Levenshtein $\le 2$).
+  2. **CL-D2-2**: Implement `semantic/ast_anchor.py` (Python `ast` walk, regex scanner, line citation generator, anchor block serializer, <100ms pre-filter).
+  3. **CL-D2-2 / INT-4**: Implement `semantic/sandbox_instructions.py` (deriving `SandboxActionInstruction` objects from AST anchors).
+  4. **CL-D2-3**: Implement `semantic/prompts.py` (frozen structured prompt) and `semantic/analyzer.py` (I2 caller, JSON retry logic, intent keyword extraction).
+  5. **CL-D2-4**: Implement `cache/hash_utils.py` (deterministic POSIX directory hasher) and `cache/sqlite_store.py` (SQLite WAL repository, invalidation logic, migrations, <2s budget).
 - **Entry Criteria**: Developer 1 delivers frozen contracts (**I1**) and `MockGemma` stub (**I2**).
 - **Parallel Track**: Developer 2 builds against `MockGemma` without waiting for real Ollama or Docker.
 - **Exit Gate ("Done means")**:
-  - All drafted fixtures parse without crashes.
-  - AST anchors catch dangerous patterns on test files with line accuracy.
+  - All drafted fixtures parse without crashes, including Windows PowerShell path inputs.
+  - AST anchors catch dangerous patterns on test files with line accuracy and emit valid `SandboxActionInstruction` objects.
   - Semantic analysis emits valid JSON on `MockGemma`.
   - Cache store performs hash + lookup in $< 50\text{ ms}$ ($< 2\text{ s}$ SLA).
 
@@ -81,14 +85,14 @@ DEVELOPER 2 MILESTONE PROGRESSION TIMELINE
 ### Milestone M2: Multimodal Vision & Fixture Completion
 - **Work Packages**: W2.4 (Vision Pipeline), W2.6 (Fixture Finalization).
 - **Primary Tasks**:
-  1. **CL-D2-5**: Implement `vision/image_extractor.py` (asset inventory, 1024 px downscaler, luminance contrast pre-filter) and `vision/vision_scanner.py` (I2 `analyze_image`, bounding-box extraction, dual SVG scan).
+  1. **CL-D2-5**: Implement `vision/image_extractor.py` (asset inventory, 1024 px downscaler, luminance contrast pre-filter <50ms) and `vision/vision_scanner.py` (I2 `analyze_image`, bounding-box extraction, dual SVG scan, vision sandbox instruction emission).
   2. **CL-D2-5**: Author fixture `fixtures/malicious/invoice-helper` with checked-in Pillow script generating white-on-white `logo.png`.
   3. **CL-D2-5**: Author stretch fixture `fixtures/malicious/g1t-translate` (typosquat test).
   4. **CL-D2-6**: Finalize 4 benign fixtures with honest scripts and realistic metadata.
   5. **CL-D2-6**: Hand-annotate ground-truth lines in `tests/ground_truth.json`.
 - **Entry Criteria**: Developer 1 delivers real Ollama model client (**I2**) for vision OCR; Developer 2 asset extractor operational.
 - **Exit Gate ("Done means")**:
-  - `invoice-helper` yields a vision finding with normalized bounding box and OCR transcript.
+  - `invoice-helper` yields a vision finding with normalized bounding box, OCR transcript, and sandbox instruction.
   - Benign fixture images yield zero findings.
   - Ground-truth lines hand-annotated for all malicious fixtures.
 
@@ -100,10 +104,12 @@ DEVELOPER 2 MILESTONE PROGRESSION TIMELINE
   1. **CL-D2-6**: Generate fixture-derived canned payloads (`tests/fixtures_canned_payloads.json`) and deliver Interface **I4** to Developer 1 for `demo_mode.py`.
   2. **CL-D2-7**: Implement `tests/check_expected_verdicts.py` CI regression harness.
   3. **CL-D2-7**: Implement `tests/check_citation_accuracy.py` harness ($\pm 1$ line rule).
-  4. Coordinate with Developer 1's orchestrator to execute the full 8-fixture evaluation sheet.
-- **Entry Criteria**: Developer 1 delivers full pipeline orchestrator and verdict fusion engine.
+  4. **INT-5 / Windows**: Validate end-to-end PowerShell CLI scans on Windows with Developer 1's orchestrator.
+  5. Coordinate with Developer 1's orchestrator to execute the full 8-fixture evaluation sheet.
+- **Entry Criteria**: Developer 1 delivers full pipeline orchestrator, CLI runner, and verdict fusion engine.
 - **Exit Gate ("Done means")**:
-  - Evaluation sheet passes targets: 3/3 malicious caught, 0/4 benign false positives, citation accuracy $\ge 80\%$, cached re-scan $< 2\text{ s}$.
+  - Evaluation sheet passes targets: 3/3 malicious caught, 0/4 benign false positives, citation accuracy $\ge 80\%$, cached re-scan $< 2\text{ s}$, uncached scan $< 90\text{ s}$.
+  - PowerShell CLI commands execute smoothly in Windows terminals with correct ANSI formatting and exit codes.
   - Canned demo payloads merged into Developer 1's mock server.
 
 ---
@@ -111,12 +117,12 @@ DEVELOPER 2 MILESTONE PROGRESSION TIMELINE
 ### Milestone M4: Hardening & Chaos Run
 - **Work Package**: W2.7 (Chaos Run & Benchmarks).
 - **Primary Tasks**:
-  1. **CL-D2-7**: Lead the **corrupted-fixture drill** during all-hands Chaos Run (truncated YAML, 0-byte images, symlink loops).
+  1. **CL-D2-7**: Lead the **corrupted-fixture and Windows robustness drills** during all-hands Chaos Run (truncated YAML, 0-byte images, symlink loops, PowerShell Ctrl+C signal handling).
   2. Run flakiness watch: execute malicious fixtures $10\times$ each to guarantee deterministic outputs.
   3. Populate the official README Summary Metrics table with actual measured data from a clean benchmark run.
 - **Entry Criteria**: Milestone M3 fully green.
 - **Exit Gate ("Done means")**:
-  - Corrupted fixtures handled gracefully with `note` findings without engine crashes.
+  - Corrupted fixtures and Windows path edge cases handled gracefully with `note` findings without engine crashes.
   - CI expected-verdicts regression gate passing reliably on master.
 
 ---

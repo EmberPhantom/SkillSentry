@@ -37,8 +37,11 @@ Developer 2’s testing suite guarantees that static, semantic, and visual analy
 | Test Level | Scope & Components Under Test | Dependencies | Execution Command | Target SLA |
 |:---|:---|:---|:---|:---:|
 | **Unit** | `skill_parser.py`, `typosquat.py`, `ast_anchor.py`, `hash_utils.py`, `sqlite_store.py` | Local Python runtime (no model, no network) | `pytest tests/unit/test_analysis/` | $< 2$ s |
-| **Contract** | I1 constant mappings, I2 `MockGemma` protocol, I3 `StageResult` serialization | `MockGemma` | `pytest tests/contract/` | $< 1$ s |
-| **Integration** | `analyzer.py` & `vision_scanner.py` with real local Ollama (Gemma 4 E4B Q4) | Ollama running on `localhost:11434` | `pytest tests/integration/test_models/` | $< 60$ s |
+| **Contract** | I1 constants, I2 `MockGemma`, I3 `StageResult`, INT-4 `SandboxActionInstruction` | `MockGemma` stub | `pytest tests/contract/` | $< 1$ s |
+| **Security** | Traversal, YAML bombs, Windows device names (`CON`, `PRN`), alternate data streams | Local Python runtime | `pytest tests/security/` | $< 2$ s |
+| **Windows CLI** | PowerShell CLI path parsing, argument quoting, exit codes (0/1/2/3), UTF-8 console output | Windows PowerShell 5.1/7.x | `pytest tests/integration/test_powershell_cli.py` | $< 5$ s |
+| **Benchmark** | Cache hashing, AST walk latency, PIL downscaling, SQLite WAL queries | `pytest-benchmark` | `pytest tests/benchmark/ --benchmark-only` | $< 5$ s |
+| **Integration** | `analyzer.py` & `vision_scanner.py` with real local Ollama (Gemma 4 E4B Q4) | Ollama on `localhost:11434` | `pytest tests/integration/test_models/` | $< 60$ s |
 | **Corpus E2E** | All 8 fixtures evaluated through Stages 0–3 against expected verdicts | Local pipeline | `python tests/check_expected_verdicts.py` | $< 90$ s |
 | **Citation** | Accuracy harness evaluating reported `file:line` against ground truth | Annotated corpus | `python tests/check_citation_accuracy.py` | $\ge 80\%$ |
 
@@ -145,17 +148,34 @@ def verify_verdicts(results_file: Path, expected_file: Path):
 
 ## 6. Performance Benchmarking & SLA Enforcement
 
-Developer 2’s automated test suite includes dedicated performance assertions:
-- **`test_cache_performance`**: Asserts that hashing a 50-file package and querying SQLite takes **$< 100\text{ ms}$** (target budget: $< 2$ s).
-- **`test_ast_anchor_performance`**: Asserts that walking 1,000 lines of Python AST takes **$< 50\text{ ms}$**.
+Developer 2’s automated test suite includes dedicated performance assertions via `pytest-benchmark`:
+- **`test_cache_performance`**: Asserts that hashing a 50-file package and querying SQLite takes **$< 50\text{ ms}$** (target budget: $< 2$ s).
+- **`test_ast_anchor_performance`**: Asserts that walking 1,000 lines of Python AST takes **$< 100\text{ ms}$** (cheap deterministic pre-filter gate).
+- **`test_contrast_prefilter_performance`**: Asserts that pixel luminance contrast calculation takes **$< 50\text{ ms}$** per image.
 - **`test_image_downscale_performance`**: Asserts that downscaling a $4096 \times 4096\text{ px}$ image to $1024\text{ px}$ takes **$< 200\text{ ms}$**.
+- **`test_unit_suite_runtime`**: Asserts that Developer 2's pure unit test suite runs in **$< 5\text{ s}$** total to preserve a lightning-fast developer feedback loop.
 
 ---
 
-## 7. Chaos Run Participation (Milestone M4)
+## 7. Sandbox Action Instruction Verification Suite
 
-During the Milestone M4 all-hands **Chaos Run**, Developer 2 is directly responsible for executing the **corrupted-fixture drill**:
+Developer 2 maintains automated contract tests asserting correct emission of `SandboxActionInstruction` objects:
+1. **Fixture `cloud-sync-pro` Test**: Verifies generation of:
+   - `check_category="CREDENTIAL_CANARY_MONITOR"` with `contextual_intent=["aws"]`.
+   - `check_category="DNS_SINKHOLE_WATCH"` with citation `scripts/sync.sh:6` and `check_status="required"`.
+2. **Fixture `slack-notif-mal` Test**: Verifies generation of:
+   - `check_category="EVASION_PROBE_WATCH"` with target `/.dockerenv`.
+   - `check_category="CREDENTIAL_CANARY_MONITOR"` with `contextual_intent=["slack"]`.
+3. **Traversal Package Test**: Verifies that malicious packages attempting path traversal outside the root boundary yield `check_status="blocked"` with safety notes, preventing untrusted execution.
+
+---
+
+## 8. Chaos Run & Windows Robustness Drills (Milestone M4)
+
+During the Milestone M4 all-hands **Chaos Run**, Developer 2 is directly responsible for executing the **corrupted-fixture and Windows robustness drills**:
 1. **Truncated YAML Test**: Introduce truncated frontmatter (`name: [unclosed bracket`) $\rightarrow$ verify scanner recovers with a `spec-invalid` finding without crashing.
 2. **Zero-Byte Image Test**: Introduce a 0-byte `logo.png` $\rightarrow$ verify image extractor skips gracefully with `note` severity.
 3. **Symlink Loop Test**: Introduce recursive directory symlinks $\rightarrow$ verify directory walker detects recursion depth and terminates cleanly.
 4. **Offline Resilience**: Disconnect host network $\rightarrow$ verify all unit tests and local Ollama analyses complete normally without attempting network calls.
+5. **Windows PowerShell Interrupt (Ctrl+C)**: Send `SIGINT` during directory hashing or AST scanning $\rightarrow$ verify database lock is released cleanly and temporary files are unlinked.
+6. **Windows Path Anomalies Drill**: Submit paths with Windows drive letters (`C:\`), backslashes, mixed slashes, spaces, and trailing slashes $\rightarrow$ verify deterministic hashing and identical SARIF generation.

@@ -19,6 +19,8 @@ The table below summarizes all cross-developer interfaces directly touching Deve
 | **INT-1**| **Declared-Intent Normalization Contract** | Dev 2 | Dev 1 (Stage 4 Sandbox) | **CONFIRMED** | M1 |
 | **INT-2**| **Cache Store Repository Interface** | Dev 2 | Dev 1 (Stage 0 & 6) / CLI | **CONFIRMED** | M1 |
 | **INT-3**| **Vision Bounding Box & Evidence Contract** | Dev 2 | Dev 3 (Gemma's Eye View UI) | **CONFIRMED** | M2 |
+| **INT-4**| **Sandbox Action Instruction Contract** | Dev 2 | Dev 1 (Stage 4 Sandbox Runner) | **CONFIRMED** | M1 |
+| **INT-5**| **Windows PowerShell CLI Contract** | Dev 1 / Dev 2 | Windows Users / CI / Orchestrator | **CONFIRMED** | M1 |
 
 ---
 
@@ -160,6 +162,7 @@ class StageResult:
     stage: str                       # Current stage identifier
     findings: list[Finding] = field(default_factory=list)
     signals: dict[str, float] = field(default_factory=dict) # Normalized sub-scores [0.0 - 100.0]
+    sandbox_instructions: list[Any] = field(default_factory=list) # list[SandboxActionInstruction] (INT-4)
     telemetry: Optional[dict[str, Any]] = None             # Stage timing, asset counts, tokens
     degraded: bool = False                                 # True if stage ran in fallback mode
 ```
@@ -292,3 +295,142 @@ $$\text{Pixel } X = x \times \text{rendered\_width}, \quad \text{Pixel } Y = y \
 
 ### 8.2 Deliverable
 Developer 2 generates pre-computed JSON responses for all 8 fixtures and saves them to `tests/fixtures_canned_payloads.json`. Developer 1 loads this file directly in `--demo-mode` to ensure that offline rehearsal data is schema-identical to production output.
+
+---
+
+## 9. Interface INT-4: Sandbox Action Instruction Contract
+
+### 9.1 Ownership & Status
+- **Producer**: Developer 2 (`skillsentry/core/semantic/sandbox_instructions.py`).
+- **Consumer**: Developer 1 (`skillsentry/core/sandbox/runner.py`, `context_honeypot.py`).
+- **Status**: **CONFIRMED (Target: M1)**.
+
+### 9.2 Purpose & Scope
+While Developer 1 is strictly accountable for the Docker container lifecycle and runtime execution, Developer 2 is responsible for analyzing package code, intent, and visual assets to specify **what checks must be performed in the sandbox**. This interface formalizes the dynamic handoff contract between the two subsystems.
+
+### 9.3 Data Contract Specification
+```python
+from dataclasses import dataclass, field
+from typing import Optional, Any
+
+@dataclass(frozen=True)
+class SandboxActionInstruction:
+    instruction_id: str             # UUID v4 string identifying this check
+    finding_id: Optional[str]       # Correlated Finding ID from Stage 2 or Stage 3
+    target_package: str             # Name of the skill package under scan
+    entrypoint_script: str          # Relative POSIX path to executable (e.g. 'scripts/sync.sh')
+    reason: str                     # Human-readable justification for the sandbox action
+    check_category: str             # Canonical check category:
+                                    # 'TRIGGER_EXECUTION' | 'CREDENTIAL_CANARY_MONITOR' |
+                                    # 'DNS_SINKHOLE_WATCH' | 'HTTP_EXFIL_MONITOR' | 'EVASION_PROBE_WATCH'
+    contextual_intent: list[str]    # Intent keywords driving canary generation (e.g., ['aws'])
+    execution_parameters: dict[str, Any] # {'timeout_s': 60, 'env_vars': {...}, 'cli_args': []}
+    constraints: dict[str, Any]     # {'network_isolated': True, 'sinkhole_only': True, 'max_mem_mb': 512}
+    check_status: str               # 'required' | 'optional' | 'unsupported' | 'blocked'
+    status_notes: Optional[str]     # Diagnostic notes if status is 'unsupported' or 'blocked'
+```
+
+### 9.4 Canonical Check Categories
+1. `TRIGGER_EXECUTION`: Standard execution of skill entrypoint within the container.
+2. `CREDENTIAL_CANARY_MONITOR`: Seeds honeypot credentials (AWS, SSH, Slack, etc.) matching `contextual_intent` and monitors read attempts via `inotify`.
+3. `DNS_SINKHOLE_WATCH`: Instructs DNS sinkhole to log all port 53 queries and attempt decoding `SKS-` canary markers from subdomain labels (Base64/Hex).
+4. `HTTP_EXFIL_MONITOR`: Intercepts outbound HTTP POST requests to fake responder; matches canary markers in request bodies.
+5. `EVASION_PROBE_WATCH`: Monitors inotify triggers on shadowed Docker artifacts (`/.dockerenv`, `/proc/1/cgroup`).
+
+### 9.5 Status Lifecycle & Fallback Behavior
+- `required`: Mandatory check triggered by deterministic code anchor or visual injection payload.
+- `optional`: General behavioral check for benign or low-risk skills.
+- `blocked`: Execution prevented due to critical upstream security violations (e.g., path traversal attempted during Stage 1).
+- `unsupported`: Check requires capabilities not available in the current environment (e.g., Docker daemon is offline); emitted as degraded finding `sandbox-unavailable`.
+
+---
+
+## 10. Interface INT-5: Windows PowerShell CLI Ingestion & Invocation Contract
+
+### 10.1 Ownership & Status
+- **Producers**: Developer 1 (CLI entry point & runner) / Developer 2 (Path normalization & parser ingestion).
+- **Consumers**: Windows Developers, CI/CD Workflows, PowerShell Scripts.
+- **Status**: **CONFIRMED (Target: M1)**.
+
+### 10.2 PowerShell Command Syntax
+```powershell
+# Standard invocation
+skillsentry scan <path> [options]
+
+# Python module invocation (guaranteed fallback across Windows environments)
+python -m skillsentry.cli scan <path> [options]
+```
+
+### 10.3 Option Flags & PowerShell Binding
+| Flag | PowerShell Parameter | Type | Default | Contract |
+|:---|:---|:---:|:---:|:---|
+| `<path>` | `-Path` | `string` | Required | Directory containing `SKILL.md` or parent directory of skills. |
+| `--sarif-out` | `-SarifOut` | `string` | `None` | Path to export SARIF 2.1.0 JSON file. |
+| `--format` | `-Format` | `string` | `text` | Output mode: `text`, `json`, `sarif`, `markdown`. |
+| `--no-cache` | `-NoCache` | `switch` | `false` | Bypasses Stage 0 cache lookup and prevents cache write. |
+| `--no-sandbox` | `-NoSandbox` | `switch` | `false` | Runs static/semantic stages only; flags verdict `sandbox-unavailable`. |
+| `--backend` | `-Backend` | `string` | `auto` | `auto`, `local`, `cloud`, `demo`. |
+| `--demo-mode` | `-DemoMode` | `switch` | `false` | Canned responses; zero model/Docker dependencies. |
+| `--timeout` | `-Timeout` | `int` | `60` | Sandbox hard execution timeout in seconds. |
+| `--fail-on` | `-FailOn` | `string` | `malicious` | CI exit code gate: `safe`, `suspicious`, `malicious`. |
+
+### 10.4 Windows Path Sanitization Contract
+1. Normalizes Windows backslashes (`\`) to POSIX (`/`) internally.
+2. Resolves local absolute paths (`C:\...`, `D:\...`), relative paths (`.\...`), and UNC paths (`\\server\share\...`).
+3. Handles PowerShell quotation strings (`"C:\Program Files\..."`) and trailing slashes cleanly.
+4. Enforces strict UTF-8 stdout encoding with BOM support for Windows PowerShell terminal redirections.
+
+---
+
+## 11. Proposed Project-Wide Planning Document Updates
+
+Because Developer 2 strictly observes directory ownership (`developer-2/` only), the following formal document updates are proposed for Developer 1 and Developer 3 to adopt in the shared repository documentation:
+
+### 11.1 Proposed Update to `docs/07-cli-reference.md`
+> **Proposed Addition to §7.1 & §7.2**:
+> ```markdown
+> ### Windows PowerShell Quickstart
+> SkillSentry fully supports direct execution in Windows PowerShell (5.1+ and 7.x):
+> ```powershell
+> # Activate environment
+> .venv\Scripts\Activate.ps1
+>
+> # Audit a skill from PowerShell
+> skillsentry scan .\fixtures\malicious\cloud-sync-pro --format text
+>
+> # Windows CI Gate Example
+> skillsentry scan .\skills\ --fail-on malicious --sarif-out sarif-results.json
+> if ($LASTEXITCODE -ne 0) { Write-Error "Security audit failed!" }
+> ```
+> Windows path handling automatically normalizes drive letters (`C:\`), backslashes, and paths containing spaces.
+> ```
+
+### 11.2 Proposed Update to `docs/05-api-reference.md`
+> **Proposed Addition to §5.2 (`GET /skills/{id}`)**:
+> Extend `GET /skills/{id}` response payload to include the `sandboxInstructions` block:
+> ```jsonc
+> {
+>   "skill_id": "3f9c...",
+>   "verdict": "MALICIOUS",
+>   "sandboxInstructions": [
+>     {
+>       "instruction_id": "inst-4a2b...",
+>       "finding_id": "find-01",
+>       "entrypoint_script": "scripts/sync.sh",
+>       "check_category": "CREDENTIAL_CANARY_MONITOR",
+>       "contextual_intent": ["aws"],
+>       "check_status": "required"
+>     }
+>   ]
+> }
+> ```
+
+### 11.3 Proposed Update to `docs/02-architecture.md`
+> **Proposed Addition to §2.3 (Stage 4 Subsystem)**:
+> Explicitly codify the **5-Phase Sandbox Execution Boundary**:
+> 1. Analysis Output (Dev 2 emits findings & `SandboxActionInstruction` list).
+> 2. Execution Request (Dev 1 Orchestrator validates policy and schedules container).
+> 3. Sandbox Enforcement (Dev 1 Docker container restricts and monitors).
+> 4. Sandbox Evidence Collection (Dev 1 collects inotify & sinkhole telemetry).
+> 5. Evidence Correlation & Verdict (Dev 1 Fusion engine computes final SARIF).
+

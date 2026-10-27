@@ -12,14 +12,15 @@
 The Package Parser (`skillsentry/core/parser/skill_parser.py`) is the entry point for all skill auditing. It safely inspects the package directory, validates metadata compliance against the [Agent Skill Open Standard](https://agentskills.io/specification), inventories all scripts and assets with line numbers, and sanitizes untrusted inputs to defend against parser-level exploits.
 
 ### 2. Inputs & Preconditions
-- **Input**: Absolute path to a skill package directory (`skill_dir: Path`).
-- **Preconditions**: Path exists and is a directory accessible with read permissions on the local host.
+- **Input**: Path to a skill package directory or skill file (`skill_dir: Path | str`), provided via CLI argument, environment variable, or orchestrator call.
+- **Preconditions**: Path exists and is accessible with read permissions on the host system (supports Windows local paths `C:\...`, UNC paths, relative paths, and POSIX syntax).
 
 ### 3. Expected Outputs & Data Contracts
 - Returns a structured `PackageManifest` containing:
   - `name`: String (skill identifier).
   - `description`: String (declared intent text).
   - `trigger_keywords`: List of strings.
+  - `canonical_root_posix`: Normalized POSIX root path.
   - `scripts`: Map of relative POSIX path $\rightarrow$ `ScriptFile` (containing line-numbered code lines, size, hash).
   - `assets`: Map of relative POSIX path $\rightarrow$ `AssetFile` (image/SVG/data files, MIME type, size).
   - `total_size_bytes`: Integer.
@@ -29,22 +30,27 @@ The Package Parser (`skillsentry/core/parser/skill_parser.py`) is the entry poin
 1. **Frontmatter Validation**: The root `SKILL.md` must contain valid YAML frontmatter parsed via `python-frontmatter`:
    - `name`: Required, non-empty, alphanumeric with dashes/underscores (`^[a-zA-Z0-9_-]+$`), max 64 chars.
    - `description`: Required, 1 to 1024 characters. Must contain declared trigger keywords.
-2. **Path Traversal Defense**: All relative paths inside the package must be strictly checked. Any file path attempting directory traversal (`../`, absolute paths, symlinks pointing outside `skill_dir`) must immediately be rejected with a `critical` severity finding and halted from further processing.
+2. **Windows Path Normalization & Traversal Defense**:
+   - Ingestion sanitizes Windows-specific path variants: resolves drive letters (`C:\`, `D:\`), converts Windows backslashes `\` to normalized POSIX `/` internally, strips surrounding quotes added by PowerShell auto-completion, and strips Windows extended-length prefixes (`\\?\`).
+   - Rejects Windows alternate data streams (e.g., `file.txt:hidden`) and reserved DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`).
+   - All relative paths inside the package are strictly resolved against the normalized root. Any file path attempting directory traversal (`../`, absolute paths, symlinks pointing outside `skill_dir`) must immediately be rejected with a `critical` severity finding and halted from further processing.
 3. **Resource & Bomb Limits**:
    - Max file count per package: **1,000 files**.
    - Max individual file size: **10 MB** (files exceeding this are inventoried with a `truncated` finding and their content omitted from LLM prompts).
    - Max total package size: **50 MB**.
    - YAML depth limit: Max nesting level of 10 to prevent parser exhaustion / billion laughs attacks.
-4. **Encoding & Binary Safety**: Text files are parsed as UTF-8 with a replacement fallback (`errors="replace"`). Binary files are inventoried by hash and size but never decoded into string memory.
+4. **Encoding & Binary Safety**:
+   - Text files are parsed as UTF-8 with strict BOM handling (`utf-8-sig`) and replacement fallback (`errors="replace"`), ensuring compatibility with Windows PowerShell UTF-16 / ANSI redirections.
+   - Binary files are inventoried by hash and size but never decoded into string memory.
 
 ### 5. Failure & Degraded-Operation Behavior
 - **Missing `SKILL.md`**: Emits `severity="high"`, `message="No SKILL.md found in package root"`. Pipeline proceeds in degraded mode (extracting scripts directly).
 - **Malformed YAML**: Emits `severity="medium"`, `message="Invalid YAML frontmatter: <error>"`. Fallbacks attempt regex extraction of `name:` and `description:`.
-- **Traversal Detected**: Emits `severity="critical"`, `message="Path traversal attempted: <path>"`.
+- **Traversal / Device Name Detected**: Emits `severity="critical"`, `message="Path traversal or reserved device name attempted: <path>"`.
 
 ### 6. Acceptance Criteria
-- Parsing `fixtures/benign/pdf-summarizer` yields valid frontmatter and zero warning findings.
-- Synthetic packages with traversal paths (`../../.ssh`), oversized files (>10MB), and invalid YAML depth are safely rejected without unhandled exceptions or crashes.
+- Parsing `fixtures/benign/pdf-summarizer` from Windows PowerShell with Windows path syntax (`.\fixtures\benign\pdf-summarizer`) yields valid frontmatter, normalized POSIX inventory, and zero warning findings.
+- Synthetic packages with traversal paths (`../../.ssh`, `C:..\secret`), oversized files (>10MB), and invalid YAML depth are safely rejected without unhandled exceptions or crashes.
 
 ---
 
@@ -401,3 +407,162 @@ Following core build stabilization (M4), Developer 2 leads:
 2. **Precision & Recall Publishing**: Documenting mathematical precision, recall, and F1-score across the 20-skill benchmark in the official documentation.
 3. **Typosquat Dictionary Pipeline**: Automating scraping and curation of top registry packages into versioned dictionaries.
 4. **Prompt Version Tracking**: Injecting unique version tags into prompt templates to ensure full audit traceability in cached findings.
+
+---
+
+## Capability J: Dynamic Sandbox Action Instruction Generation & Execution Handoff
+
+### 1. Objective & Scope
+The Sandbox Instruction Generator (`skillsentry/core/semantic/sandbox_instructions.py`) bridges Developer 2's static, semantic, and visual analysis with Developer 1's Stage 4 Docker behavioral sandbox. It translates detected code anchors, intent contradictions, and visual injection payloads into structured, actionable **Sandbox Action Instructions** (`SandboxActionInstruction`, Interface INT-4).
+
+### 2. Inputs & Preconditions
+- **Inputs**:
+  - `findings`: List of `Finding` objects from `deterministicAnchor`, `semantic`, and `vision` stages.
+  - `intent_keywords`: Normalized intent set (`aws`, `github`, `slack`, `ssh`, `devops`, `generic`).
+  - `package_inventory`: Inventoried scripts, entrypoints, and file paths.
+- **Precondition**: Stages 1, 2, and 3 have completed (or run in degraded mode).
+
+### 3. Expected Outputs & Data Contracts
+- Emits a list of `SandboxActionInstruction` objects attached to `StageResult.sandbox_instructions` (consumed by Developer 1's Pipeline Orchestrator).
+- Each instruction follows the formal data contract:
+
+```python
+from dataclasses import dataclass, field
+from typing import Optional, Any
+
+@dataclass(frozen=True)
+class SandboxActionInstruction:
+    instruction_id: str             # UUID v4 identifier
+    finding_id: Optional[str]       # Associated Finding reference (if triggered by a finding)
+    target_package: str             # Name of the skill package
+    entrypoint_script: str          # Relative POSIX path to executable (e.g., 'scripts/sync.sh')
+    reason: str                     # Why this sandbox check is required
+    check_category: str             # 'TRIGGER_EXECUTION' | 'CREDENTIAL_CANARY_MONITOR' |
+                                    # 'DNS_SINKHOLE_WATCH' | 'HTTP_EXFIL_MONITOR' | 'EVASION_PROBE_WATCH'
+    contextual_intent: list[str]    # Relevant intent keywords for canary seeding (e.g., ['aws'])
+    execution_parameters: dict[str, Any] # {'timeout_s': 60, 'env_vars': {...}, 'cli_args': []}
+    constraints: dict[str, Any]     # {'network_isolated': True, 'sinkhole_only': True, 'max_mem_mb': 512}
+    check_status: str               # 'required' | 'optional' | 'unsupported' | 'blocked'
+    status_notes: Optional[str]     # Explanatory notes if blocked or unsupported
+```
+
+### 4. Dynamic Mapping & Generation Rules
+
+| Triggering Analysis Finding | Generated Check Category | Seeded Canary / Monitor | Parameter Adjustments | Check Status |
+|:---|:---|:---|:---|:---:|
+| `open(~/.aws/credentials)` or `AWS_` env read (AST Anchor) | `CREDENTIAL_CANARY_MONITOR` | Seed `~/.aws/credentials` (`AKIA...SKS-...`) | Set `AWS_SECRET_ACCESS_KEY` in sandbox env | `required` |
+| `open(~/.ssh/id_rsa)` (AST Anchor or Vision OCR) | `CREDENTIAL_CANARY_MONITOR` | Seed `~/.ssh/id_rsa` (PEM `SKS-...`) | Mount ephemeral `.ssh` directory | `required` |
+| `nslookup` / `dig` DNS tunneling (AST Anchor) | `DNS_SINKHOLE_WATCH` | Listen on port 53; decode Base64/Hex subdomain labels | Extend network correlation window to 15s | `required` |
+| `curl` / `wget` HTTP POST (AST Anchor or Script) | `HTTP_EXFIL_MONITOR` | Route egress to Fake HTTP responder (port 80/443); match `SKS-` marker | Enable secondary canary response | `required` |
+| `/.dockerenv` / `/proc/1/cgroup` check (AST Anchor) | `EVASION_PROBE_WATCH` | Inotify watch on shadow paths; activate `masquerade.so` | Auto-override to MALICIOUS on touch | `required` |
+| Skill has only benign scripts, declared HTTP fetch | `TRIGGER_EXECUTION` | Standard sinkhole network; verify declared domain only | Baseline execution | `optional` |
+| Package failed Stage 1 spec validation (path traversal) | `TRIGGER_EXECUTION` | Do NOT run inside container | Mark `blocked` due to host traversal threat | `blocked` |
+
+### 5. Post-Execution Evidence Correlation Contract
+Developer 1's sandbox subsystem executes the instructions and returns raw telemetry (`canary_events`, `sandbox_net_logs`, `evasion_flags`). Developer 2's contracts ensure that each instruction has an unambiguous correlation path back to the originating finding:
+- `canary_events.marker_matched` matches the canary seeded for `contextual_intent`.
+- Telemetry maps back to the `instruction_id` and `finding_id` in SARIF evidence.
+
+### 6. Acceptance Criteria
+- For fixture `fixtures/malicious/cloud-sync-pro`, generates two `required` instructions: `CREDENTIAL_CANARY_MONITOR` (targeting `~/.aws/credentials`) and `DNS_SINKHOLE_WATCH` (citing `scripts/sync.sh:6`).
+- For malicious fixture `fixtures/malicious/slack-notif-mal`, generates `EVASION_PROBE_WATCH` and `CREDENTIAL_CANARY_MONITOR` with contextual intent `slack`.
+- For packages with path traversal attempts, marks check status as `blocked` with explicit status notes.
+
+---
+
+## Capability K: Performance Optimization & Resource Bounding
+
+### 1. Objective & Scope
+The Performance Optimization Engine guarantees that SkillSentry delivers sub-2-second cached responses and sub-90-second uncached local evaluations without compromising security assessment thoroughness, omitting required analysis stages, or reporting timeouts as false negatives.
+
+### 2. Cheap Deterministic Pre-Filtering Pipeline
+Expensive model inference (Gemma 4 text and vision) is protected by cheap, deterministic static pre-filters:
+1. **AST & Regex Pre-Scan ($< 100$ ms)**:
+   - Evaluated across all scripts in parallel before model prompting.
+   - Extracts confirmed ground-truth anchors that freeze facts and eliminate LLM back-and-forth hallucination.
+2. **Luminance Contrast Pre-Filter ($< 50$ ms)**:
+   - Scans image pixel blocks for low-contrast ratios ($CR < 1.5:1$) prior to vision model invocation.
+   - Images with zero low-contrast text and standard dimensions skip expensive high-magnification OCR passes.
+
+### 3. Elimination of Redundant Work & In-Memory Manifest
+1. **Single-Pass Ingestion**: Skill directory traversal, frontmatter parsing, and file hashing execute exactly once in Stage 1, constructing an immutable `PackageManifest`.
+2. **Shared Memory References**: `PackageManifest` provides line-numbered scripts to AST scanners, prompt serializers, downscale helpers, and Docker bind-mount configurations without re-reading the filesystem.
+3. **Embedding Batching & Reuse**:
+   - Semantic intent embeddings (when used for semantic similarity against known malware clusters) are batched in a single request.
+   - Computed embeddings are indexed by individual file content hash in SQLite, allowing partial reuse when only documentation files change.
+
+### 4. Bounded Concurrency & Model Session Management
+- **CPU-Bound Concurrency**: AST parsing and image downscaling execute in a bounded `ThreadPoolExecutor` capped at `min(4, os.cpu_count())` to prevent CPU thrashing.
+- **Ollama HTTP Session Reuse**: Uses a persistent `httpx.Client` with HTTP/2 keep-alive to `localhost:11434`, eliminating connection setup and TLS teardown overhead.
+- **Model Warmup & Keep-Alive**: Honors `OLLAMA_KEEP_ALIVE=15m` so the Gemma 4 weights remain resident in memory between scans.
+
+### 5. Thoroughness Preservation Axioms
+Performance optimizations must strictly comply with three inviolable security axioms:
+1. **No Silent Stage Dropping**: Under high load or time pressure, the scanner must **never** silently drop Stage 1, Stage 2, Stage 3, or Stage 4.
+2. **Fail-Safe Timeout Accounting**: Any stage timeout (e.g., Gemma 4 exceeding 60s or Docker sandbox exceeding 60s) must be recorded as an explicit `degraded: true` finding with severity `note` or `medium` (`semantic-timeout`, `sandbox-timeout`). It must **never** default to `SAFE`.
+3. **Explicit Profile Disclosure**: Fast scan modes (e.g., `--no-sandbox`) must explicitly record the absence of behavioral dynamic testing in the SARIF report and console summary.
+
+---
+
+## Capability L: Windows PowerShell CLI Ingestion & Output Contract
+
+### 1. Objective & Scope
+Enables Windows users to audit agent skills directly from Windows PowerShell (5.1 and 7.x) using documented CLI commands, providing intuitive progress updates, rich color-coded assessment summaries, and strict exit code gates for CI/CD automation.
+
+### 2. Command Structure & Invocation Syntax
+
+```powershell
+# Core syntax
+skillsentry scan <path> [options]
+
+# Examples in Windows PowerShell
+skillsentry scan .\fixtures\malicious\cloud-sync-pro
+skillsentry scan "C:\Users\Amandeep\Skills\invoice-helper" --sarif-out report.sarif
+skillsentry scan D:\Skills\ --format text --fail-on malicious
+python -m skillsentry.cli scan .\fixtures\benign\pdf-summarizer
+```
+
+### 3. Supported CLI Options & Flags
+
+| Flag | Type | Default | Description |
+|:---|:---:|:---:|:---|
+| `<path>` | Positional | Required | Target skill package directory or parent folder of skills. |
+| `--sarif-out <file>` | Path | `None` | Writes full SARIF 2.1.0 JSON report to specified path. |
+| `--format` | Enum | `text` | Output format: `text` (ANSI terminal), `json`, `sarif`, `markdown`. |
+| `--no-cache` | Boolean | `false` | Bypasses Stage 0 cache lookup and prevents cache write. |
+| `--no-sandbox` | Boolean | `false` | Runs static & semantic stages only; flags verdict `sandbox-unavailable`. |
+| `--backend` | Enum | `auto` | Model backend: `auto` (local Ollama with cloud fallback), `local`, `cloud`, `demo`. |
+| `--demo-mode` | Boolean | `false` | Uses canned fixture payloads; zero Docker or model requirements. |
+| `--timeout <s>` | Integer | `60` | Sandbox hard execution timeout in seconds. |
+| `--fail-on` | Enum | `malicious` | CI exit code threshold: `safe`, `suspicious`, `malicious`. |
+| `-q, --quiet` | Boolean | `false` | Suppresses progress banners; outputs final verdict line only. |
+
+### 4. Windows PowerShell Console Output & Formatting
+When run interactively in PowerShell, the CLI outputs clean, ANSI-colored terminal blocks:
+
+```text
+🛡️ SkillSentry v2.0 · Powered by Gemma 4 · local (ollama) · Windows x64
+[0/7] cache      ✓ miss (hash 9f2c7a...)
+[1/7] spec       ✓ frontmatter valid · typosquat check: clean
+[2/7] anchors    ⚑ 2 findings (credential read, nslookup DNS tunneling)
+[2/7] semantic   ✓ Gemma 4: declared 'cloud sync' ≠ actual 'credential exfil' (deceptive)
+[3/7] vision     ✓ 0 visual injection payloads
+[4/7] sandbox    🚨 CANARY READ: ~/.aws/credentials (T+1.2s)
+[4.5] ☠ well     🔍 marker SKS-7f3a9c21 in DNS query: 7f3a.c2.evil-collector.net -> CONFIRMED
+[5/7] evasion    ✓ no environment probes
+[6/7] verdict    🚫 MALICIOUS · Risk Score: 97/100 · Confidence: 1.0 (Hard Evidence)
+
+C2 Indicators: evil-collector.net (DNS_TUNNELING, Base64)
+Artifacts: ~/.skillsentry/reports/3f9c7a/report.sarif
+```
+
+### 5. CI Exit Code Contract
+
+| Exit Code | Classification | Meaning in CI / PowerShell Automation |
+|:---:|:---|:---|
+| `0` | **PASS** | All scanned skills have risk score $\le$ `--fail-on` threshold. Merge permitted. |
+| `1` | **GATE FAIL** | Verdict exceeded threshold (e.g., `MALICIOUS` found). Blocks PR merge. |
+| `2` | **USAGE ERROR** | Invalid path, non-existent folder, or unrecognized flag. |
+| `3` | **OPERATIONAL ERROR** | Operational dependency failure (Docker daemon down, SQLite locked). Never a verdict. |
+| `4` | **MODEL UNAVAILABLE** | Model backend unavailable and no fallback configured. |
+

@@ -19,6 +19,9 @@ The table below catalogs all architectural, operational, and cross-workstream ri
 | **RSK-D2-05** | **Cache Invalidation Failure**: Skill is altered post-audit but returns cached SAFE verdict. | Low | Crit | **Canonical Directory SHA-256**: Key incorporates relative POSIX path, file mode bits, and content digest. Any byte change, rename, or permission modification forces a cache miss. | Dev 2 |
 | **RSK-D2-06** | **Parser Denial of Service**: Hostile package contains nested YAML bombs or recursive symlink loops. | Low | High | **Hardened Parsing Boundaries**: Safe YAML loader with max recursion depth of 10; 10 MB per-file cap; 50 MB package cap; strict root-boundary containment checks. | Dev 2 |
 | **RSK-D2-07** | **Workload Imbalance & Dev 1 Bottleneck**: Dev 1’s surface area (~20 modules) slips behind milestone exit gates. | Med | High | **Swing Task Execution**: Pre-agreed tasks (STIX bundle writer, Markdown renderer, Gemini cloud fallback client, CLI setup) immediately transfer to Dev 2 per [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.8. | Dev 2 / Dev 1 |
+| **RSK-D2-08** | **Windows Path & Encoding Anomalies**: PowerShell passes backslashes, drive letters, spaces, or Unicode with BOM; scripts use CRLF. | Med | Med | **Path & Line Normalizer**: Safe path resolution with `pathlib.Path`, conversion to POSIX `/`, UTF-8 BOM handling (`utf-8-sig`), and universal newline normalization. | Dev 2 |
+| **RSK-D2-09** | **Sandbox Instruction Schema Drift**: Dev 1 sandbox runner expects different arguments or fails to map canary tokens. | Low | High | **Frozen Interface INT-4 & Contract Tests**: Dataclass schema frozen in M0; automated contract tests (`test_sandbox_handoff.py`) block merges on drift. | Dev 2 / Dev 1 |
+| **RSK-D2-10** | **Optimization vs. Thoroughness Conflict**: Aggressive latency optimization risks skipping required stages or treating timeouts as safe. | Med | Crit | **Architectural Axiom ADR-D7**: Optimize redundant parsing and caching only; never omit required detection stages; timeouts flagged `degraded: true`, never `SAFE`. | Dev 2 / Dev 1 |
 
 ---
 
@@ -51,12 +54,43 @@ The following specifications are currently provisional and require formal cross-
     - If `is_deceptive == False`: $s_{\text{semantic}} = \min(20.0, (1.0 - \text{confidence}) \times 100.0)$.
 - **Action**: Confirmed in Interface I3 and `03-functional-specifications.md`.
 
+### 2.4 Decision Item 4: PowerShell CLI Exit Codes vs. Operational Failures
+- **Issue**: When a scan fails due to an environmental failure (e.g. Docker daemon stopped or Ollama model not pulled), what exit code should PowerShell return?
+- **Proposed Resolution**: Strictly separate security verdicts from operational failures:
+  - Verdict `MALICIOUS` returns exit code `1` (blocks PR merge).
+  - Usage / syntax error returns exit code `2`.
+  - Operational error (Docker down, SQLite locked) returns exit code `3` and emits an operational alert, never a verdict.
+  - Model unavailable without configured fallback returns exit code `4`.
+- **Action**: Confirmed in Interface INT-5.
+
+### 2.5 Decision Item 5: Host Traversal Threat & Blocked Sandbox Execution
+- **Issue**: If a skill package contains path traversal (`../../.ssh`), should the Docker sandbox still attempt execution?
+- **Proposed Resolution**: No. If Stage 1 spec validation flags path traversal or reserved DOS devices, sandbox check status is set to `blocked`. Untrusted code with host-traversal intent must never be mounted or executed.
+- **Action**: Confirmed in Interface INT-4.
+
 ---
 
 ## 3. Cross-Developer Coordination & Sync Cadence
 
-1. **Daily Standup against Milestone Criteria**: Focus on blockers on Interfaces I1, I2, I3, and I4.
+1. **Daily Standup against Milestone Criteria**: Focus on blockers on Interfaces I1, I2, I3, INT-4, and INT-5.
 2. **Contract Freeze Windows**:
    - Interface I1 (Verdict schema & constants) frozen at M0 exit.
+   - Interface INT-4 (`SandboxActionInstruction`) frozen at M1 entry.
    - Analyzer prompts frozen at M2 exit (modifications require full corpus re-run).
 3. **Escalation Protocol for Swing Tasks**: If any milestone exit criterion for Developer 1 is at risk within 24 hours of gate review, the affected swing task (e.g., STIX writer) is formally transferred to Developer 2.
+
+---
+
+## 4. Project-Wide Planning Document Change Proposals (For Project Owner & Dev 1)
+
+Developer 2 proposes the following formal updates to shared documentation files outside `developer-2/`:
+
+### Proposal 1: Update `docs/07-cli-reference.md`
+- Add Windows PowerShell documentation section describing invocation (`skillsentry scan <path>`), path normalization (`C:\...`), and execution in PowerShell 5.1 and 7.x.
+- Document exit codes: 0 = Safe, 1 = Threshold exceeded (Gate fail), 2 = Usage error, 3 = Operational error, 4 = Model unavailable.
+
+### Proposal 2: Update `docs/05-api-reference.md`
+- Extend `GET /skills/{id}` endpoint schema to include `sandboxInstructions` field listing generated `SandboxActionInstruction` objects.
+
+### Proposal 3: Update `docs/02-architecture.md`
+- Include the **5-Phase Sandbox Execution Boundary** in §2.3 to formally distinguish Analysis Output (Dev 2) from Execution Request (Orchestrator) and Sandbox Enforcement (Dev 1).

@@ -79,11 +79,12 @@ Per [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-te
 | Module / Component | File Path | Scope & Primary Function |
 |:---|:---|:---|
 | **Directory Hasher** | `skillsentry/core/cache/hash_utils.py` | Computes deterministic, normalized SHA-256 directory digest (POSIX sorted, permission bits, exclusion rules). |
-| **SQLite Cache Store** | `skillsentry/core/cache/sqlite_store.py` | Repository pattern for `scan_cache` & `schema_meta`; handles hit/miss, invalidation matrix, WAL mode, pruning. |
-| **Package & Spec Parser** | `skillsentry/core/parser/skill_parser.py` | Parses YAML frontmatter via `python-frontmatter`, validates against Agent Skill Spec, enforces size caps, prevents path traversal. |
+| **SQLite Cache Store** | `skillsentry/core/cache/sqlite_store.py` | Repository pattern for `scan_cache` & `schema_meta`; handles hit/miss, invalidation matrix, WAL mode, pruning (<2s budget). |
+| **Package & Spec Parser** | `skillsentry/core/parser/skill_parser.py` | Parses YAML frontmatter via `python-frontmatter`, validates against Agent Skill Spec, enforces size caps, prevents path traversal, normalizes Windows PowerShell paths. |
 | **Typosquat Detector** | `skillsentry/core/parser/typosquat.py` | Identifies deceptive naming via homoglyph folding + Levenshtein distance $\le 2$ against curated top-skill dictionary (+15 risk bonus). |
-| **AST Anchor Scanner** | `skillsentry/core/semantic/ast_anchor.py` | Fast deterministic code scan (`ast` walk for Python, regex for Shell/JS) extracting dangerous calls with line citations. |
-| **Semantic Analyzer** | `skillsentry/core/semantic/analyzer.py` | Coordinates Gemma 4 E4B text analysis over anchored prompts via I2; handles JSON retries, schema enforcement, fallback. |
+| **AST Anchor Scanner** | `skillsentry/core/semantic/ast_anchor.py` | Fast deterministic code scan (`ast` walk for Python, regex for Shell/JS) extracting dangerous calls with line citations (<100ms budget). |
+| **Sandbox Instruction Gen** | `skillsentry/core/semantic/sandbox_instructions.py` | Derives structured `SandboxActionInstruction` records from AST/semantic/vision findings to drive Stage 4 sandbox execution. |
+| **Semantic Analyzer** | `skillsentry/core/semantic/analyzer.py` | Coordinates Gemma 4 E4B text analysis over anchored prompts via I2; handles JSON retries, schema enforcement, fallback, embedding/intent extraction. |
 | **Analyzer Prompts** | `skillsentry/core/semantic/prompts.py` | Frozen structured prompt templates framing skill code as untrusted data with anchored facts injected as ground truth. |
 | **Asset Extractor** | `skillsentry/core/vision/image_extractor.py` | Inventories raster images and SVGs, enforces size/count caps, applies 1024 px downscale, executes contrast pre-filter. |
 | **Vision Scanner** | `skillsentry/core/vision/vision_scanner.py` | Coordinates Gemma 4 Vision OCR via I2, extracts bounding boxes for Gemma's Eye View, performs dual SVG scan (XML + rendered). |
@@ -99,29 +100,32 @@ The table below defines the exact RACI assignments (Responsible, Accountable, Co
 
 | Stage Identifier | Stage Name | Dev 1 | Dev 2 | Dev 3 | Dev 2 Role Details |
 |:---|:---|:---:|:---:|:---:|:---|
-| `cache` | **Stage 0: Incremental Cache** | A | **R / A** | C | Dev 2 builds hashing & SQLite repository; Dev 1 orchestrates query & write. |
-| `spec` | **Stage 1: Spec Validation** | C | **R / A** | I | Dev 2 parses package, validates frontmatter, inventory files. |
+| `cache` | **Stage 0: Incremental Cache** | A | **R / A** | C | Dev 2 builds hashing & SQLite repository; Dev 1 orchestrates query & write. Sub-2s SLA. |
+| `spec` | **Stage 1: Spec Validation** | C | **R / A** | I | Dev 2 parses package, validates frontmatter, inventories files, normalizes Windows paths. |
 | `typosquat` | **Stage 1: Typosquatting** | C | **R / A** | I | Dev 2 computes distance against dictionary; emits +15 risk bonus signal. |
-| `deterministicAnchor` | **Stage 2: AST Anchors** | C | **R / A** | I | Dev 2 scans Python AST & scripts; extracts exact `file:line` anchors. |
-| `semantic` | **Stage 2: Semantic Analysis** | C (Client) | **R / A** | I | Dev 2 formats prompts, calls I2 model client, extracts intent keywords. |
-| `vision` | **Stage 3: Multimodal Vision** | C (Client) | **R / A** | C (BBox) | Dev 2 extracts images, scans via I2, outputs bounding boxes for UI. |
-| `sandbox` | **Stage 4: Sandbox Execution** | **R / A** | C | I | Dev 1 runs Docker container; Dev 2 provides normalized intent keywords. |
+| `deterministicAnchor` | **Stage 2: AST Anchors** | C | **R / A** | I | Dev 2 scans Python AST & scripts; extracts exact `file:line` anchors; emits sandbox instructions. |
+| `semantic` | **Stage 2: Semantic Analysis** | C (Client) | **R / A** | I | Dev 2 formats prompts, calls I2 model client, extracts intent keywords (`aws`, `slack`, etc.). |
+| `vision` | **Stage 3: Multimodal Vision** | C (Client) | **R / A** | C (BBox) | Dev 2 extracts images, scans via I2, outputs bounding boxes for UI, maps visual payloads to sandbox checks. |
+| `sandbox` | **Stage 4: Sandbox Execution** | **R / A** | C | I | Dev 1 runs Docker container; Dev 2 provides normalized intent keywords and `SandboxActionInstruction` records. |
 | `poisonedWell` | **Stage 4.5: Poisoned Well** | **R / A** | I | C | Dev 1 generates canaries, correlates exfil; Dev 2 provides demo data. |
 | `evasion` | **Stage 5: Evasion Detection** | **R / A** | I | I | Dev 1 detects inotify probes on Docker artifacts. |
-| `verdict` | **Stage 6: Verdict Engine** | **R / A** | C | C | Dev 1 fuses signals and outputs SARIF; Dev 2 provides normalized signals. |
-| `eval` | **Evaluation & Benchmarking** | C | **R / A** | C | Dev 2 maintains ground-truth annotations and verifies evaluation sheet. |
+| `verdict` | **Stage 6: Verdict Engine** | **R / A** | C | C | Dev 1 fuses signals and outputs SARIF; Dev 2 provides normalized signals and evidence. |
+| `eval` | **Evaluation & Benchmarking** | C | **R / A** | C | Dev 2 maintains ground-truth annotations and verifies evaluation sheet and benchmark gates. |
 
 ---
 
 ## 5. Architectural Decision Records (ADRs) Affecting Developer 2
 
-The team workload agreement established five core architectural decisions that dictate Developer 2’s interfaces:
+The team workload agreement established eight core architectural decisions that dictate Developer 2’s interfaces:
 
 - **ADR-D1 (Model Client Separation)**: Dev 2 owns analysis logic (`ast_anchor`, `analyzer`, `prompts`, `vision_scanner`); Dev 1 owns model plumbing (`gemma_local`, `gemma_cloud`). Dev 1 exposes the typed protocol **I2**; Dev 2 consumes it as a library. Dev 2 uses `MockGemma` for zero-blocker parallel development.
 - **ADR-D2 (Pipeline Orchestration)**: Dev 1 owns `cli.py`, FastAPI `app.py`, WebSocket streaming, and `demo_mode.py`. Dev 2 does not write HTTP endpoints; Dev 2 returns standard `StageResult` dataclasses (Interface **I3**) to the orchestrator.
 - **ADR-D3 (Milestone Gates M0–M5)**: Progress is measured against verifiable exit criteria (e.g., "cache lookup < 2 s", "benign FP rate = 0/4") rather than arbitrary work-hour estimates.
 - **ADR-D4 (Dev 1 Sequence Priority)**: Dev 1 builds Sandbox $\rightarrow$ Deception $\rightarrow$ Model Plumbing $\rightarrow$ Report Generation. Dev 2 can develop Stages 0, 1, 2, and 3 completely in parallel using mock backends.
 - **ADR-D5 (Cache Store Ownership)**: The `core/cache/` implementation is transferred to Dev 2 to balance workload. Dev 2 implements `hash_utils.py`, `sqlite_store.py`, and database migration scripts; Dev 1 consumes them in Stage 0 and Stage 6.
+- **ADR-D6 (Dynamic Sandbox Instruction Contract & 5-Phase Boundary)**: Developer 2 analysis stages emit structured `SandboxActionInstruction` objects defining required check categories, target scripts, reasons, intent keywords, and constraints. Developer 2 **never** executes untrusted skills on the host machine or in the CLI process. All execution is strictly delegated to Developer 1's isolated Docker sandbox container.
+- **ADR-D7 (Performance Optimization & Fail-Safe Invariance)**: Scan and test performance is maximized via content hashing, sub-2s SQLite cache hits, cheap deterministic AST/regex pre-filtering (<100ms) before model calls, image contrast pre-filtering, and bounded concurrency. However, optimizations must never skip required security stages or omit sandbox checks under time pressure. Model or sandbox timeouts never default to `SAFE`; they yield explicit degraded findings (`degraded: true`).
+- **ADR-D8 (Windows PowerShell CLI Support)**: The scanning pipeline fully supports Windows PowerShell invocation (`skillsentry scan <path>` / `python -m skillsentry.cli scan <path>`). Developer 2's parsers and path utilities strictly normalize Windows path formats (`C:\`, backslashes, long paths, spaces) and handle console character encoding (UTF-8) cleanly.
 
 ---
 
@@ -133,3 +137,4 @@ If Dev 1 encounters delivery delays on the critical path, the following tasks ar
 2. **Markdown Report Renderer**: Rendering human-readable Markdown summaries from SARIF results.
 3. **Gemini API Cloud Fallback Client (`gemma_cloud.py`)**: Implementing the I2 protocol against the Google GenAI SDK.
 4. **CLI Progress Bars & Initial Setup Wizard (`skillsentry init`)**: User experience enhancements for Phase 1.
+5. **PowerShell CLI Windows Wrapper & Formatter**: PowerShell-specific output formatting and tab completion scripts.

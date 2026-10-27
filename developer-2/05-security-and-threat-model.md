@@ -77,11 +77,30 @@ A security scanner that audits malicious packages is, by its very nature, an att
   2. Any modification, reordering, or addition immediately alters the hash, causing a **cache miss** and forcing a full re-scan.
   3. SQLite cache entries strictly bind `engine_version` and `model_version`.
 
+### 2.6 Threat 6: Windows Path Anomalies, Reserved Device Names & Alternate Data Streams (CWE-22, CWE-66)
+- **Attack Mechanism**: Adversarial skills packaged on or targeting Windows systems utilize reserved MS-DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`), NTFS Alternate Data Streams (`scripts/sync.sh:hidden_exe`), or Windows path traversal (`C:..\..\secret`) to evade detection, crash the parser, or access unauthorized host files.
+- **Countermeasure**:
+  1. The path parser validates all filenames against reserved DOS device names (case-insensitive) and rejects them with a `critical` severity finding.
+  2. Rejects any path containing stream separators (`:`).
+  3. Normalizes all backslashes (`\`) to POSIX (`/`) before root containment verification.
+
+### 2.7 Threat 7: PowerShell Argument & Command Injection (CWE-88)
+- **Attack Mechanism**: A skill package crafts metadata, description fields, or script names containing PowerShell meta-characters (`;`, `&`, `|`, `$(...)`, `` ` ``, `<#...#>`) hoping that downstream logging, shell execution, or console formatting evaluates them as executable shell commands.
+- **Countermeasure**:
+  1. Strict frontmatter schema: Skill `name` must match `^[a-zA-Z0-9_-]+$`.
+  2. CLI and parser components handle inputs as typed Python `pathlib.Path` objects and strings; arguments are passed directly via arrays, never concatenated into raw shell strings for `powershell.exe` execution.
+
+### 2.8 Threat 8: Host Execution Bypass / Premature Execution (CWE-693)
+- **Attack Mechanism**: An attacker bundles an executable binary or PowerShell script, attempting to trick the scanner into executing it on the user's Windows host machine during the audit phase.
+- **Countermeasure**:
+  1. **Strict Analysis Boundary**: Developer 2 performs purely static inspection (AST walk, line regex, token counting, image decompression).
+  2. **Quarantine to Linux Docker Sandbox**: Code execution is prohibited on the Windows host. Execution occurs strictly within Developer 1's Stage 4 Docker container under Linux non-root constraints, dropped capabilities, and sinkhole network restrictions.
+
 ---
 
-## 3. The Fail-Safe Principle
+## 3. The Fail-Safe Principle & Performance Optimization Invariance
 
-> **Core Axiom**: *No error path, parser failure, network glitch, or model timeout may ever produce a `SAFE` verdict.*
+> **Core Axiom**: *No error path, parser failure, network glitch, model timeout, or performance optimization may ever produce a `SAFE` verdict.*
 
 When Developer 2's components encounter an operational or parsing failure:
 1. **Never Swallow Errors as Success**: If an image cannot be decoded, a script cannot be parsed, or the model times out, the result must **never** be silently ignored.
@@ -89,7 +108,9 @@ When Developer 2's components encounter an operational or parsing failure:
    - `spec-invalid`: Frontmatter failed parsing.
    - `semantic-unavailable`: Ollama down / JSON retry exhausted.
    - `vision-skipped`: Image corrupted or exceeds size caps.
+   - `sandbox-unavailable`: Docker daemon unavailable or `--no-sandbox` specified.
 3. **Orchestrator Notification**: The `StageResult` sets `degraded=True`. Developer 1's fusion engine records this in the verdict, alerting the user and preventing an automated clean pass.
+4. **Performance Optimization Invariance**: Performance optimizations (cheap AST pre-filtering, concurrency bounds, embedding caching) are designed to eliminate redundant computation. **Under no circumstances may an analysis stage or required sandbox check be skipped to meet a latency SLA**.
 
 ---
 

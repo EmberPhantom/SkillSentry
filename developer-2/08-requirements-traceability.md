@@ -50,6 +50,15 @@ Verifiable Acceptance Evidence ("Done means")
 | **REQ-EVAL-02** | `08-test` §8.8 | Automated CI expected-verdicts regression gate | **W2.7**<br>CL-D2-7 | `tests/check_expected_verdicts.py` | GitHub Actions CI Run | Fails build if any fixture drifts in verdict, risk band, or required findings. | Planned (M3) |
 | **REQ-CHAOS-01**| `08-test` §8.6 | Corrupted-fixture resilience during M4 Chaos Run | **W2.7**<br>CL-D2-7 | `core/parser/skill_parser.py` | `tests/chaos/test_corrupted_fixtures.py` | Truncated YAML, 0-byte images, symlink loops handled cleanly with findings. | Planned (M4) |
 | **REQ-STAB-01** | `11-team` §11.8<br>`08-test` §8.2 | Expand evaluation corpus to 20 skills & publish metrics | **W2.8**<br>CL-D2-8 | `fixtures/corpus_20/` | `tests/e2e/test_corpus_20.py` | 20-skill suite green in CI; precision, recall, and F1 documented in README. | Planned (M5) |
+| **REQ-D2-PS-01**| Plan Update §5 | Windows PowerShell path normalization & device name rejection | **W2.1**<br>CL-D2-1 | `core/parser/skill_parser.py` | `tests/unit/test_powershell_paths.py` | Normalizes drive letters (`C:\`), backslashes, spaces, quotes; rejects `CON`, `NUL`, `PRN`. | Planned (M1) |
+| **REQ-D2-PS-02**| Plan Update §5<br>`07-cli` §7.5 | Windows PowerShell CLI options & exit code contract (0/1/2/3) | **W2.1**<br>CL-D2-7 | `cli.py` / `skill_parser.py` | `tests/integration/test_powershell_cli.py` | Correct exit codes on safe (0) vs malicious (1) vs usage (2); clean ANSI text. | Planned (M1) |
+| **REQ-D2-SBX-01**| Plan Update §6 | Dynamic SandboxActionInstruction generation from AST anchors | **W2.2**<br>CL-D2-2 | `core/semantic/sandbox_instructions.py` | `tests/unit/test_sandbox_instructions.py` | Emits structured INT-4 checks (`CREDENTIAL_CANARY_MONITOR`, `DNS_SINKHOLE_WATCH`). | Planned (M1) |
+| **REQ-D2-SBX-02**| Plan Update §6 | Intent-adaptive parameter & canary handoff to Stage 4 | **W2.3**<br>CL-D2-3 | `core/semantic/sandbox_instructions.py` | `tests/contract/test_sandbox_handoff.py` | Maps `contextual_intent` keywords to canary tokens and container constraints. | Planned (M1) |
+| **REQ-D2-SBX-03**| Plan Update §6 | Strict 5-phase sandbox execution boundary (no host execution) | **W2.2**<br>CL-D2-2 | Subsystem architectural invariant | `tests/security/test_no_host_execution.py` | Untrusted skills never executed in PowerShell process or on host OS. | Planned (M1) |
+| **REQ-D2-PERF-01**| Plan Update §7 | Cheap deterministic pre-filtering (<100ms AST, <50ms contrast) | **W2.2**<br>CL-D2-2, CL-D2-5 | `core/semantic/ast_anchor.py`<br>`core/vision/image_extractor.py` | `tests/benchmark/test_prefilter_perf.py` | AST/regex and contrast filters run before expensive Gemma inference. | Planned (M1) |
+| **REQ-D2-PERF-02**| Plan Update §7 | Bounded concurrency & persistent local model session reuse | **W2.3**<br>CL-D2-3 | `core/semantic/analyzer.py` | `tests/benchmark/test_concurrency.py` | Worker thread bounds prevent CPU exhaustion; keep-alive connection to Ollama. | Planned (M1) |
+| **REQ-D2-PERF-03**| Plan Update §7 | Thoroughness preservation: timeouts & partial scans flagged | **W2.3**<br>CL-D2-3 | `core/semantic/analyzer.py` | `tests/unit/test_fail_safe_timeouts.py` | Timeouts yield `degraded: true` with `note` findings; never a silent `SAFE`. | Planned (M1) |
+| **REQ-D2-PERF-04**| Plan Update §7 | Multi-tier test suite separation (fast unit loop vs benchmark) | **W2.7**<br>CL-D2-7 | `tests/` directory structure | `pytest -m "not benchmark"` | Unit suite runs in $< 5$s; full benchmarks separated in dedicated suite. | Planned (M1) |
 
 ---
 
@@ -59,10 +68,10 @@ Verifiable Acceptance Evidence ("Done means")
 |:---|:---|:---|:---|:---:|
 | **CL-D2-0** | Onboarding & Environment | `developer-2/` documentation suite | Manual check of constants | M0 |
 | **CL-D2-1** | Parser, Spec & Typosquat | `skillsentry/core/parser/skill_parser.py`<br>`skillsentry/core/parser/typosquat.py` | `tests/unit/test_parser.py`<br>`tests/unit/test_typosquat.py` | M0–M1 |
-| **CL-D2-2** | AST Anchor Scanner | `skillsentry/core/semantic/ast_anchor.py` | `tests/unit/test_ast_anchor.py` | M1 |
+| **CL-D2-2** | AST Anchor Scanner & Sbx Handoff | `skillsentry/core/semantic/ast_anchor.py`<br>`skillsentry/core/semantic/sandbox_instructions.py` | `tests/unit/test_ast_anchor.py`<br>`tests/unit/test_sandbox_instructions.py` | M1 |
 | **CL-D2-3** | Semantic Analyzer & Prompts | `skillsentry/core/semantic/analyzer.py`<br>`skillsentry/core/semantic/prompts.py` | `tests/unit/test_analyzer.py` | M1 |
 | **CL-D2-4** | Cache Store & Hashing | `skillsentry/core/cache/hash_utils.py`<br>`skillsentry/core/cache/sqlite_store.py` | `tests/unit/test_cache.py` | M1 |
 | **CL-D2-5** | Vision Scanner Pipeline | `skillsentry/core/vision/image_extractor.py`<br>`skillsentry/core/vision/vision_scanner.py` | `tests/unit/test_vision.py` | M2 |
 | **CL-D2-6** | Fixtures & Ground Truth | `fixtures/benign/*`<br>`fixtures/malicious/invoice-helper`<br>`fixtures/malicious/g1t-translate`<br>`tests/ground_truth.json` | `tests/check_citation_accuracy.py` | M2–M3 |
-| **CL-D2-7** | Evaluation & CI Gate | `tests/check_expected_verdicts.py`<br>`tests/expected_verdicts.json` | Full CI Run (`pytest tests/`) | M3–M4 |
+| **CL-D2-7** | Evaluation, Benchmarks & CI Gate | `tests/check_expected_verdicts.py`<br>`tests/expected_verdicts.json` | Full CI Run (`pytest tests/`) | M3–M4 |
 | **CL-D2-8** | Stabilization & Swing Tasks | Expanded 20-skill corpus<br>Swing modules (if reassigned) | `tests/e2e/test_corpus_20.py` | M5 |

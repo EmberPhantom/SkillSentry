@@ -19,64 +19,93 @@ This guide enables any engineer joining Developer 2's workstream to set up an en
   ollama pull gemma4:e4b-q4
   ```
 
-### 1.2 Quickstart Setup
-```bash
-# 1. Clone repository and navigate to root
-cd d:/Skillsentry/SkillSentry
+### 1.2 Quickstart Setup (Windows PowerShell)
+```powershell
+# 1. Open Windows PowerShell and navigate to repository root
+cd d:\Skillsentry\SkillSentry
 
-# 2. Create and activate Python virtual environment
+# 2. Allow local script execution if restricted
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+# 3. Create and activate Python virtual environment
 python -m venv .venv
-# On Windows PowerShell:
 .venv\Scripts\Activate.ps1
-# On Linux/macOS:
-source .venv/bin/activate
 
-# 3. Install development dependencies
+# 4. Set UTF-8 encoding for clean Unicode/ANSI console output
+$env:PYTHONUTF8 = "1"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# 5. Install development dependencies
 pip install --upgrade pip
 pip install -e ".[dev]"
 
-# 4. Verify installation
-python -c "import skillsentry; print('SkillSentry initialized successfully')"
+# 6. Verify installation
+python -c "import skillsentry; print('SkillSentry initialized successfully on Windows')"
 ```
 
 ---
 
 ## 2. Common Developer Workflows & Commands
 
-### 2.1 Running the Analysis Unit Test Suite
-Execute the fast, local, dependency-free unit tests covering the parser, typosquat detector, AST anchor scanner, and directory hasher:
+### 2.1 Initiating Scans from Windows PowerShell
+Test the full pipeline invocation using the documented PowerShell CLI syntax:
 
-```bash
-# Run all Developer 2 unit tests
+```powershell
+# Scan malicious fixture in text format
+skillsentry scan .\fixtures\malicious\cloud-sync-pro --format text
+
+# Scan with SARIF report output
+skillsentry scan .\fixtures\malicious\invoice-helper --sarif-out invoice-report.sarif
+
+# Python module invocation fallback
+python -m skillsentry.cli scan .\fixtures\benign\pdf-summarizer
+
+# Check exit code (0 = Safe, 1 = Threshold exceeded/Malicious)
+Write-Host "Scan completed with exit code: $LASTEXITCODE"
+```
+
+### 2.2 Running the Fast Unit Test Suite (<5s Loop)
+Execute local, offline unit tests covering the parser, typosquat detector, AST anchor scanner, sandbox instruction generator, and directory hasher:
+
+```powershell
+# Run all Developer 2 fast unit tests
 pytest tests/unit/test_analysis/ -v
 
-# Run parser hardening and traversal defense tests
-pytest tests/unit/test_analysis/test_skill_parser.py -k "test_traversal or test_size_caps"
+# Run parser hardening, path normalization & traversal defense tests
+pytest tests/unit/test_analysis/test_skill_parser.py -k "test_traversal or test_powershell_paths"
 
 # Run AST anchor pattern recognition tests
 pytest tests/unit/test_analysis/test_ast_anchor.py -v
+
+# Run dynamic sandbox action instruction tests
+pytest tests/unit/test_analysis/test_sandbox_instructions.py -v
 ```
 
-### 2.2 Running Contract Tests (Zero-Model Mode)
-Verify that Developer 2’s analyzers serialize valid `StageResult` dataclasses and conform to the I2 Model Client protocol using `MockGemma`:
+### 2.3 Running Contract Tests (Zero-Model & Sandbox Handoff Mode)
+Verify that Developer 2’s analyzers serialize valid `StageResult` dataclasses, conform to the I2 Model Client protocol via `MockGemma`, and generate valid `SandboxActionInstruction` objects:
 
-```bash
-# Run contract verification against MockGemma
+```powershell
+# Run contract verification against MockGemma and INT-4 sandbox handoff
 pytest tests/contract/test_stage_results.py -v
+pytest tests/contract/test_sandbox_handoff.py -v
 ```
 
-### 2.3 Running the Citation Accuracy Harness
+### 2.4 Running Cache & Scanner Performance Benchmarks
+Assert that directory hashing, AST walking, and SQLite operations meet latency SLAs:
+
+```powershell
+# Run dedicated performance benchmark suite
+pytest tests/benchmark/ --benchmark-only
+
+# Verify cache round-trip completes in <50ms (<2s budget)
+pytest tests/unit/test_cache_perf.py --benchmark
+```
+
+### 2.5 Running the Citation Accuracy Harness
 Evaluate reported `file:line` citations against hand-annotated ground-truth:
 
-```bash
+```powershell
 python tests/check_citation_accuracy.py --ground-truth tests/ground_truth.json
-```
-
-### 2.4 Running Cache Performance Benchmark
-Assert that directory hashing and SQLite retrieval complete well under the 2-second budget:
-
-```bash
-pytest tests/unit/test_cache_perf.py --benchmark
 ```
 
 ---
@@ -112,3 +141,5 @@ To add a new dangerous pattern to `skillsentry/core/semantic/ast_anchor.py`:
 | **AST Anchor misses dangerous call in multi-line script** | Expression spans multiple lines or uses aliased import. | 1. Check Python AST node line mapping (`node.lineno`).<br>2. Run `python -m ast <script.py>` to inspect AST structure.<br>3. Verify alias resolution in `ast_anchor.py`. |
 | **Directory hash changes across identical runs** | File ordering or exclusion rules non-deterministic. | 1. Check if un-ignored files (`.DS_Store`, `*.pyc`) were included.<br>2. Verify POSIX path byte-sorting in `hash_utils.py`.<br>3. Inspect permissions bits normalization. |
 | **Gemma Vision fails to detect white-on-white text** | Contrast ratio too subtle or downscaling blurred text. | 1. Check output of contrast pre-filter (`sigma^2_L`).<br>2. Inspect downscaled image at 1024 px.<br>3. Tune test fixture font size from 4 px to 6 px per plan risk mitigation rule. |
+| **PowerShell CLI output displays garbled characters / emojis** | Windows console encoding defaulted to legacy OEM code page. | 1. Run `$env:PYTHONUTF8 = "1"` in PowerShell session.<br>2. Set console output: `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`.<br>3. Ensure terminal font supports UTF-8 (e.g. Cascadia Code, Consolas). |
+| **Sandbox instruction reports status 'blocked' or 'unsupported'** | Path traversal violation detected, or Docker daemon offline. | 1. If 'blocked', inspect Stage 1 findings for `critical` traversal attempts (`../`, `C:..`).<br>2. If 'unsupported', check Docker status (`docker info`).<br>3. Verify that verdict records `sandbox-unavailable` degraded finding. |
