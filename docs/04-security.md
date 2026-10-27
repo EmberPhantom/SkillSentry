@@ -79,12 +79,12 @@ The sandbox is the primary trust boundary; it runs untrusted code on purpose. De
 
 | Layer | Control |
 |:---|:---|
-| Container | `docker run` from `skillsentry-sandbox:local`; **non-root user**; `--security-opt no-new-privileges`; default **seccomp** profile; no extra capabilities; no volume mounts from the host except the read-only skill package |
+| Container | `docker run` from `skillsentry-sandbox:local`; **non-root user**; `--security-opt no-new-privileges`; default **seccomp** profile; no extra capabilities; host bind mounts are only the read-only skill package and `/dev/null` for the masquerade |
 | Resources | 60 s hard timeout (watchdog kill), 512 MB RAM, 1 CPU; PID limits to stop fork bombs |
 | Network | Dedicated Docker network whose only reachable endpoints are the DNS sinkhole (:53) and fake HTTP responder; **no NAT to the internet** |
-| Filesystem | Ephemeral overlay; canary FS seeded per scan; inotify (watchdog) monitors canary paths and sandbox-detection paths |
-| Masquerade | `/.dockerenv` bind-mounted from `/dev/null` (read-only); `/proc/1/cgroup` shadowed via tmpfs; `LD_PRELOAD=/opt/masquerade.so` intercepts artifact-revealing libc calls |
-| Cleanup | Container + network + temp dirs destroyed after every scan, success or failure; timeout watchdog guarantees teardown even on engine crash |
+| Filesystem | Ephemeral overlay with a bounded `/tmp` tmpfs; canary home is an anonymous volume removed with the container; inotify (watchdog) monitors canary paths and sandbox-detection paths |
+| Masquerade | `/.dockerenv` bind-mounted from `/dev/null` (read-only) and hidden from `stat`/`access`/`open` by the shim; `/proc/{1,self}/cgroup` and `mountinfo` are redirected by the shim to sanitised per-scan files; modern `stat64`, `fstatat`, `statx`, and versioned glibc hooks are intercepted |
+| Cleanup | Container + anonymous volumes + network destroyed after every scan, success or failure; timeout watchdog guarantees teardown even on engine crash |
 
 ```bash
 # Reference invocation (masquerade + limits)
@@ -95,12 +95,13 @@ docker run \
   --memory 512m --cpus 1 --pids-limit 128 \
   --network skillsentry-sinkhole \
   -v /dev/null:/.dockerenv:ro \
-  --tmpfs /proc/1/cgroup:rw \
-  -e LD_PRELOAD=/opt/masquerade.so \
+  -e LD_PRELOAD=/opt/skillsentry/masquerade.so \
   --read-only --tmpfs /tmp \
   -v "$SKILL_DIR":/skill:ro \
-  python:3.11-slim /opt/run_skill.sh
+  skillsentry-sandbox:local /opt/skillsentry/run_skill.sh
 ```
+
+Docker 29+ rejects bind mounts inside `/proc`. The shim, not a Docker mount, serves the sanitised `/proc/1/cgroup` and `/proc/self/mountinfo` views from files under `/tmp/skillsentry`.
 
 ## 4.6 SkillSentry's Own Attack Surface
 

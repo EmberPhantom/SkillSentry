@@ -120,7 +120,7 @@ python tests/check_expected_verdicts.py --static-only
 python tests/check_expected_verdicts.py --full
 ```
 
-In this workspace, the static pass is **8/8 PASS** with the scores above; the full-sandbox pass is **SKIP**, never “PASS”, because Docker is unavailable (`Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')`). Real Ollama/Gemma and Gemini validation, plus native shim compilation outside Docker, are also **unverified** here. Only `MockGemma` and fake-Docker unit tests have run; they do not substitute for real image/model validation. CI must run the full pass on a host with Docker, the `skillsentry-sandbox:local` image, and a pinned local Gemma before the unchecked boxes above can be claimed.
+In this workspace, the static pass is **8/8 PASS** with the scores above. On Docker Desktop 29.9.2 (Linux containers), the full-sandbox pass is **2/2 PASS** with real containers and the deterministic `MockGemma`: `cloud-sync-pro` risk 95 with Poisoned Well triggered over `DNS_TUNNELING`, and `slack-notif-mal` risk 100 with evasion detected. Real Ollama/Gemma, Gemini, and real-model/vision E2E remain **unverified** here; `MockGemma` and fake-Docker unit tests do not substitute for them. CI must run the full pass on a host with Docker, the `skillsentry-sandbox:local` image, and a pinned local Gemma before the unchecked model boxes above can be claimed.
 
 ### Summary metrics for the README
 

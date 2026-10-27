@@ -134,6 +134,7 @@ def docker_prerequisites() -> tuple[bool, str]:
     except Exception as exc:  # pragma: no cover - depends on the host
         return False, f"docker SDK unavailable: {exc}"
 
+    client = None
     try:
         client = docker.from_env()
         client.ping()
@@ -144,8 +145,9 @@ def docker_prerequisites() -> tuple[bool, str]:
     except Exception as exc:  # pragma: no cover - depends on the host
         return False, f"Docker/sandbox image unavailable: {exc}"
     finally:
-        with contextlib.suppress(Exception):
-            client.close()
+        if client is not None:
+            with contextlib.suppress(Exception):
+                client.close()
     return True, "ready"
 
 
@@ -165,6 +167,20 @@ def check_full() -> list[CheckResult]:
     return results
 
 
+def _active_row(active: Any) -> dict[str, Any] | None:
+    """Normalise contract camelCase/SARIF aliases to the checker's snake_case."""
+
+    if not isinstance(active, dict):
+        return None
+    return {
+        "triggered": bool(active.get("triggered")),
+        "exfil_channel": active.get("exfil_channel", active.get("exfilChannel")),
+        "sandbox_evasion_detected": active.get(
+            "sandbox_evasion_detected", active.get("sandboxEvasionDetected", False)
+        ),
+    }
+
+
 def _rows(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, dict) and isinstance(payload.get("runs"), list):
         rows: list[dict[str, Any]] = []
@@ -172,13 +188,12 @@ def _rows(payload: Any) -> list[dict[str, Any]]:
             props = run.get("properties") if isinstance(run, dict) else None
             if not isinstance(props, dict):
                 continue
-            active = props.get("activeDefense")
             rows.append(
                 {
                     "skill": props.get("skill"),
                     "verdict": props.get("verdict"),
                     "risk": props.get("riskScore"),
-                    "active_defense": active if isinstance(active, dict) else None,
+                    "active_defense": _active_row(props.get("activeDefense")),
                 }
             )
         return rows
@@ -193,13 +208,12 @@ def _rows(payload: Any) -> list[dict[str, Any]]:
     for item in items:
         if not isinstance(item, dict):
             continue
-        active = item.get("activeDefense")
         rows.append(
             {
                 "skill": item.get("skill"),
                 "verdict": item.get("verdict"),
                 "risk": item.get("riskScore"),
-                "active_defense": active if isinstance(active, dict) else None,
+                "active_defense": _active_row(item.get("activeDefense")),
             }
         )
     return rows

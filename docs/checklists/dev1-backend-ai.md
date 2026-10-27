@@ -47,7 +47,7 @@
 - [ ] Resource enforcement: 512 MB RAM, 1 CPU, `--pids-limit 128`, **60 s watchdog kill** (thread + container stop + remove)
 - [ ] Guaranteed teardown: try/finally + signal handlers + startup cleanup of stale `label=skillsentry` containers/networks
 - [ ] Sinkhole-only Docker network: **no NAT to internet**; verify with in-container `curl 1.1.1.1` → must fail (automated test)
-- [ ] `sandbox/masquerade.py`: `-v /dev/null:/.dockerenv:ro`, `--tmpfs /proc/1/cgroup`, `LD_PRELOAD=/opt/masquerade.so` shim (build script + minimal C source or documented libc-hook alternative)
+- [ ] `sandbox/masquerade.py`: `-v /dev/null:/.dockerenv:ro`, `LD_PRELOAD=/opt/masquerade.so` shim, and shim-based `/proc/{1,self}/cgroup` + `mountinfo` redirection (Docker 29 rejects `/proc` bind mounts)
 - [ ] Masquerade verification test: inside container, `/.dockerenv` empty, `/proc/1/cgroup` shows faked content, `docker`/`container` strings absent from `/proc/self/mountinfo`
 - [ ] `sandbox/canary_fs.py`: seed `~/.aws/credentials`, `~/.ssh/id_rsa` (fake PEM w/ marker comment), `~/.env`, `~/.config/gh/hosts.yml` — realistic modes (600/644), unique marker `SKS-<8hex>` per scan via `secrets.token_hex(4)`
 - [ ] `sandbox/context_honeypot.py`: `declared_intent` (from Dev 2's I3 field) → canary set mapping per [02-arch §2.3](../02-architecture.md) table (AWS/GitHub/Slack/SSH/Generic); env-var injection (`SLACK_BOT_TOKEN` etc.); agree keyword normalization with Dev 2

@@ -51,30 +51,20 @@ class MasqueradeConfig:
     require_shim: bool = True
     dockerenv_source: str = "/dev/null"
     dockerenv_target: str = DOCKERENV_PATH
-    # Docker's --tmpfs cannot target a file, and /proc/1/cgroup is a file.
-    # The runner writes these fake files per scan and bind-mounts them
-    # read-only; the shim additionally redirects /proc/self/* lookups.
-    cgroup_host_path: str | None = None
-    mountinfo_host_path: str | None = None
 
     def environment(self) -> dict[str, str]:
         return {"LD_PRELOAD": self.shim_path}
 
     def volumes(self) -> dict[str, dict[str, str]]:
-        volumes = {
+        # Docker 29+ rejects bind mounts whose target is inside /proc, so the
+        # fake cgroup/mountinfo views are served by the shim's path redirect
+        # rather than host bind mounts.
+        return {
             self.dockerenv_source: {
                 "bind": self.dockerenv_target,
                 "mode": "ro",
             }
         }
-        if self.cgroup_host_path:
-            volumes[self.cgroup_host_path] = {"bind": CGROUP_PATH, "mode": "ro"}
-        if self.mountinfo_host_path:
-            volumes[self.mountinfo_host_path] = {
-                "bind": "/proc/1/mountinfo",
-                "mode": "ro",
-            }
-        return volumes
 
     def tmpfs(self) -> dict[str, str]:
         # Kept as an extension point for callers that need a directory tmpfs.

@@ -40,19 +40,9 @@ def test_config_hides_dockerenv_and_provides_shim_environment():
     assert config.environment() == {"LD_PRELOAD": "/opt/skillsentry/masquerade.so"}
     assert config.volumes()["/dev/null"] == {"bind": DOCKERENV_PATH, "mode": "ro"}
     assert config.tmpfs() == {}
-
-    with_fake_proc = MasqueradeConfig(
-        cgroup_host_path="/host/fake-cgroup",
-        mountinfo_host_path="/host/fake-mountinfo",
-    )
-    assert with_fake_proc.volumes()["/host/fake-cgroup"] == {
-        "bind": "/proc/1/cgroup",
-        "mode": "ro",
-    }
-    assert with_fake_proc.volumes()["/host/fake-mountinfo"] == {
-        "bind": "/proc/1/mountinfo",
-        "mode": "ro",
-    }
+    # Newer Docker rejects bind mounts into /proc.  The shim redirects reads of
+    # /proc/{1,self}/{cgroup,mountinfo} to the per-scan fake files instead.
+    assert all(spec.get("bind") != "/proc/1/cgroup" for spec in config.volumes().values())
 
 
 def test_good_verification_output_is_ok():

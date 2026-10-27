@@ -103,9 +103,15 @@ class SinkholeSidecar:
             try:
                 container = self.client.containers.create(
                     image=image or self.config.image,
-                    command=["python", "-u", "/tmp/skillsentry_sidecar.py"],
+                    # Keep the script outside the /tmp tmpfs: files copied into
+                    # a tmpfs-backed path are hidden when the container starts.
+                    command=["python", "-u", "/opt/skillsentry_sidecar.py"],
                     detach=True,
-                    read_only=True,
+                    # The rootfs must be writable long enough for put_archive()
+                    # to copy the trusted sidecar script before start; Docker's
+                    # archive endpoint rejects a read-only rootfs.  /tmp is still
+                    # a bounded tmpfs and all capabilities are dropped below.
+                    read_only=False,
                     user="0:0",
                     working_dir="/tmp",
                     tmpfs={"/tmp": "rw,nosuid,nodev,noexec,size=16m,mode=1777"},
@@ -144,7 +150,7 @@ class SinkholeSidecar:
                     archive.addfile(info, io.BytesIO(script))
                 # Copy the trusted script into the stopped container before it
                 # can execute anything.  No host mount is exposed.
-                if container.put_archive("/tmp", buffer.getvalue()) is False:
+                if container.put_archive("/opt", buffer.getvalue()) is False:
                     raise SidecarError("could not copy sidecar script into container")
                 self.container = container
                 container.start()
