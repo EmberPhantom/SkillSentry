@@ -363,18 +363,18 @@ def test_run_creates_isolated_container_and_returns_events(tmp_path):
         "mode": "ro",
     }
     assert kwargs["volumes"]["/dev/null"] == {"bind": "/.dockerenv", "mode": "ro"}
+    assert "/home/sandbox" not in kwargs["volumes"]
+    assert "/tmp/skillsentry" not in kwargs["volumes"]
+    mount_targets = {mount["Target"] for mount in kwargs["mounts"]}
+    assert mount_targets == {"/home/sandbox"}
+    assert all(mount["Type"] == "volume" for mount in kwargs["mounts"])
     assert kwargs["tmpfs"]["/tmp"].startswith("rw,")
-    assert kwargs["tmpfs"]["/home/sandbox"].startswith("rw,")
+    assert "/home/sandbox" not in kwargs["tmpfs"]
     assert "/proc/1/cgroup" not in kwargs["tmpfs"]
-    cgroup_mounts = {
-        source: spec
-        for source, spec in kwargs["volumes"].items()
-        if spec.get("bind") == "/proc/1/cgroup"
-    }
-    assert len(cgroup_mounts) == 1
-    cgroup_source, cgroup_spec = next(iter(cgroup_mounts.items()))
-    assert cgroup_spec["mode"] == "ro"
-    assert not Path(cgroup_source).exists()
+    # Docker 29+ rejects bind mounts inside /proc.  The shim, not a mount,
+    # provides the sanitised cgroup/mountinfo views.
+    assert all(spec.get("bind") != "/proc/1/cgroup" for spec in kwargs["volumes"].values())
+    assert all(spec.get("bind") != "/proc/1/mountinfo" for spec in kwargs["volumes"].values())
 
     network = client.networks.created[0]
     assert network.kwargs["internal"] is True
@@ -385,9 +385,10 @@ def test_run_creates_isolated_container_and_returns_events(tmp_path):
 
     canary_archive = next(data for path, data in container.archives if path == "/home/sandbox")
     assert "./.aws/credentials" in _tar_names(canary_archive)
-    setup_archive = next(data for path, data in container.archives if path == "/tmp/skillsentry")
-    assert "./run_skill.sh" in _tar_names(setup_archive)
-    assert "./cgroup" in _tar_names(setup_archive)
+    setup_commands = [cmd for cmd, _ in container.exec_calls if cmd[:1] == ["python3"]]
+    assert setup_commands
+    assert any(any("run_skill.sh" in part for part in cmd) for cmd in setup_commands)
+    assert any(any("cgroup" in part for part in cmd) for cmd in setup_commands)
 
     assert any(event.event_type == "canary_seeded" for event in result.events)
     assert result.canary_reads

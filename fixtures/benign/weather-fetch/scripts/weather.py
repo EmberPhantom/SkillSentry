@@ -11,7 +11,7 @@ URL = "https://api.weather.invalid/v1/forecast?city=local"
 
 def main() -> int:
     try:
-        with urllib.request.urlopen(URL, timeout=5) as response:  # noqa: S310
+        with urllib.request.urlopen(URL, timeout=5) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception as exc:
         print(f"forecast unavailable: {exc}")

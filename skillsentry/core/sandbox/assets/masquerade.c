@@ -16,6 +16,7 @@
  */
 
 #define _GNU_SOURCE
+#define _LARGEFILE64_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <linux/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -231,6 +233,14 @@ typedef int (*openat_fn)(int, const char *, int, ...);
 typedef FILE *(*fopen_fn)(const char *, const char *);
 typedef int (*stat_fn)(const char *, struct stat *);
 typedef int (*lstat_fn)(const char *, struct stat *);
+typedef int (*stat64_fn)(const char *, struct stat64 *);
+typedef int (*lstat64_fn)(const char *, struct stat64 *);
+typedef int (*fstatat_fn)(int, const char *, struct stat *, int);
+typedef int (*xstat_fn)(int, const char *, struct stat *);
+typedef int (*lxstat_fn)(int, const char *, struct stat *);
+typedef int (*xstat64_fn)(int, const char *, struct stat64 *);
+typedef int (*lxstat64_fn)(int, const char *, struct stat64 *);
+typedef int (*statx_fn)(int, const char *, int, unsigned int, struct statx *);
 typedef int (*access_fn)(const char *, int);
 typedef char *(*getenv_fn)(const char *);
 typedef int (*execve_fn)(const char *, char *const[], char *const[]);
@@ -339,6 +349,93 @@ int lstat(const char *path, struct stat *buf) {
     }
     RESOLVE_OR(lstat, lstat_fn, -1);
     return real_lstat(redirect_path(path), buf);
+}
+
+/* glibc and dash may call the large-file or versioned stat entry points
+ * instead of stat()/lstat().  Without these wrappers a plain shell
+ * ``test -e /.dockerenv`` bypasses the masquerade. */
+int stat64(const char *path, struct stat64 *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(stat64, stat64_fn, -1);
+    return real_stat64(redirect_path(path), buf);
+}
+
+int lstat64(const char *path, struct stat64 *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(lstat64, lstat64_fn, -1);
+    return real_lstat64(redirect_path(path), buf);
+}
+
+int fstatat(int dirfd, const char *path, struct stat *buf, int flags) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(fstatat, fstatat_fn, -1);
+    return real_fstatat(dirfd, redirect_path(path), buf, flags);
+}
+
+int newfstatat(int dirfd, const char *path, struct stat *buf, int flags) {
+    return fstatat(dirfd, path, buf, flags);
+}
+
+int statx(int dirfd, const char *path, int flags, unsigned int mask, struct statx *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(statx, statx_fn, -1);
+    return real_statx(dirfd, redirect_path(path), flags, mask, buf);
+}
+
+int __xstat(int version, const char *path, struct stat *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(__xstat, xstat_fn, -1);
+    return real___xstat(version, redirect_path(path), buf);
+}
+
+int __lxstat(int version, const char *path, struct stat *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(__lxstat, lxstat_fn, -1);
+    return real___lxstat(version, redirect_path(path), buf);
+}
+
+int __xstat64(int version, const char *path, struct stat64 *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(__xstat64, xstat64_fn, -1);
+    return real___xstat64(version, redirect_path(path), buf);
+}
+
+int __lxstat64(int version, const char *path, struct stat64 *buf) {
+    log_path_access(path, O_RDONLY, 0);
+    if (is_dockerenv(path)) {
+        errno = ENOENT;
+        return -1;
+    }
+    RESOLVE_OR(__lxstat64, lxstat64_fn, -1);
+    return real___lxstat64(version, redirect_path(path), buf);
 }
 
 int access(const char *path, int mode) {

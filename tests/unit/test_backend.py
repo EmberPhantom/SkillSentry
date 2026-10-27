@@ -154,10 +154,15 @@ async def test_live_list_scans_does_not_paginate_the_store_twice():
 
 
 @pytest.mark.asyncio
-async def test_live_health_and_meta_use_the_injected_model(tmp_path):
+async def test_live_health_and_meta_use_the_injected_model(tmp_path, monkeypatch):
     from skillsentry.core.cache import SQLiteStore
     from skillsentry.core.engine import ScanEngine
     from skillsentry.core.models.mock import MockGemma
+    from skillsentry.core.sandbox.runner import SandboxRunner
+
+    # Make the health probe deterministic: this test is about model identity,
+    # not about whether the host happens to have a reachable Docker daemon.
+    monkeypatch.setattr(SandboxRunner, "available", lambda self: False)
 
     engine = ScanEngine(
         store=SQLiteStore(tmp_path / "health.sqlite"),
@@ -168,7 +173,6 @@ async def test_live_health_and_meta_use_the_injected_model(tmp_path):
         health = await backend.health()
         assert health.ollama == "ok"
         assert health.db == "ok"
-        # No Docker is present in this test environment.
         assert health.docker == "down"
         assert (await backend.meta()).backend_active == "mock"
     finally:

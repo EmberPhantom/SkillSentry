@@ -59,6 +59,7 @@ from skillsentry.core.poisoned_well.canary_gen import (
 )
 from skillsentry.core.poisoned_well.exfil_tracker import Correlation, ExfilTracker
 from skillsentry.core.reports import render_report
+from skillsentry.core.sandbox.masquerade import MasqueradeConfig
 from skillsentry.core.sandbox.runner import (
     SandboxError,
     SandboxRequest,
@@ -334,7 +335,11 @@ class ScanEngine:
         except ScanCancelled:
             self.store.fail_scan(sid, "cancelled by client")
             raise
-        except ScanError:
+        except ScanError as exc:
+            # A storage/verdict failure must not leave a RUNNING row behind;
+            # the scan history is the audit trail for an operational error.
+            with contextlib.suppress(Exception):
+                self.store.fail_scan(sid, str(exc)[:2000])
             raise
         except Exception as exc:
             message = f"scan failed: {exc}"
@@ -1167,7 +1172,11 @@ class ScanEngine:
             memory_mb=self.config.sandbox.memory_mb,
             cpus=self.config.sandbox.cpus,
             timeout_s=float(self.config.sandbox.timeout_s),
-            masquerade=self.config.sandbox.masquerade,
+            # ``SandboxSettings.masquerade`` is a boolean feature flag; the
+            # runner expects a MasqueradeConfig, not the raw flag.  Passing the
+            # bool here made dataclasses.replace() fail on every full scan.
+            masquerade=MasqueradeConfig(require_shim=self.config.sandbox.masquerade),
+            verify_masquerade=self.config.sandbox.masquerade,
         )
         self._sandbox_runner = SandboxRunner(
             config=config,

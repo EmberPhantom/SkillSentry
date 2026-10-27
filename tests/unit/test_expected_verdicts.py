@@ -96,3 +96,18 @@ def test_report_rows_accept_json_and_sarif_shapes():
     assert harness._rows([static_row])[0]["skill"] == "g1t-translate"
     sarif = {"runs": [{"properties": static_row}]}
     assert harness._rows(sarif)[0]["risk"] == 30
+
+    full_row = {
+        **static_row,
+        "activeDefense": {
+            "triggered": True,
+            "exfilChannel": "DNS_TUNNELING",
+            "sandboxEvasionDetected": False,
+        },
+    }
+    active = harness._rows({"runs": [{"properties": full_row}]})[0]["active_defense"]
+    assert active == {
+        "triggered": True,
+        "exfil_channel": "DNS_TUNNELING",
+        "sandbox_evasion_detected": False,
+    }

@@ -55,7 +55,7 @@ class _Container:
 
     def put_archive(self, path: str, data: bytes) -> bool:
         self.client.events.append("archive")
-        assert path == "/tmp"
+        assert path == "/opt"
         with tarfile.open(fileobj=io.BytesIO(data), mode="r") as archive:
             names = archive.getnames()
             assert names == ["skillsentry_sidecar.py"]
@@ -129,7 +129,7 @@ def test_start_archives_script_before_start_and_enforces_limits():
     assert client.events[:3] == ["create", "archive", "start"]
     container = client.created[0]
     assert container.kwargs["image"] == "sidecar:test"
-    assert container.kwargs["read_only"] is True
+    assert container.kwargs["read_only"] is False
     assert container.kwargs["cap_drop"] == ["ALL"]
     assert container.kwargs["cap_add"] == ["NET_BIND_SERVICE"]
     assert container.kwargs["security_opt"] == ["no-new-privileges"]

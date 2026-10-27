@@ -5,8 +5,9 @@ a fake client to :class:`SandboxRunner`.  The real client is created lazily, so
 importing the server does not require Docker.
 
 Security invariants:
-* host mounts are the skill directory (read-only), ``/dev/null`` for
-  ``/.dockerenv``, and per-scan fake cgroup/mountinfo files (read-only);
+* host mounts are the skill directory (read-only) and ``/dev/null`` for
+  ``/.dockerenv``; fake cgroup/mountinfo views are served by the shim rather
+  than by Docker 29-incompatible bind mounts inside ``/proc``;
 * the network is an ``internal`` bridge (no NAT);
 * the container is read-only, non-root, cap-drop ALL, no-new-privileges;
 * teardown runs in ``finally`` even on timeout or exceptions.
@@ -14,16 +15,13 @@ Security invariants:
 
 from __future__ import annotations
 
-import io
+import base64
 import ipaddress
-import shutil
-import tarfile
-import tempfile
 import threading
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -64,6 +62,15 @@ LABEL_KEY = "skillsentry"
 LABEL_VALUE = "true"
 CANARY_HOME = CANARY_ROOT
 MAX_CAPTURED_OUTPUT_BYTES = 4 * 1024 * 1024
+_SETUP_WRITER = (
+    "import base64, os, sys; "
+    "open(sys.argv[1], 'wb').write(base64.b64decode(sys.argv[2])); "
+    "os.chmod(sys.argv[1], int(sys.argv[3], 8))"
+)
+# The network name/subnet and sidecar IP are process-wide fixed resources.
+# Lock across runner instances too; the per-instance lock alone would let two
+# API engines (for example different model backends) collide.
+_RUN_LOCK = threading.Lock()
 
 
 class SandboxUnavailable(RuntimeError):
@@ -280,8 +287,8 @@ class SandboxRunner:
         self._active_dns_server: str | None = self.config.dns_server
         # Every scan currently shares one internal network and the sidecar's
         # fixed address.  A second sidecar on that network would either fail to
-        # bind or hijack the first scan's DNS, so the runner serialises scans.
-        self._run_lock = threading.Lock()
+        # bind or hijack the first scan's DNS, so all runners serialise scans.
+        self._run_lock = _RUN_LOCK
 
     @property
     def client(self) -> Any:
@@ -361,13 +368,11 @@ class SandboxRunner:
         container = None
         sidecar: SinkholeSidecar | None = None
         result: SandboxResult | None = None
-        masquerade_dir: Path | None = None
         masquerade_config = self.config.masquerade
         started_at = utc_now()
         started = time.monotonic()
 
         try:
-            masquerade_dir, masquerade_config = self._prepare_masquerade_files()
             network, network_created = self._ensure_network(client)
             if self._sidecar_factory is not None:
                 sidecar = self._sidecar_factory(client)
@@ -434,8 +439,6 @@ class SandboxRunner:
                     if result is not None and result.error is None:
                         result.error = f"sinkhole sidecar teardown failed: {exc}"
             cleanup_ok, cleanup_errors = self._teardown(container, network, network_created)
-            if masquerade_dir is not None:
-                shutil.rmtree(masquerade_dir, ignore_errors=True)
             if result is not None:
                 result.cleanup_ok = cleanup_ok
                 if cleanup_errors and result.error is None:
@@ -444,19 +447,6 @@ class SandboxRunner:
                 result.net_logs = [_net_log(observation) for observation in sidecar_observations]
 
     # -- Docker pieces ------------------------------------------------------
-    def _prepare_masquerade_files(self) -> tuple[Path, MasqueradeConfig]:
-        directory = Path(tempfile.mkdtemp(prefix="skillsentry-masquerade-"))
-        cgroup = directory / "cgroup"
-        mountinfo = directory / "mountinfo"
-        cgroup.write_text(FAKE_CGROUP_CONTENT, encoding="utf-8")
-        mountinfo.write_text(FAKE_MOUNTINFO_CONTENT, encoding="utf-8")
-        config = replace(
-            self.config.masquerade,
-            cgroup_host_path=str(cgroup),
-            mountinfo_host_path=str(mountinfo),
-        )
-        return directory, config
-
     def _ensure_network(self, client: Any) -> tuple[Any, bool]:
         network = None
         try:
@@ -496,6 +486,10 @@ class SandboxRunner:
         network: Any,
         masquerade: MasqueradeConfig,
     ) -> Any:
+        # Keep the Docker SDK an optional runtime dependency: static-only scans
+        # must still import the engine on hosts without the Docker package.
+        from docker.types import Mount
+
         labels = {
             **self.config.all_labels,
             f"{LABEL_KEY}.scan_id": str(request.scan_id),
@@ -505,9 +499,13 @@ class SandboxRunner:
             str(skill_dir): {"bind": self.config.skill_mount, "mode": "ro"},
             **masquerade.volumes(),
         }
+        # put_archive() cannot target a read-only rootfs.  The canary home is
+        # an anonymous volume so it can be seeded and removed with the
+        # container (remove(v=True)); /tmp remains a bounded tmpfs and its
+        # setup files are written by _seed_setup().
+        mounts = [Mount(target=self.config.home, source=None, type="volume")]
         tmpfs = {
             "/tmp": "rw,nosuid,nodev,noexec,size=64m,mode=1777",
-            self.config.home: "rw,nosuid,nodev,noexec,size=16m,uid=65534,gid=65534,mode=700",
             **masquerade.tmpfs(),
         }
         environment = {
@@ -532,6 +530,7 @@ class SandboxRunner:
             "security_opt": ["no-new-privileges"],
             "cap_drop": ["ALL"],
             "volumes": volumes,
+            "mounts": mounts,
             "tmpfs": tmpfs,
             "environment": environment,
             "labels": labels,
@@ -550,13 +549,29 @@ class SandboxRunner:
 
     def _seed_setup(self, container: Any) -> None:
         created = container.exec_run(
-            ["mkdir", "-p", "/tmp/skillsentry"],
+            ["/bin/sh", "-c", "mkdir -p /tmp/skillsentry && chmod 0700 /tmp/skillsentry"],
             user=self.config.user,
         )
         if created.exit_code not in (0, None):
             raise SandboxError("could not create the sandbox setup directory")
-        setup = _setup_tar()
-        container.put_archive("/tmp/skillsentry", setup)
+        # The setup directory lives on the /tmp tmpfs.  Docker refuses
+        # put_archive() against a read-only rootfs even when the target is a
+        # tmpfs, so write the four small files through an exec as the sandbox
+        # user.  This also keeps their ownership writable by the skill.
+        for name, payload, mode in _setup_entries():
+            written = container.exec_run(
+                [
+                    "python3",
+                    "-c",
+                    _SETUP_WRITER,
+                    f"/tmp/skillsentry/{name}",
+                    base64.b64encode(payload).decode("ascii"),
+                    format(mode, "o"),
+                ],
+                user=self.config.user,
+            )
+            if written.exit_code not in (0, None):
+                raise SandboxError(f"could not write sandbox setup file: {name}")
 
     def _clear_monitor_log(self, container: Any) -> None:
         cleared = container.exec_run(
@@ -707,28 +722,13 @@ class SandboxRunner:
         return ok, errors
 
 
-def _setup_tar() -> bytes:
-    """Build the per-scan /tmp/skillsentry archive (script + fake proc views)."""
-
-    entries: list[tuple[str, bytes, int]] = [
+def _setup_entries() -> list[tuple[str, bytes, int]]:
+    return [
         ("run_skill.sh", run_script_text().encode("utf-8"), 0o755),
         ("cgroup", FAKE_CGROUP_CONTENT.encode("utf-8"), 0o644),
         ("mountinfo", FAKE_MOUNTINFO_CONTENT.encode("utf-8"), 0o644),
         ("events.jsonl", b"", 0o600),
     ]
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w") as archive:
-        for name, payload, mode in entries:
-            info = tarfile.TarInfo(name=f"./{name}")
-            info.size = len(payload)
-            info.mode = mode
-            info.uid = 65534
-            info.gid = 65534
-            info.uname = "nobody"
-            info.gname = "nogroup"
-            info.mtime = 0
-            archive.addfile(info, io.BytesIO(payload))
-    return buffer.getvalue()
 
 
 def _net_log(observation: SinkholeObservation) -> NetLog:
