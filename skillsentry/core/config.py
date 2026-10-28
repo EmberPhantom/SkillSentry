@@ -12,7 +12,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from skillsentry.core.version import DEFAULT_WEIGHTS, engine_version
 
@@ -34,6 +34,65 @@ class ModelSettings(_ConfigModel):
     gemini_model: str = "gemma-4-e4b"
     image_max_px: int = Field(default=1024, ge=256, le=4096)
     request_timeout_s: float = Field(default=180.0, gt=0)
+
+
+class DecisionSettings(_ConfigModel):
+    """Typed semantic decision backend settings.
+
+    ``model`` remains the legacy generation/vision client selection.  This
+    section controls the Laya-style decision layer independently.
+    """
+
+    backend: str = "auto"  # auto | laya | legacy | none
+    checkpoint: str = "auto"  # auto | english | multilingual | typed-decisions
+    device: str = "auto"  # auto | cpu | cuda | mps
+    model_path: str = ""
+    timeout_s: float = Field(default=30.0, gt=0, le=600)
+    max_len: int = Field(default=1024, ge=64, le=8192)
+    head_max_len: int = Field(default=256, ge=16, le=4096)
+    calibration_path: str = ""
+    calibration_version: str = ""
+    required: bool = False
+
+    @field_validator("backend")
+    @classmethod
+    def _validate_backend(cls, value: str) -> str:
+        normalised = value.strip().lower()
+        allowed = {"auto", "laya", "legacy", "none"}
+        if normalised not in allowed:
+            raise ValueError(f"backend must be one of {sorted(allowed)}")
+        return normalised
+
+    @field_validator("checkpoint")
+    @classmethod
+    def _validate_checkpoint(cls, value: str) -> str:
+        normalised = value.strip().lower()
+        allowed = {"auto", "english", "multilingual", "typed-decisions"}
+        if normalised not in allowed:
+            raise ValueError(f"checkpoint must be one of {sorted(allowed)}")
+        return normalised
+
+    @field_validator("device")
+    @classmethod
+    def _validate_device(cls, value: str) -> str:
+        normalised = value.strip().lower()
+        allowed = {"auto", "cpu", "cuda", "mps"}
+        if normalised not in allowed:
+            raise ValueError(f"device must be one of {sorted(allowed)}")
+        return normalised
+
+    @model_validator(mode="after")
+    def _validate_token_budgets(self) -> DecisionSettings:
+        if self.head_max_len > self.max_len:
+            raise ValueError("head_max_len must not exceed max_len")
+        return self
+
+    @property
+    def cache_identity(self) -> str:
+        """Stable identity for cache invalidation when the decision layer changes."""
+
+        calibration = self.calibration_version.strip() or "uncalibrated"
+        return f"{self.backend}:{self.checkpoint}:{calibration}:{self.max_len}:{self.head_max_len}"
 
 
 class SandboxSettings(_ConfigModel):
@@ -78,6 +137,7 @@ class CISettings(_ConfigModel):
 
 class SkillsEntryConfig(_ConfigModel):
     model: ModelSettings = Field(default_factory=ModelSettings)
+    decision: DecisionSettings = Field(default_factory=DecisionSettings)
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
     poisoned_well: PoisonedWellSettings = Field(default_factory=PoisonedWellSettings)
     scoring: ScoringSettings = Field(default_factory=ScoringSettings)
@@ -104,6 +164,18 @@ ollama_model = "gemma4:e4b-q4"
 gemini_model = "gemma-4-e4b"     # used only when backend = cloud/auto-fallback
 image_max_px = 1024
 request_timeout_s = 180
+
+[decision]
+backend = "auto"                 # auto | laya | legacy | none
+checkpoint = "auto"              # auto | english | multilingual | typed-decisions
+device = "auto"                  # auto | cpu | cuda | mps
+model_path = ""                  # optional offline checkpoint directory
+timeout_s = 30
+max_len = 1024
+head_max_len = 256
+calibration_path = ""
+calibration_version = ""
+required = false
 
 [sandbox]
 enabled = true
@@ -161,6 +233,16 @@ def _env_overrides() -> dict[str, Any]:
 
     if backend := os.getenv("SKILLSENTRY_BACKEND"):
         set_value("model", "backend", backend)
+    if decision_backend := os.getenv("SKILLSENTRY_DECISION_BACKEND"):
+        set_value("decision", "backend", decision_backend)
+    if checkpoint := os.getenv("SKILLSENTRY_LAYA_CHECKPOINT"):
+        set_value("decision", "checkpoint", checkpoint)
+    if device := os.getenv("SKILLSENTRY_LAYA_DEVICE"):
+        set_value("decision", "device", device)
+    if model_path := os.getenv("SKILLSENTRY_LAYA_MODEL_PATH"):
+        set_value("decision", "model_path", model_path)
+    if os.getenv("SKILLSENTRY_LAYA_REQUIRED") == "1":
+        set_value("decision", "required", True)
     if os.getenv("SKILLSENTRY_NO_SANDBOX") == "1":
         set_value("sandbox", "enabled", False)
     if db_path := os.getenv("SKILLSENTRY_DB"):
