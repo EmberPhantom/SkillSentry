@@ -546,9 +546,9 @@ class LiveBackend:
         stored = self.store.get_result_for_skill(skill_id)
         if stored is None:
             raise ApiError(404, "unknown_scan", f"unknown skill: {skill_id}")
-        verdict, _detail, _stages, _cached = stored
+        verdict, _detail, stages, _cached = stored
         try:
-            return render_report(verdict, fmt)
+            return render_report(verdict, fmt, stage_results=stages)
         except NoIOCsError as exc:
             raise ApiError(
                 409,

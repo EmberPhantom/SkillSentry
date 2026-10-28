@@ -320,7 +320,11 @@ def _emit_outcomes(
         rendered = _combined_sarif(outcomes)
     elif output_format == "markdown":
         rendered = "\n\n---\n\n".join(
-            render_report(outcome.verdict, ExportFormat.MARKDOWN).content.decode("utf-8")
+            render_report(
+                outcome.verdict,
+                ExportFormat.MARKDOWN,
+                stage_results=outcome.stage_results,
+            ).content.decode("utf-8")
             for outcome in outcomes
         )
     else:

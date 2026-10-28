@@ -6,11 +6,13 @@ Files live under ``~/.skillsentry/reports/<scan_id>/`` (docs/03 §3.1).
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from skillsentry.core.config import reports_dir
-from skillsentry.core.contracts import ExportFormat, Verdict
+from skillsentry.core.contracts import ExportFormat, StageResult, Verdict
+from skillsentry.core.decisions.report import decision_summary
 from skillsentry.core.verdict.markdown_report import build_markdown
 from skillsentry.core.verdict.sarif_report import build_sarif
 from skillsentry.core.verdict.stix_report import NoIOCsError, build_stix
@@ -44,12 +46,22 @@ class ReportFiles:
     stix: Path | None = None
 
 
-def render_report(verdict: Verdict, fmt: ExportFormat) -> RenderedReport:
-    """Render one report in memory.  Raises ``NoIOCsError`` for empty STIX."""
+def render_report(
+    verdict: Verdict,
+    fmt: ExportFormat,
+    *,
+    stage_results: Sequence[StageResult] | None = None,
+) -> RenderedReport:
+    """Render one report in memory.  Raises ``NoIOCsError`` for empty STIX.
+
+    Pass ``stage_results`` to include the decision-layer summary.  Without them
+    the report states that the decision layer was not recorded.
+    """
+    decision = decision_summary(stage_results) if stage_results is not None else None
     if fmt is ExportFormat.SARIF:
-        content = json.dumps(build_sarif(verdict), indent=2) + "\n"
+        content = json.dumps(build_sarif(verdict, decision=decision), indent=2) + "\n"
     elif fmt is ExportFormat.MARKDOWN:
-        content = build_markdown(verdict)
+        content = build_markdown(verdict, decision=decision)
     elif fmt is ExportFormat.STIX:
         content = json.dumps(build_stix(verdict), indent=2) + "\n"
     else:  # pragma: no cover - enum exhaustiveness
@@ -61,13 +73,18 @@ def render_report(verdict: Verdict, fmt: ExportFormat) -> RenderedReport:
     )
 
 
-def write_report_files(verdict: Verdict, *, root: str | Path | None = None) -> ReportFiles:
+def write_report_files(
+    verdict: Verdict,
+    *,
+    root: str | Path | None = None,
+    stage_results: Sequence[StageResult] | None = None,
+) -> ReportFiles:
     """Write SARIF + Markdown (+ STIX when triggered) and return file paths."""
     target = Path(root) if root is not None else reports_dir(str(verdict.scan_id))
     target.mkdir(parents=True, exist_ok=True)
 
-    sarif = render_report(verdict, ExportFormat.SARIF)
-    markdown = render_report(verdict, ExportFormat.MARKDOWN)
+    sarif = render_report(verdict, ExportFormat.SARIF, stage_results=stage_results)
+    markdown = render_report(verdict, ExportFormat.MARKDOWN, stage_results=stage_results)
     (target / sarif.filename).write_bytes(sarif.content)
     (target / markdown.filename).write_bytes(markdown.content)
 
