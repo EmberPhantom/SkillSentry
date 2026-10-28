@@ -35,6 +35,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+laya = [
+  # Laya already declares torch, transformers, safetensors, and huggingface_hub.
+  # Keep the extra to the decision package so the base install stays lightweight.
+  "laya>=0.4.17,<0.5",
+]
 dev = [
   "pytest>=8.2,<9.0",
   "pytest-asyncio>=0.23,<2.0",
@@ -65,6 +70,7 @@ include = [
 target-version = "py311"
 line-length = 100
 src = ["skillsentry", "tests"]
+extend-exclude = ["tests/fixtures/decisions/cases"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
