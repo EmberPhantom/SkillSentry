@@ -60,7 +60,12 @@ def _result(finding: Finding, rule_index: int) -> dict[str, Any]:
     return result
 
 
-def build_sarif(verdict: Verdict, *, generated_at=None) -> dict[str, Any]:
+def build_sarif(
+    verdict: Verdict,
+    *,
+    generated_at=None,
+    decision: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build a schema-shaped SARIF 2.1.0 document for one verdict."""
     rules: dict[str, dict[str, Any]] = {}
     results: list[dict[str, Any]] = []
@@ -97,6 +102,9 @@ def build_sarif(verdict: Verdict, *, generated_at=None) -> dict[str, Any]:
         run_properties["activeDefense"] = verdict.active_defense.model_dump(
             by_alias=True, mode="json", exclude_none=False
         )
+    if decision is not None:
+        # Report-safe summary only; see skillsentry.core.decisions.report.
+        run_properties["decisionLayer"] = decision
 
     return {
         "$schema": SARIF_SCHEMA,

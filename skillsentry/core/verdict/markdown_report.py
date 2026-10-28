@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 from datetime import datetime
+from typing import Any
 
 from skillsentry.core.contracts import (
     ActiveDefense,
@@ -82,8 +83,48 @@ def _active_defense_section(active: ActiveDefense | None) -> list[str]:
     return lines
 
 
-def build_markdown(verdict: Verdict, *, generated_at: datetime | None = None) -> str:
-    """Render a human triage report with line-accurate citations."""
+def _decision_lines(decision: dict[str, Any] | None) -> list[str]:
+    if decision is None:
+        return ["## Decision layer", "", "Not recorded for this export.", ""]
+    error = decision.get("semantic_error")
+    semantic = (
+        f"degraded: {html.escape(str(error))}" if decision.get("semantic_degraded") else "complete"
+    )
+    threshold = decision.get("threshold")
+    lines = [
+        "## Decision layer",
+        "",
+        "| Field | Value |",
+        "|:---|:---|",
+        f"| Semantic backend | {_code(str(decision.get('decision_backend')))} |",
+        f"| Checkpoint | {_code(str(decision.get('checkpoint') or 'n/a'))} |",
+        f"| Model version | {_code(str(decision.get('model_version') or 'n/a'))} |",
+        f"| Calibration | {_code(str(decision.get('calibration_version')))} |",
+        f"| Capability threshold | {threshold if threshold is not None else 'n/a'} |",
+        f"| Semantic stage | {semantic} |",
+        f"| Vision | {_code(str(decision.get('vision_status')))} |",
+        "",
+    ]
+    capabilities = decision.get("capabilities") or {}
+    if capabilities:
+        lines += ["Capability probabilities (advisory, not verdicts):", ""]
+        lines += [f"- `{qid}`: {value:.2f}" for qid, value in sorted(capabilities.items())]
+        lines.append("")
+    return lines
+
+
+def build_markdown(
+    verdict: Verdict,
+    *,
+    generated_at: datetime | None = None,
+    decision: dict[str, Any] | None = None,
+) -> str:
+    """Render a human triage report with line-accurate citations.
+
+    ``decision`` is the report-safe summary from
+    :func:`skillsentry.core.decisions.report.decision_summary`.  Omit it and the
+    report says the decision layer was not recorded rather than implying clean.
+    """
     generated = format_utc(generated_at or utc_now())
     lines: list[str] = [
         f"# SkillSentry Triage Report — {html.escape(verdict.skill)}",
@@ -100,9 +141,9 @@ def build_markdown(verdict: Verdict, *, generated_at: datetime | None = None) ->
         f"| Engine | {_code(ENGINE_VERSION)} |",
         f"| Generated | {generated} |",
         "",
-        "## Findings",
-        "",
     ]
+    lines += _decision_lines(decision)
+    lines += ["## Findings", ""]
 
     if not verdict.findings:
         lines.append("No findings. The skill is within the SAFE threshold.")
@@ -115,6 +156,8 @@ def build_markdown(verdict: Verdict, *, generated_at: datetime | None = None) ->
             lines.append("")
             for finding in group:
                 stage = finding.stage.value
+                if decision is not None and finding.stage.value == "semantic":
+                    stage = f"{stage} ({decision.get('decision_backend')})"
                 kind = f" · `{finding.finding_type}`" if finding.finding_type else ""
                 lines.append(f"- **{stage}**{kind} — {html.escape(finding.message)}")
                 lines.append(f"  - Evidence: {_evidence_line(finding)}")

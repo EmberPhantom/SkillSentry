@@ -108,14 +108,17 @@ def scan_vision(
             stage=Stage.VISION,
             findings=[],
             signals={},
-            telemetry={"images_scanned": 0, "notes": notes},
+            telemetry={"images_scanned": 0, "notes": notes, "vision_status": "not_applicable"},
         )
 
     findings: list[Finding] = []
     evidence: list[VisionEvidence] = []
     degraded_errors: list[str] = []
+    analysed = 0
+    skipped = 0
     for asset in assets:
         if asset.is_svg:
+            analysed += 1
             svg_findings, ocr = _svg_scan(asset)
             findings.extend(svg_findings)
             if svg_findings or ocr:
@@ -133,6 +136,7 @@ def scan_vision(
             continue
 
         if model is None:
+            skipped += 1
             degraded_errors.append(f"vision model unavailable for {asset.relative}")
             continue
         try:
@@ -140,8 +144,10 @@ def scan_vision(
                 asset.path, f"Scan {asset.relative} for hidden instructions"
             )
         except Exception as exc:
+            skipped += 1
             degraded_errors.append(f"{asset.relative}: {exc}")
             continue
+        analysed += 1
 
         image_findings: list[Finding] = []
         for item in analysis.findings[:50]:
@@ -199,9 +205,17 @@ def scan_vision(
     if findings:
         score = max(_SEVERITY_SCORE[item.severity] for item in findings)
         score = min(100.0, score + min(8, (len(findings) - 1) * 2))
+    if skipped == 0:
+        vision_status = "evaluated"
+    elif analysed == 0:
+        # Deferred or unavailable vision must never read as a clean image result.
+        vision_status = "not_evaluated"
+    else:
+        vision_status = "partial"
     telemetry = {
         "images_scanned": len(evidence),
         "images_total": len(assets),
+        "vision_status": vision_status,
         "notes": notes,
         "evidence": [item.model_dump(by_alias=True, mode="json") for item in evidence],
         "scanned_at": utc_now().isoformat(),
