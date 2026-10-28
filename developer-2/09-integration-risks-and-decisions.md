@@ -68,6 +68,11 @@ The following specifications are currently provisional and require formal cross-
 - **Proposed Resolution**: No. If Stage 1 spec validation flags path traversal or reserved DOS devices, sandbox check status is set to `blocked`. Untrusted code with host-traversal intent must never be mounted or executed.
 - **Action**: Confirmed in Interface INT-4.
 
+### 2.6 Decision Item 6: In-Memory PackageManifest Sharing across Stages
+- **Issue**: Each pipeline stage independently reading files from disk induces redundant I/O, slowing down Windows scan turnaround.
+- **Proposed Resolution**: Stage 1 constructs an immutable, in-memory `PackageManifest` (scripts, AST nodes, normalized paths, metadata). Downstream stages (AST anchor scan, semantic prompt fencing, image extraction, and Docker bind mounts) consume this shared in-memory object, cutting filesystem I/O to a single traversal pass.
+- **Action**: Confirmed in `03-functional-specifications.md` Capability K.
+
 ---
 
 ## 3. Cross-Developer Coordination & Sync Cadence
@@ -88,9 +93,14 @@ Developer 2 proposes the following formal updates to shared documentation files 
 ### Proposal 1: Update `docs/07-cli-reference.md`
 - Add Windows PowerShell documentation section describing invocation (`skillsentry scan <path>`), path normalization (`C:\...`), and execution in PowerShell 5.1 and 7.x.
 - Document exit codes: 0 = Safe, 1 = Threshold exceeded (Gate fail), 2 = Usage error, 3 = Operational error, 4 = Model unavailable.
+- Document supported flags: `--sarif-out`, `--format text|json|sarif|markdown`, `--no-cache`, `--no-sandbox`, `--backend auto|local|cloud|demo`, `--demo-mode`, `--timeout`, `--fail-on`, `--quiet`.
 
 ### Proposal 2: Update `docs/05-api-reference.md`
 - Extend `GET /skills/{id}` endpoint schema to include `sandboxInstructions` field listing generated `SandboxActionInstruction` objects.
 
 ### Proposal 3: Update `docs/02-architecture.md`
 - Include the **5-Phase Sandbox Execution Boundary** in §2.3 to formally distinguish Analysis Output (Dev 2) from Execution Request (Orchestrator) and Sandbox Enforcement (Dev 1).
+- Codify the **Thoroughness Preservation Axioms** in §2.6: never silently drop required stages; record timeouts as `degraded: true` with findings (never default to `SAFE`); explicitly disclose fast profiles.
+
+### Proposal 4: Update `docs/08-testing-and-evaluation.md`
+- Formally document the multi-tier test suite separation (Tier 1 Unit <2s, Tier 2 Contract <1s, Tier 3 Security <2s, Tier 4 Windows CLI <5s, Tier 5 Benchmarks <5s, Tier 6 Full Regression <90s) to keep local developer loops fast while preserving full CI regression gates.

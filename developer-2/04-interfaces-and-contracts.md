@@ -366,19 +366,30 @@ python -m skillsentry.cli scan <path> [options]
 |:---|:---|:---:|:---:|:---|
 | `<path>` | `-Path` | `string` | Required | Directory containing `SKILL.md` or parent directory of skills. |
 | `--sarif-out` | `-SarifOut` | `string` | `None` | Path to export SARIF 2.1.0 JSON file. |
-| `--format` | `-Format` | `string` | `text` | Output mode: `text`, `json`, `sarif`, `markdown`. |
+| `--format` | `-Format` | `string` | `text` | Output mode: `text` (ANSI terminal), `json`, `sarif`, `markdown`. |
 | `--no-cache` | `-NoCache` | `switch` | `false` | Bypasses Stage 0 cache lookup and prevents cache write. |
 | `--no-sandbox` | `-NoSandbox` | `switch` | `false` | Runs static/semantic stages only; flags verdict `sandbox-unavailable`. |
 | `--backend` | `-Backend` | `string` | `auto` | `auto`, `local`, `cloud`, `demo`. |
 | `--demo-mode` | `-DemoMode` | `switch` | `false` | Canned responses; zero model/Docker dependencies. |
 | `--timeout` | `-Timeout` | `int` | `60` | Sandbox hard execution timeout in seconds. |
 | `--fail-on` | `-FailOn` | `string` | `malicious` | CI exit code gate: `safe`, `suspicious`, `malicious`. |
+| `-q, --quiet` | `-Quiet` | `switch` | `false` | Suppresses progress banners; outputs final verdict line only. |
 
 ### 10.4 Windows Path Sanitization Contract
 1. Normalizes Windows backslashes (`\`) to POSIX (`/`) internally.
 2. Resolves local absolute paths (`C:\...`, `D:\...`), relative paths (`.\...`), and UNC paths (`\\server\share\...`).
 3. Handles PowerShell quotation strings (`"C:\Program Files\..."`) and trailing slashes cleanly.
 4. Enforces strict UTF-8 stdout encoding with BOM support for Windows PowerShell terminal redirections.
+5. Rejects Windows reserved MS-DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`) and NTFS Alternate Data Streams (`:`).
+
+### 10.5 Windows PowerShell CI Exit Codes
+| Exit Code | Classification | Meaning in CI / PowerShell Automation |
+|:---:|:---|:---|
+| `0` | **PASS** | All scanned skills have risk score <= `--fail-on` threshold. Merge permitted. |
+| `1` | **GATE FAIL** | Verdict exceeded threshold (e.g., `MALICIOUS` found). Blocks PR merge. |
+| `2` | **USAGE ERROR** | Invalid path, non-existent folder, or unrecognized flag. |
+| `3` | **OPERATIONAL ERROR** | Operational dependency failure (Docker daemon down, SQLite locked). Never a verdict. |
+| `4` | **MODEL UNAVAILABLE** | Model backend unavailable and no fallback configured. |
 
 ---
 
@@ -403,6 +414,13 @@ Because Developer 2 strictly observes directory ownership (`developer-2/` only),
 > if ($LASTEXITCODE -ne 0) { Write-Error "Security audit failed!" }
 > ```
 > Windows path handling automatically normalizes drive letters (`C:\`), backslashes, and paths containing spaces.
+> 
+> ### Windows CI Exit Codes
+> - 0: PASS (Scan risk <= threshold)
+> - 1: GATE FAIL (Malicious / threshold exceeded)
+> - 2: USAGE ERROR (Invalid arguments or target path)
+> - 3: OPERATIONAL ERROR (Docker daemon offline, SQLite locked)
+> - 4: MODEL UNAVAILABLE (Ollama down, no fallback)
 > ```
 
 ### 11.2 Proposed Update to `docs/05-api-reference.md`
@@ -419,6 +437,8 @@ Because Developer 2 strictly observes directory ownership (`developer-2/` only),
 >       "entrypoint_script": "scripts/sync.sh",
 >       "check_category": "CREDENTIAL_CANARY_MONITOR",
 >       "contextual_intent": ["aws"],
+>       "execution_parameters": {"timeout_s": 60},
+>       "constraints": {"network_isolated": true, "sinkhole_only": true},
 >       "check_status": "required"
 >     }
 >   ]
@@ -430,7 +450,20 @@ Because Developer 2 strictly observes directory ownership (`developer-2/` only),
 > Explicitly codify the **5-Phase Sandbox Execution Boundary**:
 > 1. Analysis Output (Dev 2 emits findings & `SandboxActionInstruction` list).
 > 2. Execution Request (Dev 1 Orchestrator validates policy and schedules container).
-> 3. Sandbox Enforcement (Dev 1 Docker container restricts and monitors).
+> 3. Sandbox Enforcement (Dev 1 Docker container restricts and monitors under non-root, dropped capabilities, 512MB RAM, 1 CPU, 60s timeout).
 > 4. Sandbox Evidence Collection (Dev 1 collects inotify & sinkhole telemetry).
 > 5. Evidence Correlation & Verdict (Dev 1 Fusion engine computes final SARIF).
+>
+> **Proposed Addition to §2.6 (Performance & Thoroughness Preservation)**:
+> Codify the Thoroughness Preservation Axioms: never skip required stages; timeouts yield `degraded: true` with findings, never a default `SAFE`.
+
+### 11.4 Proposed Update to `docs/08-testing-and-evaluation.md`
+> **Proposed Addition to §8.1 (Test Suites)**:
+> Segregate testing tiers to optimize local development feedback and CI execution time:
+> - Tier 1: Fast Unit Tests (<2s)
+> - Tier 2: Contract Verification (<1s)
+> - Tier 3: Security & Hardening Tests (<2s)
+> - Tier 4: Windows PowerShell CLI Integration (<5s)
+> - Tier 5: Benchmark Suite (<5s)
+> - Tier 6: Full Regression Corpus (<90s)
 
