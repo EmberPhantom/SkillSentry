@@ -46,6 +46,14 @@ from skillsentry.core.contracts import (
     WSMessage,
     utc_now,
 )
+from skillsentry.core.decisions import (
+    DecisionClient,
+    DecisionSelection,
+    DecisionUnavailable,
+    select_decision_model,
+)
+from skillsentry.core.decisions.calibration import CalibrationError, load_calibration
+from skillsentry.core.decisions.mapping import CAPABILITY_THRESHOLD
 from skillsentry.core.evasion.detector import EvasionResult, detect_probes
 from skillsentry.core.models.base import ModelClient, ModelError
 from skillsentry.core.models.mock import MockGemma
@@ -69,6 +77,11 @@ from skillsentry.core.sandbox.runner import (
 )
 from skillsentry.core.sandbox.sidecar import SinkholeConfig, SinkholeSidecar
 from skillsentry.core.semantic import analyze_semantics, scan_anchors
+from skillsentry.core.semantic.laya_analyzer import (
+    analyze_semantics_laya,
+    degraded_semantic_stage,
+    deterministic_only_stage,
+)
 from skillsentry.core.verdict.fusion import FusionError, FusionResult, fuse
 from skillsentry.core.version import engine_version
 from skillsentry.core.vision import scan_vision
@@ -165,6 +178,7 @@ class ScanEngine:
         sandbox_runner: SandboxRunner | None = None,
         sandbox_runner_factory: Callable[[], SandboxRunner] | None = None,
         progress: ProgressCallback | None = None,
+        decision_client: DecisionClient | None = None,
     ) -> None:
         self.config = config or load_config()
         self._owns_store = store is None
@@ -172,11 +186,19 @@ class ScanEngine:
         self._model = model
         self._model_selected = model is not None
         self._model_error: str | None = None
+        self._decision_client = decision_client
+        self._decision: DecisionSelection | None = None
         self._sandbox_runner = sandbox_runner
         self._sandbox_runner_factory = sandbox_runner_factory
         self._progress = progress
 
     def close(self) -> None:
+        if self._decision is not None and self._decision.client is not None:
+            # Releases resident checkpoints; a no-op for clients without close().
+            close = getattr(self._decision.client, "close", None)
+            if callable(close):
+                close()
+            self._decision = None
         if self._owns_store:
             self.store.close()
 
@@ -376,7 +398,7 @@ class ScanEngine:
         self._check_cancel(cancel)
 
         model = self._get_model()
-        semantic = analyze_semantics(ctx.package, anchors, model)
+        semantic = self._semantic_stage(ctx.package, anchors, model)
         self._record(ctx, semantic, emit)
         self._check_cancel(cancel)
 
@@ -802,7 +824,11 @@ class ScanEngine:
         )
         sarif = ""
         try:
-            sarif = render_report(verdict, _sarif_format()).content.decode("utf-8")
+            sarif = render_report(
+                verdict,
+                _sarif_format(),
+                stage_results=ctx.stage_results,
+            ).content.decode("utf-8")
         except Exception:
             # SARIF is a report view; its failure must not fabricate a clean
             # verdict or block the evidence trail.
@@ -1123,6 +1149,99 @@ class ScanEngine:
         if cancel is not None and cancel.is_set():
             raise ScanCancelled()
 
+    def _semantic_stage(
+        self,
+        package: SkillPackage,
+        anchors: StageResult,
+        model: ModelClient | None,
+    ) -> StageResult:
+        """Route the semantic stage: typed decision backend, then legacy model."""
+
+        try:
+            selection = self._decision_selection(model)
+        except DecisionUnavailable as exc:
+            return degraded_semantic_stage(anchors, str(exc))
+        if selection.client is not None:
+            try:
+                calibration = load_calibration(self.config.decision.calibration_path)
+            except CalibrationError as exc:
+                # An unreadable calibration must not silently fall back to the provisional threshold.
+                return degraded_semantic_stage(anchors, f"calibration unavailable: {exc}")
+            threshold = calibration.capability_threshold if calibration else CAPABILITY_THRESHOLD
+            temperature = calibration.temperature if calibration else 1.0
+            label = (
+                calibration.label
+                if calibration
+                else (self.config.decision.calibration_version.strip() or "uncalibrated")
+            )
+            stage = analyze_semantics_laya(
+                package,
+                anchors,
+                selection.client,
+                threshold=threshold,
+                temperature=temperature,
+            )
+            return stage.model_copy(
+                update={
+                    "telemetry": {
+                        **(stage.telemetry or {}),
+                        "calibration_version": label,
+                        "capability_threshold": threshold,
+                        "temperature": temperature,
+                    }
+                }
+            )
+        if selection.backend == "legacy":
+            return analyze_semantics(package, anchors, model)
+        if selection.backend == "none":
+            off_values = {"none", "off", "disabled"}
+            explicitly_off = self.config.decision.backend.strip().lower() in off_values
+            if explicitly_off and not selection.required:
+                return deterministic_only_stage(anchors)
+            return degraded_semantic_stage(
+                anchors, selection.reason or "semantic decision backend unavailable"
+            )
+        return analyze_semantics(package, anchors, model)
+
+    def _decision_selection(self, model: ModelClient | None) -> DecisionSelection:
+        """Select the typed decision backend once per engine, not once per scan.
+
+        Selection is memoised because a Laya client loads checkpoint weights on
+        first use.  A failed selection raises and is retried on the next scan.
+        """
+
+        if self._decision is None:
+            self._decision = select_decision_model(
+                self.config,
+                laya_client=self._decision_client,
+                legacy_available=model is not None,
+            )
+        return self._decision
+
+    def _semantic_identity(self, model: ModelClient | None) -> str:
+        """Cache-identity fragment for the typed decision layer; empty when unused.
+
+        Empty for the legacy and deterministic-only paths so their cache keys do
+        not change.  Laya's identity includes the calibration version, so
+        changing the checkpoint or calibration invalidates cached verdicts.
+        """
+
+        try:
+            selection = self._decision_selection(model)
+        except DecisionUnavailable:
+            return "laya:unavailable"
+        if selection.client is None:
+            return ""
+        try:
+            calibration = load_calibration(self.config.decision.calibration_path)
+        except CalibrationError:
+            return "laya:calibration-invalid"
+        version = str(getattr(selection.client, "model_version", "unknown"))
+        fitted = (
+            f"{calibration.version}:{calibration.capability_threshold}" if calibration else "none"
+        )
+        return f"laya:{version}:{self.config.decision.cache_identity}:{fitted}"
+
     def _get_model(self) -> ModelClient | None:
         if self._model_selected:
             return self._model
@@ -1153,11 +1272,14 @@ class ScanEngine:
     def _model_identity(self) -> tuple[str, str]:
         model = self._get_model()
         if model is None:
-            return ("unavailable", "unavailable")
-        return (
-            str(getattr(model, "backend", "unknown")),
-            str(getattr(model, "model_version", "unknown")),
-        )
+            backend, version = "unavailable", "unavailable"
+        else:
+            backend = str(getattr(model, "backend", "unknown"))
+            version = str(getattr(model, "model_version", "unknown"))
+        semantic = self._semantic_identity(model)
+        if semantic:
+            version = f"{version}|{semantic}"
+        return backend, version
 
     def _get_sandbox_runner(self) -> SandboxRunner:
         if self._sandbox_runner is not None:
