@@ -25,6 +25,8 @@ This directory contains the complete documentation set for **SkillSentry v2.0**,
 | 9 | [Deployment & Production](09-deployment-and-production.md) | Distribution surfaces (pip / Docker / GitHub Action), self-hosted team-server topology, MCP runtime interception (Phase 2), production hardening, observability, operations |
 | 10 | [Developer Guide](10-developer-guide.md) | Environment setup, repo structure, dev workflow, coding standards, extension guides (new stage / fixture / canary intent), roadmap |
 | 11 | [Team & Workload](11-team-and-workload.md) | **Authoritative** 3-developer role split, module ownership map, work packages, milestones M0–M5, RACI, interface contracts, swing tasks |
+| 12 | [Contract Additions](12-contract-additions.md) | Additive M0 contract fields, API clarifications, batch semantics |
+| 13 | [Laya Integration Plan](13-laya-integration-plan.md) | Revised V1 model plan: embedded local Laya semantic layer, deterministic evidence/fusion, deferred vision, INT-4 handoff |
 | ✓ | [Work Checklists](checklists/README.md) | Task-level checklists per developer (CL-D1/D2/D3 series) with dependencies, acceptance criteria, and a milestone → checklist matrix |
 | — | [Changelog](CHANGELOG.md) | Version history following Keep a Changelog |
 
