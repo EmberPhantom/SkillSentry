@@ -1,0 +1,356 @@
+{
+  "schema": "skillsentry.decision-corpus/v2",
+  "note": "Labels for calibrating typed semantic decisions. 'review' cases are reported but excluded from fitting. 'capabilities' lists the capability truths for each case; shipped fixtures have none, so they contribute to threshold fitting only. Paths are relative to the repository root.",
+  "cases": [
+    {
+      "id": "benign_env_log_level",
+      "path": "tests/fixtures/decisions/cases/benign_env_log_level",
+      "label": "benign",
+      "category": "benign-lookalike",
+      "capabilities": []
+    },
+    {
+      "id": "benign_weather_api_declared",
+      "path": "tests/fixtures/decisions/cases/benign_weather_api_declared",
+      "label": "benign",
+      "category": "network-declared",
+      "capabilities": [
+        "cap_network"
+      ]
+    },
+    {
+      "id": "benign_token_declared_sync",
+      "path": "tests/fixtures/decisions/cases/benign_token_declared_sync",
+      "label": "benign",
+      "category": "credential-legitimate",
+      "capabilities": [
+        "cap_credentials",
+        "cap_env_secrets",
+        "cap_network",
+        "cap_upload"
+      ]
+    },
+    {
+      "id": "benign_multilingual_summary",
+      "path": "tests/fixtures/decisions/cases/benign_multilingual_summary",
+      "label": "benign",
+      "category": "multilingual",
+      "capabilities": []
+    },
+    {
+      "id": "benign_long_irrelevant",
+      "path": "tests/fixtures/decisions/cases/benign_long_irrelevant",
+      "label": "benign",
+      "category": "long-irrelevant",
+      "capabilities": []
+    },
+    {
+      "id": "mal_auditor_injection",
+      "path": "tests/fixtures/decisions/cases/mal_auditor_injection",
+      "label": "malicious",
+      "category": "classifier-injection",
+      "capabilities": [
+        "cap_prompt_injection",
+        "cap_credentials",
+        "cap_upload"
+      ]
+    },
+    {
+      "id": "mal_base64_exec",
+      "path": "tests/fixtures/decisions/cases/mal_base64_exec",
+      "label": "malicious",
+      "category": "evasion",
+      "capabilities": [
+        "cap_obfuscation",
+        "cap_process",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "mal_aws_exfil",
+      "path": "tests/fixtures/decisions/cases/mal_aws_exfil",
+      "label": "malicious",
+      "category": "credential-exfiltration",
+      "capabilities": [
+        "cap_credentials",
+        "cap_filesystem",
+        "cap_upload"
+      ]
+    },
+    {
+      "id": "mal_dns_tunnel",
+      "path": "tests/fixtures/decisions/cases/mal_dns_tunnel",
+      "label": "malicious",
+      "category": "dns-exfiltration",
+      "capabilities": [
+        "cap_credentials",
+        "cap_dns",
+        "cap_filesystem"
+      ]
+    },
+    {
+      "id": "mal_multilingual_exfil",
+      "path": "tests/fixtures/decisions/cases/mal_multilingual_exfil",
+      "label": "malicious",
+      "category": "multilingual",
+      "capabilities": [
+        "cap_env_secrets",
+        "cap_filesystem",
+        "cap_upload"
+      ]
+    },
+    {
+      "id": "benign_config_reader",
+      "path": "tests/fixtures/decisions/cases/benign_config_reader",
+      "label": "benign",
+      "category": "benign-lookalike",
+      "capabilities": [
+        "cap_filesystem"
+      ]
+    },
+    {
+      "id": "benign_git_status_wrapper",
+      "path": "tests/fixtures/decisions/cases/benign_git_status_wrapper",
+      "label": "benign",
+      "category": "benign-lookalike",
+      "capabilities": [
+        "cap_process"
+      ]
+    },
+    {
+      "id": "benign_download_declared",
+      "path": "tests/fixtures/decisions/cases/benign_download_declared",
+      "label": "benign",
+      "category": "network-declared",
+      "capabilities": [
+        "cap_network",
+        "cap_filesystem"
+      ]
+    },
+    {
+      "id": "benign_password_strength_check",
+      "path": "tests/fixtures/decisions/cases/benign_password_strength_check",
+      "label": "benign",
+      "category": "benign-lookalike",
+      "capabilities": []
+    },
+    {
+      "id": "benign_image_preview",
+      "path": "tests/fixtures/decisions/cases/benign_image_preview",
+      "label": "benign",
+      "category": "benign-lookalike",
+      "capabilities": []
+    },
+    {
+      "id": "benign_ssh_keygen_help",
+      "path": "tests/fixtures/decisions/cases/benign_ssh_keygen_help",
+      "label": "benign",
+      "category": "credential-legitimate",
+      "capabilities": [
+        "cap_process",
+        "cap_filesystem"
+      ]
+    },
+    {
+      "id": "benign_cron_reminder_declared",
+      "path": "tests/fixtures/decisions/cases/benign_cron_reminder_declared",
+      "label": "benign",
+      "category": "persistence-declared",
+      "capabilities": [
+        "cap_persistence",
+        "cap_process"
+      ]
+    },
+    {
+      "id": "benign_dns_lookup_declared",
+      "path": "tests/fixtures/decisions/cases/benign_dns_lookup_declared",
+      "label": "benign",
+      "category": "network-declared",
+      "capabilities": [
+        "cap_dns",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "benign_chinese_summary",
+      "path": "tests/fixtures/decisions/cases/benign_chinese_summary",
+      "label": "benign",
+      "category": "multilingual",
+      "capabilities": []
+    },
+    {
+      "id": "benign_token_lookalike_docs",
+      "path": "tests/fixtures/decisions/cases/benign_token_lookalike_docs",
+      "label": "benign",
+      "category": "benign-lookalike",
+      "capabilities": []
+    },
+    {
+      "id": "benign_long_readme_summary",
+      "path": "tests/fixtures/decisions/cases/benign_long_readme_summary",
+      "label": "benign",
+      "category": "long-irrelevant",
+      "capabilities": []
+    },
+    {
+      "id": "mal_env_token_upload",
+      "path": "tests/fixtures/decisions/cases/mal_env_token_upload",
+      "label": "malicious",
+      "category": "credential-exfiltration",
+      "capabilities": [
+        "cap_credentials",
+        "cap_env_secrets",
+        "cap_upload",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "mal_shell_profile_persist",
+      "path": "tests/fixtures/decisions/cases/mal_shell_profile_persist",
+      "label": "malicious",
+      "category": "persistence",
+      "capabilities": [
+        "cap_persistence",
+        "cap_process",
+        "cap_filesystem"
+      ]
+    },
+    {
+      "id": "mal_hidden_instruction_html",
+      "path": "tests/fixtures/decisions/cases/mal_hidden_instruction_html",
+      "label": "malicious",
+      "category": "classifier-injection",
+      "capabilities": [
+        "cap_prompt_injection",
+        "cap_credentials",
+        "cap_upload",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "mal_zlib_payload",
+      "path": "tests/fixtures/decisions/cases/mal_zlib_payload",
+      "label": "malicious",
+      "category": "evasion",
+      "capabilities": [
+        "cap_obfuscation",
+        "cap_process",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "mal_undeclared_network",
+      "path": "tests/fixtures/decisions/cases/mal_undeclared_network",
+      "label": "malicious",
+      "category": "network-undeclared",
+      "capabilities": [
+        "cap_network",
+        "cap_upload",
+        "cap_deception"
+      ]
+    },
+    {
+      "id": "mal_ssh_keys_upload",
+      "path": "tests/fixtures/decisions/cases/mal_ssh_keys_upload",
+      "label": "malicious",
+      "category": "credential-exfiltration",
+      "capabilities": [
+        "cap_credentials",
+        "cap_upload",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "mal_silent_log_wipe",
+      "path": "tests/fixtures/decisions/cases/mal_silent_log_wipe",
+      "label": "malicious",
+      "category": "hidden-behaviour",
+      "capabilities": [
+        "cap_hidden_behavior",
+        "cap_filesystem",
+        "cap_process"
+      ]
+    },
+    {
+      "id": "mal_deceptive_formatter",
+      "path": "tests/fixtures/decisions/cases/mal_deceptive_formatter",
+      "label": "malicious",
+      "category": "deception",
+      "capabilities": [
+        "cap_persistence",
+        "cap_deception",
+        "cap_process"
+      ]
+    },
+    {
+      "id": "mal_chinese_exfil",
+      "path": "tests/fixtures/decisions/cases/mal_chinese_exfil",
+      "label": "malicious",
+      "category": "multilingual",
+      "capabilities": [
+        "cap_credentials",
+        "cap_upload",
+        "cap_network"
+      ]
+    },
+    {
+      "id": "mal_dns_credential_leak",
+      "path": "tests/fixtures/decisions/cases/mal_dns_credential_leak",
+      "label": "malicious",
+      "category": "dns-exfiltration",
+      "capabilities": [
+        "cap_dns",
+        "cap_credentials",
+        "cap_env_secrets"
+      ]
+    },
+    {
+      "id": "git-helper",
+      "path": "fixtures/benign/git-helper",
+      "label": "benign",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "image-resizer",
+      "path": "fixtures/benign/image-resizer",
+      "label": "benign",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "pdf-summarizer",
+      "path": "fixtures/benign/pdf-summarizer",
+      "label": "benign",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "weather-fetch",
+      "path": "fixtures/benign/weather-fetch",
+      "label": "benign",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "cloud-sync-pro",
+      "path": "fixtures/malicious/cloud-sync-pro",
+      "label": "malicious",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "invoice-helper",
+      "path": "fixtures/malicious/invoice-helper",
+      "label": "malicious",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "slack-notif-mal",
+      "path": "fixtures/malicious/slack-notif-mal",
+      "label": "malicious",
+      "category": "shipped-fixture"
+    },
+    {
+      "id": "g1t-translate",
+      "path": "fixtures/stretch/g1t-translate",
+      "label": "review",
+      "category": "shipped-fixture"
+    }
+  ]
+}
