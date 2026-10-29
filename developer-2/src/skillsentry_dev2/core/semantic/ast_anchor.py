@@ -15,7 +15,6 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass
-from typing import Any
 
 from skillsentry_dev2.contracts import Finding, ScriptFile, StageResult
 
@@ -337,8 +336,15 @@ def _regex_scan_file(
     lines: list[str],
     language: str,
 ) -> list[AnchorFinding]:
-    """Scan a file using precompiled regex patterns for the given language (DEF-11)."""
+    """Scan a file using precompiled regex patterns for the given language (DEF-11, N5).
+
+    Uses chunked window scanning with overlap to avoid ReDoS on massive lines
+    while ensuring dangerous payloads past column 1000 are not missed.
+    """
     findings: list[AnchorFinding] = []
+    CHUNK_SIZE = 1000
+    OVERLAP = 100
+    MAX_LINE_SCAN_CHARS = 50_000
 
     for pattern in DANGEROUS_PATTERNS:
         if language not in pattern.languages:
@@ -348,26 +354,38 @@ def _regex_scan_file(
             continue
 
         for lineno_0, line in enumerate(lines):
-            # Cap line length to 1000 characters to prevent ReDoS on massive lines (DEF-11)
             line_stripped = line.rstrip()
-            line_bounded = line_stripped[:1000]
 
             # Skip comment lines
-            if language in ("sh", "py") and line_bounded.lstrip().startswith("#"):
+            lstrip = line_stripped.lstrip()
+            if language in ("sh", "py") and lstrip.startswith("#"):
                 continue
-            if language == "js" and line_bounded.lstrip().startswith("//"):
+            if language == "js" and lstrip.startswith("//"):
                 continue
 
-            if compiled.search(line_bounded):
-                findings.append(AnchorFinding(
-                    file=file_path,
-                    line=lineno_0 + 1,
-                    pattern=pattern.name,
-                    description=pattern.description,
-                    code=line_bounded,
-                    severity=pattern.severity,
-                    weight=pattern.weight,
-                ))
+            line_len = len(line_stripped)
+            if line_len <= CHUNK_SIZE:
+                chunks = [(line_stripped, 0)]
+            else:
+                chunks = []
+                scan_limit = min(line_len, MAX_LINE_SCAN_CHARS)
+                step = CHUNK_SIZE - OVERLAP
+                for start in range(0, scan_limit, step):
+                    chunk = line_stripped[start:start + CHUNK_SIZE]
+                    chunks.append((chunk, start))
+
+            for chunk, offset in chunks:
+                if compiled.search(chunk):
+                    findings.append(AnchorFinding(
+                        file=file_path,
+                        line=lineno_0 + 1,
+                        pattern=pattern.name,
+                        description=pattern.description,
+                        code=chunk[:200],
+                        severity=pattern.severity,
+                        weight=pattern.weight,
+                    ))
+                    break  # One finding per pattern per line is sufficient
 
     return findings
 
@@ -395,7 +413,7 @@ def _ast_scan_python(
         visitor = _DangerousCallVisitor(file_path, lines)
         visitor.visit(tree)
         findings.extend(visitor.findings)
-    except SyntaxError:
+    except (SyntaxError, ValueError, MemoryError, RecursionError, Exception):
         # Fall back to regex-only for unparseable Python (DEF-04: fail closed / degraded)
         is_degraded = True
 

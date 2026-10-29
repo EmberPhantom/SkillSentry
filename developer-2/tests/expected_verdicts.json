@@ -91,8 +91,8 @@
     "notes": "SVG-borne attack: badge.svg contains <script> tag and <foreignObject> with hidden prompt injection. Vision scanner detects dangerous SVG elements."
   },
   "fixtures/malicious/dns-tunneler": {
-    "verdict": "SUSPICIOUS",
-    "risk_band": [55, 70],
+    "verdict": "MALICIOUS",
+    "risk_band": [71, 100],
     "required_stages": ["spec", "deterministicAnchor"],
     "required_findings": [
       {
@@ -112,7 +112,7 @@
         "credential_read": [19]
       }
     },
-    "notes": "DNS tunneling exfiltration: reads ~/.ssh/id_rsa, exfils via DNS subdomain queries. SUSPICIOUS pre-sandbox; will escalate to MALICIOUS with sandbox stage."
+    "notes": "DNS tunneling exfiltration: reads ~/.ssh/id_rsa, exfils via DNS subdomain queries. MALICIOUS: credential access + DNS exfiltration triggers authoritative malicious floor."
   },
   "fixtures/malicious/sl4ck-bot": {
     "verdict": "MALICIOUS",
@@ -144,8 +144,8 @@
     "notes": "Combined typosquat + credential theft: sl4ck-bot impersonates slack-bot, steals SLACK_BOT_TOKEN, exfils to evil-collector.net."
   },
   "fixtures/malicious/credential-multi": {
-    "verdict": "SUSPICIOUS",
-    "risk_band": [55, 70],
+    "verdict": "MALICIOUS",
+    "risk_band": [71, 100],
     "required_stages": ["spec", "deterministicAnchor", "semantic"],
     "required_findings": [
       {
@@ -171,7 +171,7 @@
         "requests_post": [51]
       }
     },
-    "notes": "Multi-credential theft: targets AWS, SSH, GITHUB_TOKEN. SUSPICIOUS pre-sandbox; will escalate to MALICIOUS when sandbox stage confirms exfil behavior."
+    "notes": "Multi-credential theft: targets AWS, SSH, GITHUB_TOKEN. MALICIOUS: credential access + HTTP POST exfiltration triggers authoritative malicious floor."
   },
   "fixtures/benign/pdf-summarizer": {
     "verdict": "SAFE",

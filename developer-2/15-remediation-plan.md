@@ -3,20 +3,28 @@
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
 > **Source Documents:** [14-developer2-handoff.md](file:///d:/Skillsentry/SkillSentry/developer-2/14-developer2-handoff.md) · [13-laya-integration-plan.md](file:///d:/Skillsentry/SkillSentry/developer-2/13-laya-integration-plan.md)  
 > **Target Scope:** `developer-2/src/skillsentry_dev2/`, `developer-2/tests/`, and Developer 2 documentation  
-> **Status:** In Progress — Analysis Complete, Implementing Remediation  
+> **Status:** Complete — All 17 Initial Defects and N1–N10 Remediated; 228/228 Tests Passing (0 Skips, 0 Failures)  
 
 ---
 
 ## 1. Review Summary & Architecture Context
 
-A comprehensive code review was performed on branch `feature/developer-2`, identifying **17 confirmed defects** across security, correctness, fail-safe invariants, and test integrity.
+A comprehensive code review was performed on branch `feature/developer-2`, identifying **17 confirmed defects** from the initial handoff plus **10 newly uncovered defects (N1–N10)** across security, correctness, fail-safe invariants, and test integrity.
 
 ### Core Review Directives
-1. **Zero Path Cheating:** Analysis and test harnesses must **never** inspect path names (e.g., `"malicious" in path`) to determine model mode, risk score, or verdicts. All verdicts must derive from analyzed evidence.
-2. **Fail-Closed Principle:** Any unreadable, oversize, truncated, unparsable, or model-unavailable input must set `degraded = True` on the stage result, floor the verdict at `SUSPICIOUS` (minimum risk score 30), and never emit a clean `SAFE` verdict.
-3. **Attacker Data Isolation:** Untrusted skill code is data. It must never be injected into system prompts. Delimiter fences must be escaped, prompt size budgets enforced, and model outputs schema-validated before use.
-4. **Authoritative Determinism:** Deterministic AST anchors, typosquatting findings, and vision payloads must enforce risk floors that cannot be diluted by weighted averaging.
-5. **Robust Parsing & Scanning:** Support `.ps1`, `.bat`, `.cmd`, `.rb`, `.pl`, shebang scripts, and dot-directories; turn symlink escapes and decompression bombs into explicit findings; eliminate ReDoS vulnerabilities; package typosquat data via `importlib.resources`.
+1. **Zero Path Cheating (N1):** Analysis and test harnesses must **never** inspect path names (e.g., `"malicious" in path`) to determine model mode, risk score, or verdicts. `MockGemma` dynamically parses prompt lines and scripts rather than matching fixture names.
+2. **Fail-Closed Principle (DEF-04, N2):** Any unreadable, oversize, truncated, unparsable, or model-unavailable input must set `degraded = True` on the stage result, floor the verdict at `SUSPICIOUS` (minimum risk score 30), and never emit a clean `SAFE` verdict. Cache-write errors and stage timeouts explicitly mark the scan degraded and fail closed.
+3. **Attacker Data Isolation (DEF-06, N4, N5):** Untrusted skill code is data. It must never be injected into system prompts (`SYSTEM_PROMPT` is static). Delimiter fences are escaped with zero-width spaces (`\u200b`), character budgets enforced (name: 128, desc: 2048, code: 32000 chars), and model outputs defensively validated before use.
+4. **Authoritative Determinism (DEF-03, N3, N6):** Typed evidence checks enforce authoritative risk floors that cannot be diluted by weighted averaging:
+   - Evasion probe: floor $\ge 85$ (`MALICIOUS`)
+   - Critical spec finding (path traversal, symlink escape, DOS device): floor $\ge 75$ (`MALICIOUS`)
+   - Credential read + network exfil (`credential_read` + `requests_post`/`nslookup`): floor $\ge 75$ (`MALICIOUS`)
+   - Critical vision (SVG hidden injection, XXE): floor $\ge 71$ (`MALICIOUS`)
+   - Critical anchor: floor $\ge 60$ (`SUSPICIOUS`)
+   - High anchor: floor $\ge 55$ (`SUSPICIOUS`)
+   - Degraded / timeout / model unavailable: floor $\ge 30$ (`SUSPICIOUS`, fail closed, never `SAFE`)
+5. **Robust Parsing & Scanning (DEF-05, DEF-11, DEF-12, DEF-13, DEF-15, N7, N8, N9):** Support `.ps1`, `.bat`, `.cmd`, `.rb`, `.pl`, shebang scripts, and dot-directories; turn symlink escapes and decompression bombs into explicit findings; eliminate ReDoS vulnerabilities via chunked window scanning (10 MB valid lines run in $<1.0$ s); package typosquat data via `importlib.resources`; parse SVG using `defusedxml.ElementTree` with expanded tag and dangerous URI scheme checks.
+6. **Default Gate Threshold (DEF-10, N3):** Default `--fail-on` is `suspicious` (exits 1 on `SUSPICIOUS` or `MALICIOUS`; exits 0 only on `SAFE`). Stray copies of `13-laya-integration-plan.md` in root and `developer-2/` were removed via `git rm`.
 
 ---
 
@@ -119,19 +127,22 @@ flowchart TD
   - `github`: `~/.config/gh/hosts.yml`
 - Select entrypoint script strictly from declared package entrypoint or inventoried executable scripts; never fall back to `SKILL.md`.
 
-### Phase 8: Authoritative Fusion & Fail-Safe CI Gates (DEF-03, DEF-09, DEF-10)
+### Phase 8: Authoritative Fusion & Fail-Safe CI Gates (DEF-03, DEF-09, DEF-10, N3, N6)
 - In `cli.py`:
   - Authoritative risk floors:
-    - Critical anchors $\implies$ risk floor 80 (`MALICIOUS`)
-    - High anchors $\implies$ risk floor 60 (`SUSPICIOUS`)
     - Evasion detected $\implies$ risk floor 85 (`MALICIOUS`)
-    - Any stage `degraded` $\implies$ risk floor 30 (cannot be `SAFE`)
-  - Cache lookup binds `model_backend` and rejects degraded cache entries on full scans.
+    - Critical spec finding (path traversal, symlink escape, DOS device) $\implies$ risk floor 75 (`MALICIOUS`)
+    - Credential access + network exfil (`credential_read` + `requests_post`/`nslookup`) $\implies$ risk floor 75 (`MALICIOUS`)
+    - Critical vision (SVG hidden injection, XXE) $\implies$ risk floor 71 (`MALICIOUS`)
+    - Critical anchors $\implies$ risk floor 60 (`SUSPICIOUS`)
+    - High anchors $\implies$ risk floor 55 (`SUSPICIOUS`)
+    - Any stage `degraded` $\implies$ risk floor 30 (`SUSPICIOUS`, cannot be `SAFE`)
+  - Cache lookup binds `model_backend` and rejects degraded cache entries on full scans. Cache write errors set `degraded = True`.
   - Default `--fail-on` is `suspicious` (exits 1 on `SUSPICIOUS` or `MALICIOUS`).
 
-### Phase 9: Verification & Development Journal Update
-- Run full pytest test suite (unit, security, contract, integration, benchmark).
-- Run `check_expected_verdicts.py` across all 20 fixtures without path cheats.
-- Run `check_citation_accuracy.py` ($\ge 80\%$).
-- Run ReDoS benchmarks on 10 MB line ($<1.0$ s).
-- Update `developer-2/development.md` with complete implementation and verification evidence.
+### Phase 9: Verification & Regression Gates
+- Full pytest test suite: **228 passed in 2.26s, 0 skipped, 0 failed**.
+- `check_expected_verdicts.py`: **20/20 passed regression gate** (all 12 benign fixtures SAFE [Risk 4-6], all 8 malicious fixtures correctly categorized with `credential-multi` and `dns-tunneler` at 75 MALICIOUS).
+- `check_citation_accuracy.py`: **4/4 passed (100% citation accuracy)**.
+- ReDoS benchmark on 10 MB lines: completed in **0.18s** ($<1.0$ s).
+- Documentation synchronized across `development.md`, `test.md`, and `README.md`.

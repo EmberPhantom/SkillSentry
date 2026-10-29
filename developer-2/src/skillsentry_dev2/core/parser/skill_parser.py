@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-import stat
 from pathlib import Path, PurePosixPath
 from typing import Any, Optional
 
@@ -52,7 +51,7 @@ WINDOWS_RESERVED_NAMES = frozenset({
 })
 
 # Directories and files to exclude from inventory
-EXCLUDED_DIRS = frozenset({".git", "__pycache__", ".mypy_cache", ".pytest_cache", "node_modules"})
+EXCLUDED_DIRS = frozenset({".git", "__pycache__", ".mypy_cache", ".pytest_cache", "node_modules", ".venv", "venv"})
 EXCLUDED_FILES = frozenset({".DS_Store"})
 EXCLUDED_EXTENSIONS = frozenset({".pyc", ".pyo"})
 
@@ -364,10 +363,26 @@ def _inventory_files(
         dirpath = Path(dirpath_str)
 
         # Filter excluded directories in-place (DEF-05: do not skip dot-dirs except EXCLUDED_DIRS)
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in EXCLUDED_DIRS
-        ]
+        filtered_dirs = []
+        for d in dirnames:
+            if d in EXCLUDED_DIRS:
+                continue
+            d_path = dirpath / d
+            # Check symlinked directory escape (N9)
+            if d_path.is_symlink():
+                if not _is_path_safe(d_path, root):
+                    is_degraded = True
+                    rel_d = _to_posix_relative(d_path, root)
+                    findings.append(Finding(
+                        stage="spec",
+                        severity="critical",
+                        message=f"Symlinked directory escapes package root: {rel_d}",
+                        file=rel_d,
+                        evidence_json={"type": "symlink_escape"},
+                    ))
+                    continue
+            filtered_dirs.append(d)
+        dirnames[:] = filtered_dirs
 
         for fname in filenames:
             if fname in EXCLUDED_FILES:
@@ -400,6 +415,7 @@ def _inventory_files(
                     severity="critical",
                     message=f"Path traversal attempted: {rel_path_str}",
                     file=rel_path_str,
+                    evidence_json={"type": "path_traversal"},
                 ))
                 continue
 
@@ -412,28 +428,31 @@ def _inventory_files(
                         severity="critical",
                         message=f"Symlink escapes package root: {rel_path_str}",
                         file=rel_path_str,
+                        evidence_json={"type": "symlink_escape"},
                     ))
                     continue
 
-            # Check for reserved device names
+            # Check for reserved device names (N2: keep file in analysis, set degraded)
             if _check_reserved_device_name(fname):
+                is_degraded = True
                 findings.append(Finding(
                     stage="spec",
                     severity="critical",
                     message=f"Reserved device name in package: {fname}",
                     file=rel_path_str,
+                    evidence_json={"pattern": "reserved_device"},
                 ))
-                continue
 
-            # Check for alternate data streams
+            # Check for alternate data streams (N2: keep file in analysis, set degraded)
             if _check_alternate_data_stream(rel_path_str):
+                is_degraded = True
                 findings.append(Finding(
                     stage="spec",
                     severity="critical",
                     message=f"NTFS alternate data stream detected: {rel_path_str}",
                     file=rel_path_str,
+                    evidence_json={"pattern": "ntfs_ads"},
                 ))
-                continue
 
             # Get file size
             try:
@@ -507,6 +526,22 @@ def _inventory_files(
             elif ext in IMAGE_EXTENSIONS:
                 import mimetypes
                 mime = mimetypes.guess_type(fname)[0] or "application/octet-stream"
+                # Check for corrupt or unreadable image asset (N9)
+                if ext != ".svg" and file_size > 0:
+                    try:
+                        import io
+                        from PIL import Image
+                        with Image.open(io.BytesIO(content_bytes)) as test_img:
+                            test_img.verify()
+                    except Exception as img_err:
+                        is_degraded = True
+                        findings.append(Finding(
+                            stage="spec",
+                            severity="high",
+                            message=f"Corrupt or unreadable image asset: {rel_path_str} ({img_err})",
+                            file=rel_path_str,
+                            evidence_json={"type": "corrupt_image"},
+                        ))
                 assets[rel_path_str] = AssetFile(
                     relative_path=rel_path_str,
                     mime_type=mime,

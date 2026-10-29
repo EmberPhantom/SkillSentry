@@ -76,11 +76,6 @@ def compute_contrast_ratio(
 
         # Convert to grayscale for luminance
         gray = img.convert("L")
-        stat_data = ImageStat.Stat(gray)
-
-        # Overall luminance stats
-        mean_lum = stat_data.mean[0]  # 0-255
-        stddev_lum = stat_data.stddev[0]
 
         # Check for suspicious low-contrast regions
         # Scan quadrants for localized low-contrast text
@@ -114,10 +109,11 @@ def compute_contrast_ratio(
                     cr = l1 / l2 if l2 > 0 else 999.0
                     min_cr = min(min_cr, cr)
 
-                    # Flag if: high mean luminance (bright background) but
-                    # very small contrast range (text nearly invisible)
-                    if cell_mean > 230 and cr < LOW_CONTRAST_THRESHOLD and cell_stat.stddev[0] > 0.5:
-                        has_suspicious = True
+                    # Flag if: high mean luminance (bright background), low mean luminance
+                    # (dark background), or midtone background with tiny contrast range
+                    if cr < LOW_CONTRAST_THRESHOLD and cell_stat.stddev[0] > 0.2:
+                        if cell_mean > 220 or cell_mean < 35 or (abs(cell_mean - 128) < 30 and cell_stat.stddev[0] < 1.5):
+                            has_suspicious = True
 
         # Save downscaled image to bytes
         buf = io.BytesIO()
@@ -225,8 +221,19 @@ def extract_image_assets(
                 },
             ))
 
+        effective_path = str(abs_path)
+        if downscaled is not None and (cr > 0.0 or suspicious):
+            try:
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                    tf.write(downscaled)
+                    effective_path = tf.name
+            except Exception:
+                effective_path = str(abs_path)
+
         prepared.append({
-            "path": str(abs_path),
+            "path": effective_path,
+            "original_path": str(abs_path),
             "relative_path": rel_path,
             "mime_type": asset.mime_type,
             "is_svg": False,

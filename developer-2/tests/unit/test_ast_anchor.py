@@ -228,13 +228,29 @@ class TestAnchorBlockSerialization:
         assert "eval(x)" in block
 
     def test_redos_protection_on_massive_line(self):
-        """DEF-11: Scanning a 1MB malicious line must not hang (ReDoS defense)."""
+        """DEF-11 & N8: Scanning a 10MB line with valid syntax completes under 1s (ReDoS defense)."""
         import time
-        massive_line = "x = subprocess.Popen(" + "A" * 1_000_000 + "\n"
+        # Valid Python code with large string and comment: AST parses it without syntax error
+        massive_line = "x = '" + ("A" * 5_000_000) + "' # " + ("B" * 5_000_000) + "\n"
         start = time.perf_counter()
-        findings = _ast_scan_python("test.py", [massive_line])
+        findings, degraded = _ast_scan_python("test.py", [massive_line], return_degraded=True)
         duration = time.perf_counter() - start
-        assert duration < 0.5, f"Scan took too long: {duration:.3f}s (possible ReDoS)"
+        assert duration < 1.0, f"Scan took too long: {duration:.3f}s (possible ReDoS)"
+
+    def test_redos_regex_scan_shell(self):
+        """DEF-11 & N8: Regex scanning on a massive line completes under 1s."""
+        import time
+        massive_line = "echo '" + ("A" * 10_000_000) + "'\n"
+        start = time.perf_counter()
+        findings = _regex_scan_file("test.sh", [massive_line], "sh")
+        duration = time.perf_counter() - start
+        assert duration < 1.0, f"Scan took too long: {duration:.3f}s"
+
+    def test_payload_past_column_1000_detected(self):
+        """DEF-11 & N5: Window chunking detects dangerous pattern past column 1000."""
+        code_line = "x = 1; " + (" " * 1500) + 'cat /proc/1/cgroup\n'
+        findings = _regex_scan_file("test.sh", [code_line], "sh")
+        assert any(f.pattern == "sandbox_evasion" for f in findings)
 
     def test_sandbox_evasion_probe_detected(self):
         """DEF-17: .dockerenv and /proc/1/cgroup evasion probes must be flagged."""

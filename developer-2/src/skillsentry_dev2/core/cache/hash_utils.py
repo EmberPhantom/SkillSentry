@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 
 # Directories and files to exclude from hashing
 HASH_EXCLUDED_DIRS: frozenset[str] = frozenset({
-    ".git", "__pycache__", ".mypy_cache", ".pytest_cache",
+    ".git", "__pycache__", ".mypy_cache", ".pytest_cache", "node_modules", ".venv", "venv",
 })
 HASH_EXCLUDED_FILES: frozenset[str] = frozenset({".DS_Store"})
 HASH_EXCLUDED_EXTENSIONS: frozenset[str] = frozenset({".pyc", ".pyo"})

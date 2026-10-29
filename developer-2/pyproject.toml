@@ -11,6 +11,7 @@ dependencies = [
     "python-frontmatter>=1.1.0",
     "pyyaml>=6.0",
     "Pillow>=10.0",
+    "defusedxml>=0.7.0",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,9 @@ skillsentry-dev2 = "skillsentry_dev2.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+skillsentry_dev2 = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

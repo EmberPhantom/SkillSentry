@@ -11,7 +11,6 @@ developer-2/03-functional-specifications.md Cap D.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, Optional
 
@@ -70,7 +69,7 @@ def _extract_intent_keywords(
     keyword set consumed by Dev 1's context-aware honeypots (INT-1).
     """
     keywords: set[str] = set()
-    search_text = f"{declared_intent} {description} {' '.join(actual_capabilities)}".lower()
+    search_text = f"{declared_intent} {description} {' '.join(str(c) for c in actual_capabilities)}".lower()
 
     for term, keyword in INTENT_KEYWORD_MAP.items():
         if term in search_text:
@@ -190,11 +189,20 @@ def analyze_semantics(
     Returns:
         StageResult with stage='semantic' and findings.
     """
-    system_prompt = build_system_prompt(anchor_block)
-    user_prompt = build_user_prompt(manifest)
+    system_prompt = build_system_prompt()
+    user_prompt, was_truncated = build_user_prompt(manifest, anchor_block=anchor_block, return_truncated=True)
 
     findings: list[Finding] = []
     signals: dict[str, float] = {"semantic_risk": 0.0}
+    stage_degraded = bool(was_truncated)
+
+    if was_truncated:
+        findings.append(Finding(
+            stage="semantic",
+            severity="medium",
+            message="Skill content was truncated to fit character budget; semantic analysis may be degraded",
+            evidence_json={"pattern": "prompt_budget_truncated"},
+        ))
 
     # Call the model with one retry on failure
     response: Optional[dict[str, Any]] = None
@@ -278,7 +286,7 @@ def analyze_semantics(
             severity="high",
             message=(
                 f"Deceptive skill detected: declares '{declared_intent}' "
-                f"but actually performs: {', '.join(actual_capabilities[:3])}"
+                f"but actually performs: {', '.join(str(c) for c in actual_capabilities[:3])}"
             ),
         ))
 
@@ -311,6 +319,7 @@ def analyze_semantics(
         stage="semantic",
         findings=findings,
         signals=signals,
+        degraded=stage_degraded,
         telemetry={
             "prompt_version": PROMPT_VERSION,
             "intent_keywords": intent_keywords,

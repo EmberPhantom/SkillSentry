@@ -88,7 +88,10 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
         s_vision = 0.0
 
     # INT-4 Sandbox Instructions (DEF-17: pass declared scripts)
-    has_traversal = any(f.stage == "spec" and "traversal" in f.message.lower() for f in all_findings)
+    has_traversal = any(
+        f.stage == "spec" and (f.evidence_json or {}).get("type") in ("path_traversal", "symlink_escape")
+        for f in all_findings
+    )
     instructions = generate_sandbox_instructions(
         anchor_findings=raw_anchors,
         stage_findings=all_findings,
@@ -98,7 +101,7 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
         declared_scripts=list(scripts.keys()) if scripts else None,
     )
 
-    # Risk score fusion formula (docs/02-architecture.md §2.3) with Authoritative Floors (DEF-03)
+    # Risk score fusion formula (docs/02-architecture.md §2.3) with Authoritative Floors (DEF-03, N3, N6)
     w_anchors, w_semantic, w_vision = 0.15, 0.20, 0.20
     sum_w = w_anchors + w_semantic + w_vision
     weighted_sum = (w_anchors * s_anchors) + (w_semantic * s_semantic) + (w_vision * s_vision)
@@ -107,24 +110,43 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
     typosquat_bonus = 15 if typosquat_detected else 0
     total_risk = min(100, base_risk + typosquat_bonus)
 
-    # Authoritative risk floors (DEF-03)
+    # Authoritative risk floors (DEF-03, N3, N6)
+    has_evasion = any(a.pattern == "sandbox_evasion" for a in raw_anchors) or any(
+        (f.evidence_json or {}).get("pattern") == "sandbox_evasion" for f in all_findings
+    )
+    has_critical_spec = any(
+        f.stage == "spec" and (
+            f.severity == "critical" or
+            (f.evidence_json or {}).get("type") in ("path_traversal", "symlink_escape") or
+            (f.evidence_json or {}).get("pattern") in ("reserved_device", "ntfs_ads")
+        )
+        for f in all_findings
+    )
+    anchor_patterns = {a.pattern for a in raw_anchors}
+    has_cred_read = "credential_read" in anchor_patterns or any(
+        (f.evidence_json or {}).get("pattern") == "credential_read" for f in all_findings
+    )
+    has_exfil = bool(anchor_patterns & {"requests_post", "nslookup", "urllib_post", "socket_connect"})
+    has_cred_exfil = has_cred_read and has_exfil
+
     has_critical_vision = any(f.stage == "vision" and f.severity == "critical" for f in all_findings)
     has_critical_anchor = any(a.severity == "critical" for a in raw_anchors)
     has_high_anchor = any(a.severity == "high" for a in raw_anchors)
-    has_evasion = any(a.pattern == "sandbox_evasion" for a in raw_anchors) or any(
-        "evasion" in f.message.lower() for f in all_findings
-    )
     is_degraded = spec_result.degraded or (manifest and sem_result.degraded) or (manifest and manifest.assets and vision_result.degraded)
 
     if has_evasion:
         total_risk = max(total_risk, 85)
-    elif has_critical_vision:
+    if has_critical_spec:
+        total_risk = max(total_risk, 75)
+    if has_cred_exfil:
+        total_risk = max(total_risk, 75)
+    if has_critical_vision:
         total_risk = max(total_risk, 71)
-    elif has_critical_anchor:
+    if has_critical_anchor:
         total_risk = max(total_risk, 60)
-    elif has_high_anchor:
+    if has_high_anchor:
         total_risk = max(total_risk, 55)
-    elif is_degraded:
+    if is_degraded:
         total_risk = max(total_risk, 30)
 
     # Tier mapping: SAFE < 30 <= SUSPICIOUS <= 70 < MALICIOUS

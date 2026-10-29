@@ -220,3 +220,58 @@ class TestScanVisualAssets:
         (tmp_path / "img.png").write_bytes(b"\x00" * 10)
         result = scan_visual_assets(manifest, None, tmp_path)
         assert result.degraded is True
+
+    def test_svg_dangerous_tags_and_uris(self, tmp_path):
+        """DEF-12 & N9: Expanded dangerous tags (use, embed, object) and javascript:/data: URIs."""
+        svg_content = (
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
+            '<use xlink:href="javascript:alert(1)"/>'
+            '<object data="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="/>'
+            '<embed src="evil.swf"/>'
+            '</svg>'
+        )
+        svg_path = tmp_path / "tags_uris.svg"
+        svg_path.write_text(svg_content)
+        findings = _scan_svg_static(str(svg_path), "tags_uris.svg")
+
+        # Must flag dangerous tags (use, object, embed)
+        tag_findings = [f for f in findings if any(t in f.message for t in ("use", "object", "embed"))]
+        assert len(tag_findings) >= 2
+
+        # Must flag dangerous URI schemes (javascript:, data:text/html)
+        crit_findings = [f for f in findings if f.severity == "critical"]
+        assert any("javascript:" in f.message.lower() or "uri scheme" in f.message.lower() for f in crit_findings)
+
+    def test_svg_tiny_text_detected(self, tmp_path):
+        """N9: Tiny-text obfuscation in SVG."""
+        svg_content = (
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<text font-size="0px">secret payload</text>'
+            '</svg>'
+        )
+        svg_path = tmp_path / "tiny.svg"
+        svg_path.write_text(svg_content)
+        findings = _scan_svg_static(str(svg_path), "tiny.svg")
+        assert any("tiny-text" in f.message.lower() for f in findings)
+
+    def test_malformed_model_output_sets_degraded(self, tmp_path):
+        """N8: Malformed model response marks vision stage as degraded without crashing."""
+        class BrokenClient:
+            def analyze_image(self, image_path, prompt):
+                return "not a dict"
+
+        manifest = PackageManifest(
+            name="test", description="test",
+            trigger_keywords=[], canonical_root_posix=str(tmp_path),
+            assets={
+                "img.png": AssetFile(
+                    relative_path="img.png",
+                    mime_type="image/png",
+                    size_bytes=100,
+                    content_hash="abc",
+                )
+            },
+        )
+        (tmp_path / "img.png").write_bytes(b"\x00" * 10)
+        result = scan_visual_assets(manifest, BrokenClient(), tmp_path)
+        assert result.degraded is True

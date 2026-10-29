@@ -546,3 +546,66 @@ developer-2\.venv\Scripts\python.exe developer-2\tests\generate_canned_payloads.
   - Total test count increased from 216 to **222 passed, 0 skipped, 0 failed**.
   - Verified batch scans on `fixtures/benign` (exit code 0) and `fixtures/malicious` (exit code 1).
   - Verified 20/20 on CI regression gate (`check_expected_verdicts.py`).
+
+---
+
+### 6. Review Feedback Remediation (P11: Addressing Defects N1–N10 & Final Hardening)
+
+Following review feedback on commit `5de6bb9`, the Developer 2 subsystem underwent an exhaustive audit to address the 17 handoff defects and 10 newly uncovered findings (N1–N10):
+
+#### A. Direct Fixes Applied
+1. **Clean Workspace & Plan De-duplication:**
+   - Removed stray duplicate copies of `13-laya-integration-plan.md` in repository root and `developer-2/` via `git rm`. Canonical reference is maintained on `main` at `docs/13-laya-integration-plan.md`.
+2. **N1 — True Zero Path Cheating in `MockGemma`:**
+   - Rewrote `MockGemma.generate_json` in `mock_gemma.py` to dynamically parse script files, line numbers, and actual code from `user_prompt` instead of matching fixture name substrings (`"invoice"`, `"sl4ck"`, `"hidden instruction"`) or hardcoding filenames/lines.
+   - Removed `fill="white"` oracle in SVG vision scanning.
+3. **N2 & N9 — Parser Hardening & Fail-Closed Integrity:**
+   - In `skill_parser.py`: handled reserved device names (`CON`, `PRN`, `AUX`, `NUL`) and NTFS ADS (`:`) by setting `is_degraded = True`, recording a critical finding with typed evidence `evidence_json={"pattern": "reserved_device" | "ntfs_ads"}`, and keeping the file in analysis (no `continue`) so POSIX files like `aux.py` are not dropped.
+   - Symlinked directory escapes set `is_degraded = True` with high-severity finding.
+   - Corrupt images verified with Pillow set `is_degraded = True`.
+   - Aligned `EXCLUDED_DIRS` in `skill_parser.py` and `hash_utils.py` to strictly hardcoded system dirs (`.git`, `__pycache__`, `.mypy_cache`, `.pytest_cache`, `node_modules`, `.venv`, `venv`).
+4. **N3 & N6 — Default `--fail-on suspicious`, Authoritative Floors & Typed Evidence:**
+   - In `cli.py`: default `--fail-on` changed from `malicious` to `suspicious` (fails closed on SUSPICIOUS or MALICIOUS; passes only on SAFE).
+   - Replaced message string checking (`"evasion" in f.message.lower()`, `"traversal" in f.message.lower()`) with typed evidence checks: `evidence_json.get("pattern") == "sandbox_evasion"`, `evidence_json.get("type") in ("path_traversal", "symlink_escape")`.
+   - Updated Authoritative Floors:
+     - Evasion probe: floor $\ge 85$ (`MALICIOUS`)
+     - Critical spec finding (path traversal, symlink escape, DOS device): floor $\ge 75$ (`MALICIOUS`)
+     - Credential read + network exfil (`credential_read` + `requests_post`/`nslookup`): floor $\ge 75$ (`MALICIOUS`)
+     - Critical vision (SVG hidden injection, XXE): floor $\ge 71$ (`MALICIOUS`)
+     - Critical anchor: floor $\ge 60$ (`SUSPICIOUS`)
+     - High anchor: floor $\ge 55$ (`SUSPICIOUS`)
+     - Degraded / timeout / model unavailable: floor $\ge 30$ (`SUSPICIOUS`, cannot be `SAFE`)
+   - Reclassified `dns-tunneler` and `credential-multi` to `MALICIOUS` with risk band `[71, 100]`.
+5. **N4 & N5 — Prompt Budgeting & Fence Hardening:**
+   - In `prompts.py`: isolated untrusted text completely from `SYSTEM_PROMPT` (static prompt without dynamic placeholders).
+   - Injected zero-width space (`\u200b`) into fence delimiters (`---`).
+   - Budgeted fields consistently in characters: `skill_name` (128), `description` (2048), scripts (32000 chars total).
+   - In `analyzer.py`: truncation sets `degraded = True` and emits a medium finding. Guarded `.join(str(c) for c in actual_capabilities)` against non-string elements.
+6. **N5 & N8 — AST Anchor Window Chunking & Exception Safety:**
+   - In `ast_anchor.py`: implemented chunked window scanning (1000 char window, 100 char overlap) up to 50,000 characters per line, preventing ReDoS while catching payloads past column 1000.
+   - Wrapped `ast.parse` with `(SyntaxError, ValueError, MemoryError, RecursionError, Exception)` to fail closed without crashing.
+   - Strengthened ReDoS unit tests in `test_ast_anchor.py` to parse valid Python syntax on a 10 MB line in $<1.0$s (0.18s).
+7. **N7 — Packaged Data Loading via `importlib.resources`:**
+   - Added `[tool.setuptools.package-data] skillsentry_dev2 = ["data/*.json"]` in `developer-2/pyproject.toml`.
+   - In `typosquat.py`: loaded dictionary strictly via `importlib.resources.files("skillsentry_dev2.data")`, completely removing `Path.cwd()` traversal.
+8. **DEF-12 & N9 — Safe SVG XML Scanning via `defusedxml`:**
+   - In `vision_scanner.py`: adopted `defusedxml.ElementTree` with safe fallback.
+   - Expanded dangerous SVG tags: `script`, `foreignobject`, `iframe`, `use`, `style`, `object`, `embed`.
+   - Added detection for dangerous URI schemes (`javascript:`, `data:text/html`), tiny-text obfuscation (`font-size="0px"`, `1px`), and CSS display hiding.
+   - In `image_extractor.py`: broadened contrast filter to analyze both bright backgrounds, dark backgrounds, and low-variance midtones; persisted downscaled images to pass to vision model inference.
+9. **Fail-Closed Timeout and Cache-Write Paths:**
+   - In `cli.py`: cache write errors set `degraded = True` and floor the verdict at `SUSPICIOUS`.
+   - Stage timeouts explicitly mark scan degraded and fail closed with exit code 1 under default `--fail-on suspicious`.
+10. **Updated Documentation:**
+    - Synchronized `README.md` (relative links, updated status).
+    - Created comprehensive `test.md` with build verification, test suite instructions, and failure troubleshooting guide.
+
+#### B. Final Verification Results
+
+| Suite / Gate | Command | Result | Status |
+|---|---|:---:|:---:|
+| **Full Subsystem Test Suite** | `pytest developer-2/tests` | **228 passed, 0 skipped, 0 failed in 2.26s** | **PASS** |
+| **CI Regression Gate (20 Fixtures)** | `python developer-2/tests/check_expected_verdicts.py` | **20/20 passed (12 SAFE, 3 SUSPICIOUS, 5 MALICIOUS)** | **PASS** |
+| **Ground Truth Citation Accuracy** | `pytest developer-2/tests/check_citation_accuracy.py` | **4/4 passed (100% citation accuracy)** | **PASS** |
+| **10 MB Line ReDoS Benchmark** | `pytest -k "redos" developer-2/tests` | **2 passed in 0.18s (< 1.0s target)** | **PASS** |
+| **Package Resources Build** | `python -c "import importlib.resources..."` | **55 skill names loaded from package** | **PASS** |

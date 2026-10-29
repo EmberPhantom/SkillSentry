@@ -11,7 +11,7 @@ CL-D2-7 · REQ-D2-PS-02 · Source: docs/07-cli-reference.md §7.3.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"

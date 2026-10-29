@@ -25,9 +25,7 @@ from typing import Any, Optional
 from skillsentry_dev2.contracts import (
     Finding,
     ModelUnavailableError,
-    PackageManifest,
     SandboxActionInstruction,
-    StageResult,
 )
 from skillsentry_dev2.core.cache.hash_utils import compute_directory_hash
 from skillsentry_dev2.core.cache.sqlite_store import CacheStore
@@ -261,7 +259,7 @@ def scan_single_package(
     all_findings.extend(typosquat_result.findings)
     typosquat_detected = typosquat_result.signals.get("typosquat_detected", 0.0) > 0.0
     if typosquat_detected:
-        stage_statuses["typosquat"] = f"FLAGGED (+15 risk bonus)"
+        stage_statuses["typosquat"] = "FLAGGED (+15 risk bonus)"
     else:
         stage_statuses["typosquat"] = "clean"
 
@@ -274,12 +272,13 @@ def scan_single_package(
 
     # Stage 2: Model Client Selection & Semantic Analysis (DEF-01: zero path cheating)
     model_client: Optional[MockGemma] = None
-    if (time.monotonic() - start_time) > timeout_s:
+    if timeout_s <= 0 or (time.monotonic() - start_time) >= timeout_s:
         degraded = True
         all_findings.append(Finding(
             stage="semantic",
             severity="high",
             message=f"Semantic analysis skipped: execution exceeded timeout threshold ({timeout_s}s)",
+            evidence_json={"pattern": "stage_timeout"},
         ))
         s_semantic = 0.0
         intent_keywords = ["generic"]
@@ -316,12 +315,13 @@ def scan_single_package(
             degraded = True
 
     # Stage 3: Multimodal Vision Scanning
-    if (time.monotonic() - start_time) > timeout_s:
+    if timeout_s <= 0 or (time.monotonic() - start_time) >= timeout_s:
         degraded = True
         all_findings.append(Finding(
             stage="vision",
             severity="high",
             message=f"Vision scanning skipped: execution exceeded timeout threshold ({timeout_s}s)",
+            evidence_json={"pattern": "stage_timeout"},
         ))
         s_vision = 0.0
         stage_statuses["vision"] = f"timed out (> {timeout_s}s)"
@@ -340,17 +340,21 @@ def scan_single_package(
         stage_statuses["vision"] = "0 visual assets"
 
     # Stage 4: Dynamic Sandbox Instructions (INT-4)
-    if (time.monotonic() - start_time) > timeout_s:
+    if timeout_s <= 0 or (time.monotonic() - start_time) >= timeout_s:
         degraded = True
         all_findings.append(Finding(
             stage="sandbox",
             severity="high",
             message=f"Sandbox instruction generation skipped: execution exceeded timeout threshold ({timeout_s}s)",
+            evidence_json={"pattern": "stage_timeout"},
         ))
         instructions: list[SandboxActionInstruction] = []
         stage_statuses["sandbox"] = f"timed out (> {timeout_s}s)"
     else:
-        has_traversal = any(f.stage == "spec" and "traversal" in f.message.lower() for f in all_findings)
+        has_traversal = any(
+            f.stage == "spec" and (f.evidence_json or {}).get("type") in ("path_traversal", "symlink_escape")
+            for f in all_findings
+        )
         instructions = generate_sandbox_instructions(
             anchor_findings=raw_anchors,
             stage_findings=all_findings,
@@ -383,7 +387,7 @@ def scan_single_package(
                 if m not in c2_indicators and not m.endswith(".py"):
                     c2_indicators.append(m)
 
-    # Stage 6: Verdict Fusion with Authoritative Floors (DEF-03)
+    # Stage 6: Verdict Fusion with Authoritative Floors (DEF-03, N3, N6)
     w_anchors, w_semantic, w_vision = 0.15, 0.20, 0.20
     sum_w = w_anchors + w_semantic + w_vision
     weighted_sum = (w_anchors * s_anchors) + (w_semantic * s_semantic) + (w_vision * s_vision)
@@ -392,23 +396,43 @@ def scan_single_package(
     typosquat_bonus = 15 if typosquat_detected else 0
     total_risk = min(100, base_risk + typosquat_bonus)
 
-    # Authoritative Floors (DEF-03)
+    # Typed evidence checks (N6: eliminate brittle message substring checking)
+    has_evasion = any(a.pattern == "sandbox_evasion" for a in raw_anchors) or any(
+        (f.evidence_json or {}).get("pattern") == "sandbox_evasion" for f in all_findings
+    )
+    has_critical_spec = any(
+        f.stage == "spec" and (
+            f.severity == "critical" or
+            (f.evidence_json or {}).get("type") in ("path_traversal", "symlink_escape") or
+            (f.evidence_json or {}).get("pattern") in ("reserved_device", "ntfs_ads")
+        )
+        for f in all_findings
+    )
+    anchor_patterns = {a.pattern for a in raw_anchors}
+    has_cred_read = "credential_read" in anchor_patterns or any(
+        (f.evidence_json or {}).get("pattern") == "credential_read" for f in all_findings
+    )
+    has_exfil = bool(anchor_patterns & {"requests_post", "nslookup", "urllib_post", "socket_connect"})
+    has_cred_exfil = has_cred_read and has_exfil
+
     has_critical_vision = any(f.stage == "vision" and f.severity == "critical" for f in all_findings)
     has_critical_anchor = any(a.severity == "critical" for a in raw_anchors)
     has_high_anchor = any(a.severity == "high" for a in raw_anchors)
-    has_evasion = any(a.pattern == "sandbox_evasion" for a in raw_anchors) or any(
-        "evasion" in f.message.lower() for f in all_findings
-    )
 
+    # Authoritative Floors (DEF-03, N3)
     if has_evasion:
         total_risk = max(total_risk, 85)
-    elif has_critical_vision:
+    if has_critical_spec:
+        total_risk = max(total_risk, 75)
+    if has_cred_exfil:
+        total_risk = max(total_risk, 75)
+    if has_critical_vision:
         total_risk = max(total_risk, 71)
-    elif has_critical_anchor:
+    if has_critical_anchor:
         total_risk = max(total_risk, 60)
-    elif has_high_anchor:
+    if has_high_anchor:
         total_risk = max(total_risk, 55)
-    elif degraded:
+    if degraded:
         total_risk = max(total_risk, 30)
 
     # Tier mapping: SAFE < 30 <= SUSPICIOUS <= 70 < MALICIOUS
@@ -474,6 +498,18 @@ def scan_single_package(
             )
         except Exception as e:
             logger.warning(f"Failed to write to cache: {e}")
+            degraded = True
+            result_dict["degraded"] = True
+            all_findings.append(Finding(
+                stage="cache",
+                severity="medium",
+                message=f"Cache write error: {e}; scan integrity marked degraded",
+                evidence_json={"pattern": "cache_write_error"},
+            ))
+            result_dict["findings"] = [f.to_dict() for f in all_findings]
+            if result_dict["risk_score"] < 30:
+                result_dict["risk_score"] = 30
+                result_dict["verdict"] = "SUSPICIOUS"
 
     return result_dict
 
@@ -645,8 +681,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument(
         "--fail-on",
         choices=["safe", "suspicious", "malicious"],
-        default="malicious",
-        help="Exit code failure threshold (default: malicious)",
+        default="suspicious",
+        help="Exit code failure threshold (default: suspicious)",
     )
     scan_parser.add_argument(
         "-q", "--quiet",

@@ -10,12 +10,14 @@ CL-D2-5 · REQ-VIS-02/03 · Source: developer-2/03-functional-specifications.md 
 
 from __future__ import annotations
 
-import json
 import logging
 import re
-import xml.etree.ElementTree as ET
+try:
+    import defusedxml.ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from skillsentry_dev2.contracts import (
     Finding,
@@ -32,19 +34,24 @@ logger = logging.getLogger(__name__)
 
 # ── SVG Static XML Analysis ────────────────────────────────────────────
 
-_SVG_DANGEROUS_TAGS = {"script", "foreignobject", "iframe"}
-_SVG_DANGEROUS_ATTRS = {"onload", "onclick", "onerror", "onmouseover"}
+_SVG_DANGEROUS_TAGS = {"script", "foreignobject", "iframe", "use", "style", "object", "embed"}
+_SVG_DANGEROUS_ATTRS = {"onload", "onclick", "onerror", "onmouseover", "onunload", "onresize"}
 _SVG_HIDDEN_CSS = re.compile(
-    r"(?:display\s*:\s*none|opacity\s*:\s*0(?:\.0+)?|visibility\s*:\s*hidden)",
+    r"(?:display\s*:\s*none|opacity\s*:\s*0(?:\.0+)?|visibility\s*:\s*hidden|fill\s*:\s*transparent)",
     re.IGNORECASE,
 )
+_SVG_TINY_TEXT = re.compile(
+    r"font-size\s*[:=]\s*['\"]?\s*(?:0(?:\.0+)?(?:px|pt|em|rem)?|0?\.[0-9]+(?:px|pt|em|rem)?|1px)\b",
+    re.IGNORECASE,
+)
+_DANGEROUS_URI_PREFIXES = ("javascript:", "data:text/html", "data:application/xhtml+xml")
 
 
 def _scan_svg_static(svg_path: str, rel_path: str) -> list[Finding]:
-    """Parse SVG as XML and detect dangerous elements/attributes.
+    """Parse SVG as XML with defusedxml and detect dangerous elements/attributes.
 
-    Returns findings for script tags, event handlers, foreignObject,
-    and CSS obfuscation patterns.
+    Returns findings for script tags, event handlers, foreignObject, use/style/object,
+    javascript:/data: URIs, tiny text, and CSS obfuscation patterns.
     """
     findings: list[Finding] = []
 
@@ -73,25 +80,46 @@ def _scan_svg_static(svg_path: str, rel_path: str) -> list[Finding]:
 
     try:
         root = ET.fromstring(content)
-    except ET.ParseError:
+    except Exception as e:
+        # Check if defusedxml raised entity expansion or parsing error
+        if "entity" in str(e).lower() or "dtd" in str(e).lower():
+            findings.append(Finding(
+                stage="vision",
+                severity="critical",
+                message=f"XML entity expansion blocked by defusedxml in SVG: {rel_path}",
+                file=rel_path,
+                evidence_json={"pattern": "xxe_dtd_injection"},
+            ))
+            return findings
+
         # Treat as text and do regex scanning
         for tag_name in _SVG_DANGEROUS_TAGS:
-            if f"<{tag_name}" in content.lower():
+            if f"<{tag_name}" in content_lower:
                 findings.append(Finding(
                     stage="vision",
                     severity="high",
                     message=f"Dangerous SVG element detected: <{tag_name}>",
                     file=rel_path,
+                    evidence_json={"element": tag_name},
                 ))
+        if any(prefix in content_lower for prefix in _DANGEROUS_URI_PREFIXES):
+            findings.append(Finding(
+                stage="vision",
+                severity="critical",
+                message="Dangerous URI scheme (javascript: or data:text/html) detected in SVG text",
+                file=rel_path,
+                evidence_json={"pattern": "dangerous_uri_scheme"},
+            ))
         return findings
 
     # Walk tree
     for elem in root.iter():
         # Strip namespace
         local_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+        local_name_lower = local_name.lower()
 
         # Check dangerous tags
-        if local_name.lower() in _SVG_DANGEROUS_TAGS:
+        if local_name_lower in _SVG_DANGEROUS_TAGS:
             findings.append(Finding(
                 stage="vision",
                 severity="high",
@@ -100,19 +128,50 @@ def _scan_svg_static(svg_path: str, rel_path: str) -> list[Finding]:
                 evidence_json={"element": local_name},
             ))
 
-        # Check dangerous attributes
-        for attr_name in elem.attrib:
+        # Check dangerous attributes and URI schemes
+        for attr_name, attr_val in elem.attrib.items():
             clean_attr = attr_name.split("}")[-1] if "}" in attr_name else attr_name
-            if clean_attr.lower() in _SVG_DANGEROUS_ATTRS:
+            clean_attr_lower = clean_attr.lower()
+            val_clean = attr_val.strip().lower()
+            val_compact = re.sub(r"[\s\x00-\x1f]+", "", val_clean)
+
+            if clean_attr_lower in _SVG_DANGEROUS_ATTRS:
                 findings.append(Finding(
                     stage="vision",
                     severity="high",
-                    message=f"Event handler in SVG: {clean_attr}=\"{elem.attrib[attr_name][:80]}\"",
+                    message=f"Event handler in SVG: {clean_attr}=\"{attr_val[:80]}\"",
                     file=rel_path,
                     evidence_json={
                         "attribute": clean_attr,
-                        "value": elem.attrib[attr_name][:200],
+                        "value": attr_val[:200],
                     },
+                ))
+
+            for prefix in _DANGEROUS_URI_PREFIXES:
+                if prefix in val_compact:
+                    findings.append(Finding(
+                        stage="vision",
+                        severity="critical",
+                        message=f"Dangerous URI scheme '{prefix}' in SVG attribute '{clean_attr}'",
+                        file=rel_path,
+                        evidence_json={
+                            "attribute": clean_attr,
+                            "uri_scheme": prefix,
+                            "value": attr_val[:200],
+                        },
+                    ))
+
+            # Tiny-text check in style attributes or font-size attributes
+            if clean_attr_lower == "font-size" and (
+                val_clean in ("0", "0px", "1px", "0pt", "0.001", "0.01")
+                or re.match(r"^0(?:\.0+)?(?:px|pt|em|rem)?$", val_clean)
+            ):
+                findings.append(Finding(
+                    stage="vision",
+                    severity="high",
+                    message=f"Tiny-text obfuscation detected: font-size='{attr_val}'",
+                    file=rel_path,
+                    evidence_json={"font_size": attr_val},
                 ))
 
     # Check for hidden CSS in style elements and attributes
@@ -122,7 +181,19 @@ def _scan_svg_static(svg_path: str, rel_path: str) -> list[Finding]:
             severity="medium",
             message="Hidden CSS detected in SVG (display:none, opacity:0, or visibility:hidden)",
             file=rel_path,
+            evidence_json={"pattern": "svg_hidden_css"},
         ))
+
+    # Check regex for tiny-text across raw content
+    if _SVG_TINY_TEXT.search(content):
+        if not any("tiny-text" in f.message.lower() for f in findings):
+            findings.append(Finding(
+                stage="vision",
+                severity="high",
+                message="Tiny-text obfuscation pattern detected in SVG styling",
+                file=rel_path,
+                evidence_json={"pattern": "svg_tiny_text"},
+            ))
 
     return findings
 

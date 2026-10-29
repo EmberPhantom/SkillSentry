@@ -13,8 +13,8 @@ developer-2/03-functional-specifications.md Cap B.
 
 from __future__ import annotations
 
+import importlib.resources
 import json
-import re
 import unicodedata
 from pathlib import Path
 from typing import Optional
@@ -147,45 +147,63 @@ DICTIONARY_VERSION = "1.0.0"
 _DICTIONARY_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "known_skills_v1.json"
 
 
-def _get_dictionary_paths() -> list[Path]:
-    """Search paths for known_skills_v1.json (DEF-15)."""
-    return [
-        _DICTIONARY_PATH,
-        Path(__file__).resolve().parents[4] / "data" / "known_skills_v1.json",
-        Path.cwd() / "data" / "known_skills_v1.json",
-    ]
-
-
 def _load_known_skills_from_file() -> list[str]:
-    """Load known skill names from the versioned JSON dictionary file."""
-    for p in _get_dictionary_paths():
-        if p.is_file():
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    entries = [entry["name"] for entry in data.get("entries", [])]
-                    if entries:
-                        return entries
-            except (FileNotFoundError, json.JSONDecodeError, KeyError, OSError):
-                continue
+    """Load known skill names from the versioned JSON package data file (DEF-15, N7)."""
+    # 1. Package resources (works in wheel installs and editable installs)
+    try:
+        ref = importlib.resources.files("skillsentry_dev2.data").joinpath("known_skills_v1.json")
+        with ref.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            entries = [entry["name"] for entry in data.get("entries", [])]
+            if entries:
+                return entries
+    except Exception:
+        pass
+
+    # 2. Direct relative path to package data directory
+    try:
+        if _DICTIONARY_PATH.is_file():
+            with open(_DICTIONARY_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                entries = [entry["name"] for entry in data.get("entries", [])]
+                if entries:
+                    return entries
+    except Exception:
+        pass
+
     return []
 
 
 def _load_legitimate_pairs_from_file() -> frozenset[tuple[str, str]]:
-    """Load legitimate pairs from the versioned JSON dictionary file."""
-    for p in _get_dictionary_paths():
-        if p.is_file():
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    pairs = set()
-                    for pair in data.get("legitimate_pairs", []):
-                        if len(pair) == 2:
-                            pairs.add((min(pair[0], pair[1]), max(pair[0], pair[1])))
-                    if pairs:
-                        return frozenset(pairs)
-            except (FileNotFoundError, json.JSONDecodeError, KeyError, OSError):
-                continue
+    """Load legitimate pairs from the versioned JSON package data file (DEF-15, N7)."""
+    # 1. Package resources
+    try:
+        ref = importlib.resources.files("skillsentry_dev2.data").joinpath("known_skills_v1.json")
+        with ref.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            pairs = set()
+            for pair in data.get("legitimate_pairs", []):
+                if len(pair) == 2:
+                    pairs.add((min(pair[0], pair[1]), max(pair[0], pair[1])))
+            if pairs:
+                return frozenset(pairs)
+    except Exception:
+        pass
+
+    # 2. Direct relative path
+    try:
+        if _DICTIONARY_PATH.is_file():
+            with open(_DICTIONARY_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                pairs = set()
+                for pair in data.get("legitimate_pairs", []):
+                    if len(pair) == 2:
+                        pairs.add((min(pair[0], pair[1]), max(pair[0], pair[1])))
+                if pairs:
+                    return frozenset(pairs)
+    except Exception:
+        pass
+
     return frozenset()
 
 

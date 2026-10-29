@@ -150,8 +150,8 @@ class TestScanExecutionAndExitCodes:
     def test_fail_on_threshold_suspicious(
         self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Assert that dns-tunneler (SUSPICIOUS) fails when --fail-on is suspicious."""
-        target = str(MALICIOUS_DIR / "dns-tunneler")
+        """Assert that obfuscation-only (SUSPICIOUS) fails when --fail-on is suspicious."""
+        target = str(MALICIOUS_DIR / "obfuscation-only")
         code = main([
             "scan", target,
             "--demo-mode",
@@ -163,8 +163,8 @@ class TestScanExecutionAndExitCodes:
     def test_fail_on_threshold_malicious_allows_suspicious(
         self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Assert that dns-tunneler (SUSPICIOUS) passes when --fail-on is malicious."""
-        target = str(MALICIOUS_DIR / "dns-tunneler")
+        """Assert that obfuscation-only (SUSPICIOUS) passes when --fail-on is malicious (DEF-10, N3)."""
+        target = str(MALICIOUS_DIR / "obfuscation-only")
         code = main([
             "scan", target,
             "--demo-mode",
@@ -172,6 +172,18 @@ class TestScanExecutionAndExitCodes:
             "--db-path", str(temp_cache_db),
         ])
         assert code == 0
+
+    def test_default_fail_on_is_suspicious(
+        self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that default --fail-on is suspicious (DEF-10)."""
+        target = str(MALICIOUS_DIR / "obfuscation-only")
+        code = main([
+            "scan", target,
+            "--demo-mode",
+            "--db-path", str(temp_cache_db),
+        ])
+        assert code == 1
 
     def test_parent_directory_discovery(
         self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
@@ -291,11 +303,12 @@ class TestSandboxInstructionsAndPerformance:
     def test_no_sandbox_flag_records_degraded_finding(
         self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Assert that --no-sandbox adds a degraded sandbox note finding."""
+        """Assert that --no-sandbox adds a degraded sandbox note finding and marks scan degraded (DEF-04)."""
         target = str(BENIGN_DIR / "pdf-summarizer")
         code = main([
             "scan", target,
             "--no-sandbox",
+            "--fail-on", "malicious",
             "--format", "json",
             "--demo-mode",
             "--db-path", str(temp_cache_db),
@@ -303,6 +316,7 @@ class TestSandboxInstructionsAndPerformance:
         assert code == 0
         data = json.loads(capsys.readouterr().out)
         assert data["degraded"] is True
+        assert data["verdict"] == "SUSPICIOUS"
         stages = [f["stage"] for f in data["findings"]]
         assert "sandbox" in stages
 
@@ -365,25 +379,38 @@ class TestSandboxInstructionsAndPerformance:
     def test_scan_timeout_enforcement(
         self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Assert that setting timeout to 0 forces stages into timeout handling with degraded flag."""
+        """Assert that setting timeout to 0 forces stages into timeout handling with degraded flag (DEF-04, N8)."""
         target = str(BENIGN_DIR / "pdf-summarizer")
         code = main([
             "scan", target,
             "--timeout", "0",
             "--demo-mode",
+            "--fail-on", "malicious",
             "--format", "json",
             "--db-path", str(temp_cache_db),
         ])
         assert code == 0
         data = json.loads(capsys.readouterr().out)
         assert data["degraded"] is True
+        assert data["verdict"] == "SUSPICIOUS"
         messages = [f["message"] for f in data["findings"]]
         assert any("timeout" in m.lower() for m in messages)
+
+        # Default --fail-on suspicious exits 1 on degraded timeout (fail closed)
+        code_fail = main([
+            "scan", target,
+            "--timeout", "0",
+            "--demo-mode",
+            "--format", "json",
+            "--db-path", str(temp_cache_db),
+        ])
+        assert code_fail == 1
+        _ = capsys.readouterr()
 
     def test_cache_write_failure_gracefully_handled(
         self, monkeypatch: pytest.MonkeyPatch, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Assert that a failure when writing to cache does not crash the CLI."""
+        """Assert that cache-write failure marks scan degraded and fails closed (DEF-04, N8)."""
         from skillsentry_dev2.core.cache.sqlite_store import CacheStore
 
         def mock_put_fail(*args: Any, **kwargs: Any) -> None:
@@ -394,10 +421,23 @@ class TestSandboxInstructionsAndPerformance:
         code = main([
             "scan", target,
             "--demo-mode",
-            "--quiet",
+            "--fail-on", "malicious",
+            "--format", "json",
             "--db-path", str(temp_cache_db),
         ])
         assert code == 0
-        captured = capsys.readouterr()
-        assert "pdf-summarizer: SAFE" in captured.out
+        data = json.loads(capsys.readouterr().out)
+        assert data["degraded"] is True
+        assert data["verdict"] == "SUSPICIOUS"
+        assert any(f.get("stage") == "cache" or "cache write error" in f.get("message", "").lower() for f in data["findings"])
+
+        # And with default --fail-on suspicious, it fails closed with exit code 1
+        code_fail = main([
+            "scan", target,
+            "--demo-mode",
+            "--format", "json",
+            "--db-path", str(temp_cache_db),
+        ])
+        assert code_fail == 1
+        _ = capsys.readouterr()
 

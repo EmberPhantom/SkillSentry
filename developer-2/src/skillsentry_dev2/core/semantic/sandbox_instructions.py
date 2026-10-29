@@ -12,7 +12,7 @@ CL-D2-2 · REQ-D2-SBX-01/02/03 · Source: developer-2/03-functional-specificatio
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from skillsentry_dev2.contracts import (
     Finding,
