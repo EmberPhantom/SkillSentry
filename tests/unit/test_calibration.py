@@ -9,7 +9,8 @@ import pytest
 from skillsentry.core.cache import SQLiteStore
 from skillsentry.core.config import SkillsEntryConfig
 from skillsentry.core.contracts import ScanOptions
-from skillsentry.core.decisions import DecisionAnswer, MockDecisionClient
+from skillsentry.core.decisions import DecisionAnswer
+from tests.support.mock_decision import MockDecisionClient
 from skillsentry.core.decisions.calibration import (
     SCHEMA,
     Calibration,
@@ -19,7 +20,7 @@ from skillsentry.core.decisions.calibration import (
     write_calibration,
 )
 from skillsentry.core.engine import ScanEngine
-from skillsentry.core.models.mock import MockGemma
+from tests.support.mock_gemma import MockGemma
 from skillsentry.core.poisoned_well.canary_gen import generate_canary_set
 from skillsentry.core.sandbox.runner import SandboxRequest, SandboxResult
 from tests.unit.test_engine_live import _write_skill

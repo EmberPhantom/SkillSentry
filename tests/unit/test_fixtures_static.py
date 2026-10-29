@@ -9,7 +9,7 @@ import pytest
 from skillsentry.core.cache import SQLiteStore
 from skillsentry.core.contracts import ScanOptions
 from skillsentry.core.engine import ScanEngine
-from skillsentry.core.models.mock import MockGemma
+from tests.support.mock_gemma import MockGemma
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures"

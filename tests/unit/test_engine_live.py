@@ -10,7 +10,7 @@ from skillsentry.core.cache import SQLiteStore
 from skillsentry.core.config import SkillsEntryConfig
 from skillsentry.core.contracts import ScanOptions, ScanStatus
 from skillsentry.core.engine import ScanEngine
-from skillsentry.core.models.mock import MockGemma
+from tests.support.mock_gemma import MockGemma
 from skillsentry.core.poisoned_well.canary_gen import generate_canary_set
 from skillsentry.core.sandbox.runner import (
     SandboxRequest,

@@ -31,7 +31,6 @@ from skillsentry.core.contracts import (
     WSEventType,
     WSMessage,
 )
-from skillsentry.core.models.mock import MockGemma
 from skillsentry.core.reports import RenderedReport, render_report
 from skillsentry.core.verdict.stix_report import NoIOCsError
 from skillsentry.core.version import CONTRACT_VERSION, GEMMA_BADGE, __version__, engine_version
@@ -249,7 +248,7 @@ class DemoBackend:
             hit_rate=round(hit_rate, 3),
             db_size_bytes=245_760,
             engine_version=engine_version(),
-            model_version=MockGemma.model_version,
+            model_version="gemma4:e4b",
         )
 
     async def clear_cache(self, older_than: str | None = None) -> DeleteCacheResponse:

@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from skillsentry.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
-from skillsentry.core.decisions import DecisionAnswer, MockDecisionClient
+from skillsentry.core.decisions import DecisionAnswer
+from tests.support.mock_decision import MockDecisionClient
 from skillsentry.core.parser import parse_skill
 from skillsentry.core.semantic.candidates import MAX_CANDIDATES, build_candidates
 from skillsentry.core.semantic.laya_analyzer import analyze_semantics_laya

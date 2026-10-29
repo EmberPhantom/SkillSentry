@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import json
 from pathlib import Path
 
@@ -9,6 +11,21 @@ from skillsentry.cli import app
 from typer.testing import CliRunner
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _patch_cli_engine(monkeypatch):
+    import skillsentry.cli as cli_mod
+    from tests.support.mock_gemma import MockGemma
+    from skillsentry.core.engine import ScanEngine
+    orig_make_engine = cli_mod._make_engine
+
+    def patched_make_engine(config, backend):
+        if backend == 'demo':
+            return ScanEngine(config, model=MockGemma())
+        return orig_make_engine(config, backend)
+
+    monkeypatch.setattr(cli_mod, '_make_engine', patched_make_engine)
 
 
 def test_version():

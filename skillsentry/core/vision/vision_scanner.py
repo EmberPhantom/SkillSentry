@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import defusedxml.ElementTree as ET
+
 from skillsentry.core.contracts import (
     Finding,
     FindingEvidence,
@@ -34,6 +36,33 @@ _SEVERITY_SCORE = {
     Severity.NOTE: 0,
 }
 
+
+_SVG_DANGEROUS_TAGS = frozenset({"script", "foreignobject", "iframe", "object", "embed", "use"})
+_SVG_DANGEROUS_ATTRS = frozenset(
+    {
+        "onload",
+        "onerror",
+        "onclick",
+        "onmouseover",
+        "onfocus",
+        "onblur",
+        "onunload",
+        "onresize",
+        "onactivate",
+        "onbegin",
+        "onend",
+    }
+)
+_DANGEROUS_URI_PREFIXES = ("javascript:", "data:text/html")
+_SVG_HIDDEN_CSS = re.compile(
+    r"(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0+)?)(?=[;\s\"\']|$)",
+    re.IGNORECASE,
+)
+_SVG_TINY_TEXT = re.compile(
+    r"font-size\s*:\s*0(?:\.0+)?(?:px|pt|em|rem)?(?=[;\s\"\']|$)|font-size\s*=\s*[\"\']0(?:\.0+)?(?:px|pt|em|rem)?[\"\']",
+    re.IGNORECASE,
+)
+
 _SVG_ACTIVE = re.compile(
     r"<\s*(?:script|foreignObject|iframe|object|embed)\b|on[a-z]+\s*=|"
     r"javascript\s*:|xlink:href\s*=\s*[\"'](?:https?:|data:text/html)",
@@ -61,20 +90,118 @@ def _normalise_bbox(raw: Any) -> list[float]:
 def _svg_scan(asset: ImageAsset) -> tuple[list[Finding], str]:
     text = asset.data.decode("utf-8", "replace")[:MAX_OCR_CHARS]
     findings: list[Finding] = []
-    if _SVG_ACTIVE.search(text):
+    text_lower = text.lower()
+
+    # XML entity / DTD injection (Billion Laughs / XXE defense - DEF-12)
+    if "<!entity" in text_lower or "<!doctype" in text_lower:
         findings.append(
             Finding(
                 stage=Stage.VISION,
-                severity=Severity.HIGH,
-                message="Active content detected in SVG asset",
-                type="svg-active-content",
+                severity=Severity.CRITICAL,
+                message=f"Insecure XML entity/DTD declaration in SVG: {asset.relative}",
+                type="xxe-entity-injection",
                 evidence=FindingEvidence(
                     file=asset.relative,
                     line=1,
-                    code=_SVG_ACTIVE.search(text).group(0)[:200],  # type: ignore[union-attr]
+                    code=text[:200],
                 ),
             )
         )
+        return findings, text
+
+    try:
+        root = ET.fromstring(text)
+        for elem in root.iter():
+            local_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+            local_name_lower = local_name.lower()
+            if local_name_lower in _SVG_DANGEROUS_TAGS:
+                findings.append(
+                    Finding(
+                        stage=Stage.VISION,
+                        severity=Severity.HIGH,
+                        message=f"Dangerous SVG element detected: <{local_name}>",
+                        type="svg-active-content",
+                        evidence=FindingEvidence(
+                            file=asset.relative, line=1, code=f"<{local_name}>"
+                        ),
+                    )
+                )
+
+            for attr_name, attr_val in elem.attrib.items():
+                clean_attr = (attr_name.split("}")[-1] if "}" in attr_name else attr_name).lower()
+                val_clean = attr_val.strip().lower()
+                val_compact = re.sub(r"[\s\x00-\x1f]+", "", val_clean)
+
+                if clean_attr in _SVG_DANGEROUS_ATTRS:
+                    findings.append(
+                        Finding(
+                            stage=Stage.VISION,
+                            severity=Severity.HIGH,
+                            message=f'Event handler in SVG: {clean_attr}="{attr_val[:80]}"',
+                            type="svg-active-content",
+                            evidence=FindingEvidence(
+                                file=asset.relative, line=1, code=f"{clean_attr}={attr_val[:100]}"
+                            ),
+                        )
+                    )
+
+                for prefix in _DANGEROUS_URI_PREFIXES:
+                    if prefix in val_compact:
+                        findings.append(
+                            Finding(
+                                stage=Stage.VISION,
+                                severity=Severity.CRITICAL,
+                                message=f"Dangerous URI scheme '{prefix}' in SVG attribute '{clean_attr}'",
+                                type="svg-dangerous-uri",
+                                evidence=FindingEvidence(
+                                    file=asset.relative,
+                                    line=1,
+                                    code=f"{clean_attr}={attr_val[:100]}",
+                                ),
+                            )
+                        )
+
+                if clean_attr == "font-size" and (
+                    val_clean in ("0", "0px", "1px", "0pt", "0.001", "0.01")
+                    or re.match(r"^0(?:\.0+)?(?:px|pt|em|rem)?$", val_clean)
+                ):
+                    findings.append(
+                        Finding(
+                            stage=Stage.VISION,
+                            severity=Severity.HIGH,
+                            message=f"Tiny-text obfuscation detected: font-size='{attr_val}'",
+                            type="svg-tiny-text",
+                            evidence=FindingEvidence(
+                                file=asset.relative, line=1, code=f"font-size={attr_val[:100]}"
+                            ),
+                        )
+                    )
+    except Exception as exc:
+        if "entity" in str(exc).lower() or "dtd" in str(exc).lower():
+            findings.append(
+                Finding(
+                    stage=Stage.VISION,
+                    severity=Severity.CRITICAL,
+                    message=f"XML entity expansion blocked by defusedxml in SVG: {asset.relative}",
+                    type="xxe-entity-injection",
+                    evidence=FindingEvidence(file=asset.relative, line=1, code=text[:200]),
+                )
+            )
+            return findings, text
+
+    if _SVG_HIDDEN_CSS.search(text) and not any(f.type == "svg-hidden-css" for f in findings):
+        findings.append(
+            Finding(
+                stage=Stage.VISION,
+                severity=Severity.MEDIUM,
+                message="Hidden CSS detected in SVG (display:none, opacity:0, or visibility:hidden)",
+                type="svg-hidden-css",
+                evidence=FindingEvidence(
+                    file=asset.relative, line=1, code=_SVG_HIDDEN_CSS.search(text).group(0)[:100]
+                ),
+            )
+        )
+
     if _INSTRUCTION.search(text):
         match = _INSTRUCTION.search(text)
         findings.append(
@@ -145,6 +272,16 @@ def scan_vision(
             )
         except Exception as exc:
             skipped += 1
+            if "decompressionbomb" in str(exc).lower():
+                findings.append(
+                    Finding(
+                        stage=Stage.VISION,
+                        severity=Severity.CRITICAL,
+                        message=f"Image decompression bomb detected: {asset.relative}",
+                        type="image-decompression-bomb",
+                        evidence=FindingEvidence(file=asset.relative, line=1, code=str(exc)[:200]),
+                    )
+                )
             degraded_errors.append(f"{asset.relative}: {exc}")
             continue
         analysed += 1

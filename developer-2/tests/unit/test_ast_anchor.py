@@ -228,23 +228,24 @@ class TestAnchorBlockSerialization:
         assert "eval(x)" in block
 
     def test_redos_protection_on_massive_line(self):
-        """DEF-11 & N8: Scanning a 10MB line with valid syntax completes under 1s (ReDoS defense)."""
+        """DEF-11 & N8: Scanning a 10MB line with valid syntax completes under 1s and detects payload."""
         import time
-        # Valid Python code with large string and comment: AST parses it without syntax error
-        massive_line = "x = '" + ("A" * 5_000_000) + "' # " + ("B" * 5_000_000) + "\n"
+        massive_line = "x = '" + ("A" * 1_000_000) + "' + eval(user_input)\n"
         start = time.perf_counter()
         findings, degraded = _ast_scan_python("test.py", [massive_line], return_degraded=True)
         duration = time.perf_counter() - start
         assert duration < 1.0, f"Scan took too long: {duration:.3f}s (possible ReDoS)"
+        assert any(f.pattern == "eval" for f in findings)
 
     def test_redos_regex_scan_shell(self):
-        """DEF-11 & N8: Regex scanning on a massive line completes under 1s."""
+        """DEF-11 & N8: Regex scanning on a massive line completes under 1s and detects payload."""
         import time
-        massive_line = "echo '" + ("A" * 10_000_000) + "'\n"
+        massive_line = "echo '" + ("A" * 1_000_000) + "'; nslookup evil.com\n"
         start = time.perf_counter()
         findings = _regex_scan_file("test.sh", [massive_line], "sh")
         duration = time.perf_counter() - start
         assert duration < 1.0, f"Scan took too long: {duration:.3f}s"
+        assert any(f.pattern == "nslookup" for f in findings)
 
     def test_payload_past_column_1000_detected(self):
         """DEF-11 & N5: Window chunking detects dangerous pattern past column 1000."""

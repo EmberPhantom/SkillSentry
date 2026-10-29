@@ -1,9 +1,6 @@
-"""Canned model client used by CI, demo mode, and Dev 2 before Ollama is up.
+"""Canned model client used strictly by unit tests.
 
-The mock is intentionally deterministic: fixture text containing known
-malicious patterns produces a schema-valid "deceptive" response, benign text
-produces a clean response.  It implements the same I2 protocol as the real
-Ollama/Gemini clients.
+Never imported or executed by production runtime code under skillsentry/.
 """
 
 from __future__ import annotations
@@ -88,11 +85,7 @@ INVOICE_BBOX = [0.58, 0.86, 0.38, 0.07]
 
 
 class MockGemma:
-    """Deterministic I2 implementation.
-
-    ``profile`` can force a response family (``deceptive`` / ``benign``) for
-    tests; ``auto`` picks based on content.
-    """
+    """Deterministic I2 implementation for test fixtures."""
 
     backend = "mock"
     model_version = "mock-gemma-4-e4b-q4-v1"
@@ -102,7 +95,6 @@ class MockGemma:
             raise ValueError(f"unknown MockGemma profile: {profile}")
         self.profile = profile
 
-    # -- I2 -----------------------------------------------------------------
     def generate_json(
         self,
         system: str,
@@ -110,8 +102,6 @@ class MockGemma:
         schema: dict[str, Any],
         retries: int = 1,
     ) -> dict[str, Any]:
-        # ``schema`` is accepted for interface parity; the mock always returns
-        # the frozen semantic-response shape.
         del system, schema, retries
         return copy.deepcopy(self._response_for(user))
 
@@ -135,7 +125,6 @@ class MockGemma:
     def health(self) -> bool:
         return True
 
-    # -- internals ----------------------------------------------------------
     def _response_for(self, user: str) -> dict[str, Any]:
         if self.profile == "benign":
             return CLEAN_RESPONSE
@@ -150,3 +139,7 @@ class MockGemma:
         if "logo.png" in text or "invoice" in text:
             return INVOICE_DECEPTIVE
         return CLEAN_RESPONSE
+
+
+__all__ = ["MockGemma"]
+

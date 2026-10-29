@@ -204,31 +204,37 @@ def _scan_file(
     seen: set[tuple[str, str, int]],
     findings: list[Finding],
 ) -> None:
+    chunk_size = 4000
+    overlap = 500
+    stride = chunk_size - overlap
     for line_number, line in enumerate(text_file.text.splitlines(), start=1):
-        if len(line) > 4000:
-            line = line[:4000]
-        for rule in rules:
-            if not rule.pattern.search(line):
-                continue
-            key = (rule.type, text_file.relative, line_number)
-            if key in seen:
-                continue
-            seen.add(key)
-            findings.append(
-                Finding(
-                    stage=Stage.DETERMINISTIC_ANCHOR,
-                    severity=rule.severity,
-                    message=rule.message,
-                    type=rule.type,
-                    evidence=FindingEvidence(
-                        file=text_file.relative,
-                        line=line_number,
-                        code=line.strip()[:500],
-                    ),
+        if len(line) <= chunk_size:
+            chunks = [line]
+        else:
+            chunks = [line[i : i + chunk_size] for i in range(0, len(line), stride)]
+        for chunk in chunks:
+            for rule in rules:
+                if not rule.pattern.search(chunk):
+                    continue
+                key = (rule.type, text_file.relative, line_number)
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append(
+                    Finding(
+                        stage=Stage.DETERMINISTIC_ANCHOR,
+                        severity=rule.severity,
+                        message=rule.message,
+                        type=rule.type,
+                        evidence=FindingEvidence(
+                            file=text_file.relative,
+                            line=line_number,
+                            code=chunk.strip()[:500],
+                        ),
+                    )
                 )
-            )
-            if len(findings) >= MAX_FINDINGS:
-                return
+                if len(findings) >= MAX_FINDINGS:
+                    return
 
 
 def scan_anchors(package: SkillPackage) -> StageResult:
@@ -245,10 +251,24 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         if len(findings) >= MAX_FINDINGS:
             break
 
+    cred_floors = []
+    try:
+        from skillsentry.core.anchors.credential_flow import analyze_credential_flows
+        cred_floors, cred_findings = analyze_credential_flows(package)
+        for cf in cred_findings:
+            key = (cf.evidence.file or "", cf.finding_type or "", cf.evidence.line or 0)
+            if key not in seen:
+                seen.add(key)
+                findings.append(cf)
+    except Exception:
+        pass
+
     score = 0.0
     if findings:
         highest = max(_SEVERITY_SCORE[item.severity] for item in findings)
         score = min(100.0, highest + min(12, (len(findings) - 1) * 3))
+    for fl in cred_floors:
+        score = max(score, float(fl.score))
     return StageResult(
         stage=Stage.DETERMINISTIC_ANCHOR,
         findings=findings,

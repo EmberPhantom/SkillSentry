@@ -14,7 +14,7 @@ from skillsentry.core.contracts import Backend
 from skillsentry.core.models.base import ModelClient, ModelUnavailable
 from skillsentry.core.models.gemma_cloud import GemmaCloud
 from skillsentry.core.models.gemma_local import GemmaLocal
-from skillsentry.core.models.mock import MockGemma
+from skillsentry.core.models.ollama_client import OllamaClient
 
 
 def select_model(
@@ -37,7 +37,7 @@ def select_model(
     choice = _backend_value(backend if backend is not None else settings.backend)
 
     if choice == Backend.DEMO.value:
-        return MockGemma()
+        raise ModelUnavailable("demo mock model removed from runtime; use local (ollama) or cloud (gemini)")
     if choice == Backend.LOCAL.value:
         client = local_client or _local_client(settings)
         if probe and not _healthy(client):
@@ -89,12 +89,7 @@ def _backend_value(value: str | Backend) -> str:
 
 
 def _local_client(settings: ModelSettings) -> ModelClient:
-    return GemmaLocal(
-        base_url=settings.ollama_url,
-        model=settings.ollama_model,
-        timeout_s=settings.request_timeout_s,
-        max_px=settings.image_max_px,
-    )
+    return OllamaClient(settings)
 
 
 def _cloud_client(settings: ModelSettings) -> ModelClient:

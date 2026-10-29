@@ -1,4 +1,4 @@
-"""Semantic analyzer: declared intent vs. actual behaviour.
+"""Semantic analyzer: declared intent vs. actual behaviour using GemmaAnalyzer.
 
 The model is advisory.  Deterministic anchors are injected as ground truth and
 the analyzer keeps an independent prompt-injection floor, so a compromised or
@@ -20,6 +20,7 @@ from skillsentry.core.contracts import (
 from skillsentry.core.models._json import validate_json
 from skillsentry.core.models.base import ModelClient
 from skillsentry.core.parser import SkillPackage, TextFile
+from skillsentry.core.semantic.gemma_analyzer import GemmaAnalyzer
 from skillsentry.core.semantic.prompts import SEMANTIC_SCHEMA, SYSTEM_PROMPT
 
 MAX_PROMPT_CHARS = 32_000
@@ -111,19 +112,6 @@ def _build_prompt(package: SkillPackage, anchors: StageResult) -> str:
     return "\n".join(chunks)
 
 
-def _model_score(response: dict[str, Any], patterns: list[Finding]) -> float:
-    score = 5.0
-    if patterns:
-        score = max(_SEVERITY_SCORE[item.severity] for item in patterns)
-        score = min(100.0, score + min(8, (len(patterns) - 1) * 2))
-    if response.get("is_deceptive"):
-        score = max(score, 88.0)
-    confidence = float(response.get("confidence") or 0)
-    if confidence >= 0.9 and score >= 80:
-        score = min(100.0, score + 2)
-    return score
-
-
 def analyze_semantics(
     package: SkillPackage,
     anchors: StageResult,
@@ -131,117 +119,9 @@ def analyze_semantics(
     *,
     timeout_s: float | None = None,
 ) -> StageResult:
-    """Run semantic analysis; never raises for a model/reporting failure."""
-
-    del timeout_s
-    try:
-        prompt = _build_prompt(package, anchors)
-    except Exception as exc:  # pragma: no cover - defensive only
-        return StageResult(
-            stage=Stage.SEMANTIC,
-            degraded=True,
-            error=f"could not build semantic prompt: {exc}",
-        )
-
-    instruction_floor = 0.0
-    for finding in anchors.findings:
-        if finding.finding_type in _INSTRUCTION_TYPES:
-            instruction_floor = max(instruction_floor, _SEVERITY_SCORE.get(finding.severity, 42))
-
-    if model is None:
-        result = StageResult(
-            stage=Stage.SEMANTIC,
-            degraded=True,
-            error="semantic model unavailable",
-            signals={"semantic": instruction_floor} if instruction_floor else {},
-        )
-        return result
-
-    try:
-        response = model.generate_json(SYSTEM_PROMPT, prompt, SEMANTIC_SCHEMA, retries=1)
-        validate_json(response, SEMANTIC_SCHEMA)
-    except Exception as exc:
-        return StageResult(
-            stage=Stage.SEMANTIC,
-            degraded=True,
-            error=f"semantic model unavailable: {exc}",
-            signals={"semantic": instruction_floor} if instruction_floor else {},
-        )
-
-    files = _file_lookup(package)
-    findings: list[Finding] = []
-    patterns_raw = response.get("suspicious_patterns")
-    if isinstance(patterns_raw, list):
-        for item in patterns_raw[:50]:
-            if not isinstance(item, dict):
-                continue
-            evidence = str(item.get("evidence") or "").strip()
-            if not evidence:
-                continue
-            relative, line, code = _find_location(
-                evidence,
-                supplied_file=item.get("file") if isinstance(item.get("file"), str) else None,
-                supplied_line=(
-                    int(item["line"])
-                    if isinstance(item.get("line"), int) and not isinstance(item.get("line"), bool)
-                    else None
-                ),
-                files=files,
-            )
-            severity = _SEVERITY.get(str(item.get("severity", "medium")).lower(), Severity.MEDIUM)
-            findings.append(
-                Finding(
-                    stage=Stage.SEMANTIC,
-                    severity=severity,
-                    message=f"Model-reported {item.get('type', 'suspicious pattern')}: {evidence[:300]}",
-                    type=str(item.get("type") or "semantic-suspicious")[:80],
-                    evidence=FindingEvidence(file=relative, line=line, code=code or None),
-                )
-            )
-
-    if response.get("is_deceptive") and not any(
-        item.severity.rank >= Severity.HIGH.rank for item in findings
-    ):
-        findings.append(
-            Finding(
-                stage=Stage.SEMANTIC,
-                severity=Severity.HIGH,
-                message=(
-                    "Declared intent does not match actual behaviour: "
-                    f"{package.description or package.name}"
-                ),
-                type="deception",
-                evidence=FindingEvidence(file="SKILL.md", line=1),
-            )
-        )
-    if not findings:
-        findings.append(
-            Finding(
-                stage=Stage.SEMANTIC,
-                severity=Severity.NOTE,
-                message="No instruction/behaviour contradiction found",
-                type="semantic-clean",
-                evidence=FindingEvidence(file="SKILL.md", line=1),
-            )
-        )
-
-    score = max(instruction_floor, _model_score(response, findings))
-    capabilities = response.get("actual_capabilities")
-    return StageResult(
-        stage=Stage.SEMANTIC,
-        findings=findings,
-        signals={"semantic": score},
-        telemetry={
-            "declared_intent": response.get("declared_intent"),
-            "actual_capabilities": capabilities if isinstance(capabilities, list) else [],
-            "is_deceptive": bool(response.get("is_deceptive")),
-            "confidence": float(response.get("confidence") or 0),
-            "model_backend": getattr(model, "backend", "unknown"),
-            "model_version": getattr(model, "model_version", "unknown"),
-            "instruction_floor": instruction_floor,
-            "prompt_chars": len(prompt),
-        },
-    )
+    """Run semantic analysis using GemmaAnalyzer with coverage tracking and grounding."""
+    analyzer = GemmaAnalyzer(model)
+    return analyzer.analyze(package, anchors, timeout_s=timeout_s)
 
 
-__all__ = ["analyze_semantics"]
+__all__ = ["analyze_semantics", "GemmaAnalyzer"]

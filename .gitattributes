@@ -1,3 +1,5 @@
 # Fixtures are executed inside Linux containers.  Keep shell scripts and
 # manifests LF even when the repository is checked out on Windows.
 fixtures/** text eol=lf
+
+*.png binary

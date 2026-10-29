@@ -342,9 +342,9 @@ def _regex_scan_file(
     while ensuring dangerous payloads past column 1000 are not missed.
     """
     findings: list[AnchorFinding] = []
-    CHUNK_SIZE = 1000
-    OVERLAP = 100
-    MAX_LINE_SCAN_CHARS = 50_000
+    CHUNK_SIZE = 4000
+    OVERLAP = 500
+    step = CHUNK_SIZE - OVERLAP
 
     for pattern in DANGEROUS_PATTERNS:
         if language not in pattern.languages:
@@ -368,9 +368,7 @@ def _regex_scan_file(
                 chunks = [(line_stripped, 0)]
             else:
                 chunks = []
-                scan_limit = min(line_len, MAX_LINE_SCAN_CHARS)
-                step = CHUNK_SIZE - OVERLAP
-                for start in range(0, scan_limit, step):
+                for start in range(0, line_len, step):
                     chunk = line_stripped[start:start + CHUNK_SIZE]
                     chunks.append((chunk, start))
 

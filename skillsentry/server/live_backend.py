@@ -453,7 +453,7 @@ class LiveBackend:
         ollama_ok = False
         if backend in {"mock", "demo"}:
             ollama_ok = True
-        elif backend == "local":
+        elif backend in {"local", "ollama"}:
             with contextlib.suppress(Exception):
                 async with httpx.AsyncClient(timeout=0.75) as client:
                     response = await client.get(
@@ -483,7 +483,7 @@ class LiveBackend:
     def _active_backend(self) -> str:
         """Report the model identity this backend will actually use.
 
-        An injected engine may be running ``MockGemma`` even when the TOML says
+        An injected engine may be running a test double even when the TOML says
         ``auto``; re-running selection here would lie about that.  Only fall
         back to configuration when there is no engine to inspect.
         """
@@ -497,6 +497,8 @@ class LiveBackend:
                 return backend
             except Exception:
                 return "unavailable"
+        if self.config.model.backend in {"demo", "mock"}:
+            return "mock"
         try:
             from skillsentry.core.models.selector import select_model
 

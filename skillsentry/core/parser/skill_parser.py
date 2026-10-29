@@ -12,6 +12,56 @@ import yaml
 
 from skillsentry.core.cache.hash_utils import HashError, hash_skill_dir
 
+MAX_YAML_DEPTH = 10
+
+
+class _DepthLimitedLoader(yaml.SafeLoader):
+    MAX_DEPTH = MAX_YAML_DEPTH
+    _depth = 0
+
+
+def _depth_limited_construct(loader: _DepthLimitedLoader, node: yaml.Node) -> Any:
+    loader._depth += 1
+    if loader._depth > _DepthLimitedLoader.MAX_DEPTH:
+        raise yaml.YAMLError(
+            f"YAML nesting depth exceeds maximum of {_DepthLimitedLoader.MAX_DEPTH}"
+        )
+    if isinstance(node, yaml.MappingNode):
+        result = loader.construct_mapping(node, deep=True)
+    elif isinstance(node, yaml.SequenceNode):
+        result = loader.construct_sequence(node, deep=True)
+    else:
+        result = loader.construct_scalar(node)
+    loader._depth -= 1
+    return result
+
+
+_DepthLimitedLoader.add_constructor(None, _depth_limited_construct)
+
+WINDOWS_RESERVED_NAMES = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10)),
+    }
+)
+
+
+def _check_reserved_device_name(name: str) -> bool:
+    base = name.split(".")[0].upper()
+    return base in WINDOWS_RESERVED_NAMES
+
+
+def _check_alternate_data_stream(path_str: str) -> bool:
+    cleaned = path_str
+    if len(cleaned) >= 2 and cleaned[1] == ":" and cleaned[0].isalpha():
+        cleaned = cleaned[2:]
+    return ":" in cleaned
+
+
 MAX_SKILL_MD_BYTES = 1024 * 1024
 MAX_TEXT_FILE_BYTES = 1024 * 1024
 MAX_TEXT_TOTAL_BYTES = 4 * 1024 * 1024
@@ -165,7 +215,7 @@ def _safe_yaml(yaml_text: str) -> dict[str, Any]:
     if len(yaml_text.encode("utf-8", "replace")) > FRONTMATTER_MAX_BYTES:
         raise SkillParseError("frontmatter exceeds 256 KiB")
     try:
-        loaded = yaml.safe_load(yaml_text)
+        loaded = yaml.load(yaml_text, Loader=_DepthLimitedLoader)
     except yaml.YAMLError as exc:
         raise SkillParseError(f"invalid YAML frontmatter: {exc}") from exc
     if loaded is None:
@@ -366,13 +416,26 @@ def parse_skill(path: str | Path) -> SkillPackage:
     text_files: list[TextFile] = []
     text_budget = MAX_TEXT_TOTAL_BYTES
     for candidate in sorted(root.rglob("*"), key=lambda p: p.relative_to(root).as_posix()):
+        rel_posix = candidate.relative_to(root).as_posix()
         if candidate.is_symlink():
-            issues.append(
-                PackageIssue(
-                    "high",
-                    f"symlink is not allowed in a skill package: {candidate.relative_to(root).as_posix()}",
+            try:
+                resolved = candidate.resolve()
+                resolved.relative_to(root.resolve())
+                issues.append(
+                    PackageIssue(
+                        "high",
+                        f"symlink detected in skill package: {rel_posix}",
+                        file=rel_posix,
+                    )
                 )
-            )
+            except (ValueError, OSError):
+                issues.append(
+                    PackageIssue(
+                        "critical",
+                        f"symlink escapes skill root: {rel_posix}",
+                        file=rel_posix,
+                    )
+                )
             continue
         if candidate.is_dir():
             continue
@@ -384,6 +447,22 @@ def parse_skill(path: str | Path) -> SkillPackage:
                 )
             )
             continue
+        if _check_reserved_device_name(candidate.name):
+            issues.append(
+                PackageIssue(
+                    "critical",
+                    f"reserved Windows/DOS device name: {candidate.name}",
+                    file=rel_posix,
+                )
+            )
+        if _check_alternate_data_stream(candidate.name) or _check_alternate_data_stream(rel_posix):
+            issues.append(
+                PackageIssue(
+                    "critical",
+                    f"NTFS Alternate Data Stream detected: {candidate.name}",
+                    file=rel_posix,
+                )
+            )
         files.append(candidate)
         relative = candidate.relative_to(root).as_posix()
         if relative == "SKILL.md":

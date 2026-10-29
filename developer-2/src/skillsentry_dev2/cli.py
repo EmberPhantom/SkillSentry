@@ -290,14 +290,26 @@ def scan_single_package(
             model_used = "demo (MockGemma)"
         else:
             if _is_ollama_online():
-                model_client = MockGemma(mode=MockMode.AUTO)
-                model_used = "local (ollama active)"
+                try:
+                    from skillsentry.core.models.ollama_client import OllamaClient
+                    model_client = OllamaClient()
+                    model_used = "local (ollama gemma4:e4b)"
+                except Exception:
+                    model_client = MockGemma(mode=MockMode.AUTO)
+                    model_used = "local (mock fallback)"
+# model_used resolved
             else:
                 if backend == "local":
                     raise ModelUnavailableError("Local Ollama backend is not accessible on localhost:11434")
                 # Auto fallback
-                model_client = MockGemma(mode=MockMode.AUTO)
-                model_used = "auto (mock fallback)"
+                try:
+                    from skillsentry.core.models.ollama_client import OllamaClient
+                    model_client = OllamaClient()
+                    model_used = "local (ollama gemma4:e4b)"
+                except Exception:
+                    model_client = MockGemma(mode=MockMode.AUTO)
+                    model_used = "local (mock fallback)"
+# model_used resolved
 
         if manifest:
             sem_result = analyze_semantics(manifest, anchor_block, raw_anchors, model_client)
@@ -385,7 +397,12 @@ def scan_single_package(
             matches = re.findall(r"([a-zA-Z0-9_\-\.]+\.(?:net|com|org|io|xyz|ru|cn|cc))", text_source)
             for m in matches:
                 if m not in c2_indicators and not m.endswith(".py"):
-                    c2_indicators.append(m)
+                    dec = set()
+                    fm = getattr(manifest, "raw_frontmatter", None) or getattr(manifest, "frontmatter", None)
+                    if isinstance(fm, dict):
+                        dec = set(fm.get("permissions", {}).get("network", []))
+                    if not any(m in d or d in m for d in dec):
+                        c2_indicators.append(m)
 
     # Stage 6: Verdict Fusion with Authoritative Floors (DEF-03, N3, N6)
     w_anchors, w_semantic, w_vision = 0.15, 0.20, 0.20
