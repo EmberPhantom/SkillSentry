@@ -1,0 +1,280 @@
+{
+  "fixtures/malicious/invoice-helper": {
+    "verdict": "MALICIOUS",
+    "risk_band": [71, 100],
+    "required_stages": ["spec", "typosquat", "deterministicAnchor", "semantic"],
+    "required_findings": [
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "credential_read",
+        "severity": "critical",
+        "file_contains": "process.py"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "base64_decode",
+        "severity": "medium"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "requests_post",
+        "severity": "low"
+      }
+    ],
+    "ground_truth_lines": {
+      "scripts/process.py": {
+        "credential_read": [24],
+        "base64_decode": [37],
+        "requests_post": [45]
+      }
+    },
+    "notes": "Primary malicious fixture: credential theft via AWS creds exfil. All domains fictional."
+  },
+  "fixtures/malicious/g1t-translate": {
+    "verdict": "SUSPICIOUS",
+    "risk_band": [15, 70],
+    "required_stages": ["spec", "typosquat"],
+    "required_findings": [
+      {
+        "stage": "typosquat",
+        "severity": "medium",
+        "message_contains": "git-translate"
+      }
+    ],
+    "ground_truth_lines": {},
+    "notes": "Typosquat-only fixture: g1t-translate impersonates git-translate via homoglyph '1' -> 'i'."
+  },
+  "fixtures/malicious/obfuscation-only": {
+    "verdict": "SUSPICIOUS",
+    "risk_band": [55, 70],
+    "required_stages": ["spec", "deterministicAnchor", "semantic"],
+    "required_findings": [
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "exec",
+        "severity": "high"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "base64_decode",
+        "severity": "medium"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "codecs_decode",
+        "severity": "medium"
+      }
+    ],
+    "ground_truth_lines": {
+      "scripts/encoder.py": {
+        "exec": [27],
+        "base64_decode": [12, 18, 25, 26],
+        "codecs_decode": [24]
+      }
+    },
+    "notes": "Obfuscation-only attack: base64 + rot13 + exec chain, no credential access. SUSPICIOUS pre-sandbox; will escalate to MALICIOUS when sandbox stage (Dev 1) is integrated."
+  },
+  "fixtures/malicious/instruction-poisoning": {
+    "verdict": "SUSPICIOUS",
+    "risk_band": [30, 70],
+    "required_stages": ["spec", "semantic"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Instruction-only poisoning: hidden HTML comment in SKILL.md contains agent manipulation instructions. Code is fully benign. Detection relies on LLM semantic analysis of the description."
+  },
+  "fixtures/malicious/svg-borne": {
+    "verdict": "MALICIOUS",
+    "risk_band": [65, 100],
+    "required_stages": ["spec", "vision"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "SVG-borne attack: badge.svg contains <script> tag and <foreignObject> with hidden prompt injection. Vision scanner detects dangerous SVG elements."
+  },
+  "fixtures/malicious/dns-tunneler": {
+    "verdict": "MALICIOUS",
+    "risk_band": [71, 100],
+    "required_stages": ["spec", "deterministicAnchor"],
+    "required_findings": [
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "nslookup",
+        "severity": "high"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "credential_read",
+        "severity": "critical"
+      }
+    ],
+    "ground_truth_lines": {
+      "scripts/diagnostic.sh": {
+        "nslookup": [10, 13, 24, 29, 32],
+        "credential_read": [19]
+      }
+    },
+    "notes": "DNS tunneling exfiltration: reads ~/.ssh/id_rsa, exfils via DNS subdomain queries. MALICIOUS: credential access + DNS exfiltration triggers authoritative malicious floor."
+  },
+  "fixtures/malicious/sl4ck-bot": {
+    "verdict": "MALICIOUS",
+    "risk_band": [71, 100],
+    "required_stages": ["spec", "typosquat", "deterministicAnchor"],
+    "required_findings": [
+      {
+        "stage": "typosquat",
+        "severity": "medium",
+        "message_contains": "slack-bot"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "credential_read",
+        "severity": "critical"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "requests_post",
+        "severity": "low"
+      }
+    ],
+    "ground_truth_lines": {
+      "scripts/bot.py": {
+        "credential_read": [29],
+        "requests_post": [34]
+      }
+    },
+    "notes": "Combined typosquat + credential theft: sl4ck-bot impersonates slack-bot, steals SLACK_BOT_TOKEN, exfils to evil-collector.net."
+  },
+  "fixtures/malicious/credential-multi": {
+    "verdict": "MALICIOUS",
+    "risk_band": [71, 100],
+    "required_stages": ["spec", "deterministicAnchor", "semantic"],
+    "required_findings": [
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "credential_read",
+        "severity": "critical"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "base64_decode",
+        "severity": "medium"
+      },
+      {
+        "stage": "deterministicAnchor",
+        "pattern": "requests_post",
+        "severity": "low"
+      }
+    ],
+    "ground_truth_lines": {
+      "scripts/setup_env.py": {
+        "credential_read": [21, 22, 23],
+        "base64_decode": [49],
+        "requests_post": [51]
+      }
+    },
+    "notes": "Multi-credential theft: targets AWS, SSH, GITHUB_TOKEN. MALICIOUS: credential access + HTTP POST exfiltration triggers authoritative malicious floor."
+  },
+  "fixtures/benign/pdf-summarizer": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Pure text processing. Zero anchors expected."
+  },
+  "fixtures/benign/git-helper": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec", "typosquat"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Legitimate git wrapper. Must NOT false-positive as typosquat of git-translate (legitimate pair)."
+  },
+  "fixtures/benign/image-resizer": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Local-only Pillow image processing. Zero dangerous APIs."
+  },
+  "fixtures/benign/weather-fetch": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec", "deterministicAnchor"],
+    "required_findings": [],
+    "ground_truth_lines": {
+      "scripts/fetch.py": {
+        "urllib": [22]
+      }
+    },
+    "notes": "Uses urllib for DECLARED network access. Low anchor signal expected but intent matches behavior, so verdict stays SAFE."
+  },
+  "fixtures/benign/csv-analyzer": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "File-heavy CSV processing with statistics. Pure stdlib, zero anchors."
+  },
+  "fixtures/benign/markdown-formatter": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Pure text processing (regex + pathlib). Zero anchors."
+  },
+  "fixtures/benign/docker-compose-helper": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Uses subprocess.run WITHOUT shell=True — must NOT trigger subprocess_shell anchor."
+  },
+  "fixtures/benign/slack-notifier": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec", "deterministicAnchor"],
+    "required_findings": [],
+    "ground_truth_lines": {
+      "scripts/notify.py": {
+        "urllib": [43]
+      }
+    },
+    "notes": "Declared Slack webhook usage via urllib. Low anchor fires but intent matches behavior."
+  },
+  "fixtures/benign/ssh-keygen-helper": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Calls ssh-keygen via subprocess.run (no shell=True). Does NOT read existing SSH keys."
+  },
+  "fixtures/benign/multi-lang-tool": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Multi-language fixture (py + sh + js). All files are benign scaffolding."
+  },
+  "fixtures/benign/json-formatter": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Pure JSON formatting. Zero anchors, zero side effects."
+  },
+  "fixtures/benign/backup-tool": {
+    "verdict": "SAFE",
+    "risk_band": [0, 29],
+    "required_stages": ["spec"],
+    "required_findings": [],
+    "ground_truth_lines": {},
+    "notes": "Local zipfile/pathlib operations. No network, no credentials."
+  }
+}

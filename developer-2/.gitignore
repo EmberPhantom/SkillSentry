@@ -1,0 +1,20 @@
+# Developer 2 local ignores
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.db
+*.db-wal
+*.db-shm
+.coverage
+htmlcov/
+*.log
+
+# Developer 2 local test guide
+test.md
+
