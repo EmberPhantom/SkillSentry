@@ -15,14 +15,16 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Optional
 
 from skillsentry_dev2.contracts import Finding, StageResult
 
-# ── Homoglyph / Leet-Speak Folding Map ──────────────────────────────────
+# ── Homoglyph / Leet-Speak / Unicode Lookalike Folding Map (DEF-15) ─────
 
 HOMOGLYPH_MAP: dict[str, str] = {
+    # Leet-speak / ASCII lookalikes
     "1": "l",
     "!": "i",
     "|": "l",
@@ -36,6 +38,33 @@ HOMOGLYPH_MAP: dict[str, str] = {
     "8": "b",
     "9": "g",
     "6": "g",
+    # Cyrillic lookalikes
+    "\u0430": "a",  # Cyrillic small letter a
+    "\u0441": "c",  # Cyrillic small letter es
+    "\u0435": "e",  # Cyrillic small letter ie
+    "\u043e": "o",  # Cyrillic small letter o
+    "\u0440": "p",  # Cyrillic small letter er
+    "\u0455": "s",  # Cyrillic small letter dze
+    "\u0445": "x",  # Cyrillic small letter ha
+    "\u0443": "y",  # Cyrillic small letter u
+    "\u0456": "i",  # Cyrillic small letter byelorussian-ukrainian i
+    "\u0458": "j",  # Cyrillic small letter je
+    "\u0501": "d",  # Cyrillic small letter komi de
+    "\u051b": "q",  # Cyrillic small letter qa
+    "\u051d": "w",  # Cyrillic small letter we
+    # Greek lookalikes
+    "\u03b1": "a",  # Greek small letter alpha
+    "\u03b2": "b",  # Greek small letter beta
+    "\u03b3": "y",  # Greek small letter gamma
+    "\u03b5": "e",  # Greek small letter epsilon
+    "\u03b9": "i",  # Greek small letter iota
+    "\u03ba": "k",  # Greek small letter kappa
+    "\u03bd": "v",  # Greek small letter nu
+    "\u03bf": "o",  # Greek small letter omicron
+    "\u03c1": "p",  # Greek small letter rho
+    "\u03c4": "t",  # Greek small letter tau
+    "\u03c5": "u",  # Greek small letter upsilon
+    "\u03c7": "x",  # Greek small letter chi
 }
 
 # Multi-char substitutions applied after single-char folding
@@ -48,9 +77,10 @@ MULTI_HOMOGLYPHS: list[tuple[str, str]] = [
 
 
 def _fold_homoglyphs(name: str) -> str:
-    """Apply homoglyph and leet-speak folding to normalize a name."""
-    # Case normalize
-    folded = name.lower()
+    """Apply NFKC normalization, Unicode lookalikes, and leet-speak folding (DEF-15)."""
+    # Unicode NFKC normalization
+    normalized = unicodedata.normalize("NFKC", name)
+    folded = normalized.lower()
     # Single-char substitutions
     folded = "".join(HOMOGLYPH_MAP.get(c, c) for c in folded)
     # Multi-char substitutions
@@ -114,31 +144,49 @@ def _damerau_levenshtein(s1: str, s2: str) -> int:
 # See data/known_skills_v1.json for the canonical source.
 DICTIONARY_VERSION = "1.0.0"
 
-_DICTIONARY_PATH = Path(__file__).resolve().parents[4] / "data" / "known_skills_v1.json"
+_DICTIONARY_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "known_skills_v1.json"
+
+
+def _get_dictionary_paths() -> list[Path]:
+    """Search paths for known_skills_v1.json (DEF-15)."""
+    return [
+        _DICTIONARY_PATH,
+        Path(__file__).resolve().parents[4] / "data" / "known_skills_v1.json",
+        Path.cwd() / "data" / "known_skills_v1.json",
+    ]
 
 
 def _load_known_skills_from_file() -> list[str]:
     """Load known skill names from the versioned JSON dictionary file."""
-    try:
-        with open(_DICTIONARY_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return [entry["name"] for entry in data.get("entries", [])]
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        return []
+    for p in _get_dictionary_paths():
+        if p.is_file():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    entries = [entry["name"] for entry in data.get("entries", [])]
+                    if entries:
+                        return entries
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, OSError):
+                continue
+    return []
 
 
 def _load_legitimate_pairs_from_file() -> frozenset[tuple[str, str]]:
     """Load legitimate pairs from the versioned JSON dictionary file."""
-    try:
-        with open(_DICTIONARY_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            pairs = set()
-            for pair in data.get("legitimate_pairs", []):
-                if len(pair) == 2:
-                    pairs.add((min(pair[0], pair[1]), max(pair[0], pair[1])))
-            return frozenset(pairs)
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        return frozenset()
+    for p in _get_dictionary_paths():
+        if p.is_file():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    pairs = set()
+                    for pair in data.get("legitimate_pairs", []):
+                        if len(pair) == 2:
+                            pairs.add((min(pair[0], pair[1]), max(pair[0], pair[1])))
+                    if pairs:
+                        return frozenset(pairs)
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, OSError):
+                continue
+    return frozenset()
 
 
 # Inline fallback list — used if data file is missing (e.g. in unit tests)
@@ -231,8 +279,24 @@ def check_typosquat(
         known_lower = known_name.lower()
         known_folded = _fold_homoglyphs(known_lower)
 
-        # Skip exact match of original (legitimate)
+        # Check case-variant impersonation (DEF-15)
         if candidate_lower == known_lower:
+            if candidate_name.strip() != known_name:
+                findings.append(Finding(
+                    stage="typosquat",
+                    severity="medium",
+                    message=(
+                        f"Potential typosquat of '{known_name}' "
+                        f"(case-variant impersonation: '{candidate_name}')"
+                    ),
+                ))
+                signals["typosquat_detected"] = 100.0
+                return StageResult(
+                    stage="typosquat",
+                    findings=findings,
+                    signals=signals,
+                )
+            # Legitimate identical match
             continue
 
         # Check if homoglyph-folded version exactly matches a known name

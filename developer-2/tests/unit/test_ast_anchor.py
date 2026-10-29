@@ -226,3 +226,33 @@ class TestAnchorBlockSerialization:
         assert "[HIGH]" in block
         assert "scripts/evil.py:10" in block
         assert "eval(x)" in block
+
+    def test_redos_protection_on_massive_line(self):
+        """DEF-11: Scanning a 1MB malicious line must not hang (ReDoS defense)."""
+        import time
+        massive_line = "x = subprocess.Popen(" + "A" * 1_000_000 + "\n"
+        start = time.perf_counter()
+        findings = _ast_scan_python("test.py", [massive_line])
+        duration = time.perf_counter() - start
+        assert duration < 0.5, f"Scan took too long: {duration:.3f}s (possible ReDoS)"
+
+    def test_sandbox_evasion_probe_detected(self):
+        """DEF-17: .dockerenv and /proc/1/cgroup evasion probes must be flagged."""
+        code = 'if os.path.exists("/.dockerenv") or open("/proc/1/cgroup").read():\n    pass\n'
+        findings = _ast_scan_python("test.py", code.splitlines(keepends=True))
+        assert any(f.pattern == "sandbox_evasion" for f in findings)
+
+    def test_syntax_error_sets_degraded(self):
+        """DEF-04: Python file with syntax error falls back to regex and marks degraded=True."""
+        from skillsentry_dev2.contracts import ScriptFile
+        broken_code = "def invalid_syntax(\n"
+        scripts = {
+            "broken.py": ScriptFile(
+                relative_path="broken.py",
+                lines=[broken_code],
+                size_bytes=len(broken_code),
+                content_hash="dummy",
+            )
+        }
+        result, _, _ = scan_anchors(scripts)
+        assert result.degraded is True

@@ -321,3 +321,83 @@ class TestSandboxInstructionsAndPerformance:
         data = json.loads(capsys.readouterr().out)
         assert data["cached"] is True
 
+    def test_cli_file_target_skill_md(
+        self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that passing path directly to SKILL.md scans the enclosing package."""
+        target = str(BENIGN_DIR / "pdf-summarizer" / "SKILL.md")
+        code = main(["scan", target, "--demo-mode", "--quiet", "--db-path", str(temp_cache_db)])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "pdf-summarizer: SAFE" in captured.out
+
+    def test_cli_file_target_script(
+        self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that passing path directly to a script inside a package scans the package."""
+        target = str(BENIGN_DIR / "pdf-summarizer" / "scripts" / "summarize.py")
+        code = main(["scan", target, "--demo-mode", "--quiet", "--db-path", str(temp_cache_db)])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "pdf-summarizer: SAFE" in captured.out
+
+    def test_cli_file_target_outside_package(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that a standalone file without SKILL.md in ancestors returns usage error code 2."""
+        isolated_file = tmp_path / "standalone.py"
+        isolated_file.write_text("print('hello')", encoding="utf-8")
+        code = main(["scan", str(isolated_file)])
+        assert code == 2
+        captured = capsys.readouterr()
+        assert "missing SKILL.md" in captured.err
+
+    def test_cli_flags_preceding_path(
+        self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that passing options before the target path parses correctly without 'scan' keyword."""
+        target = str(BENIGN_DIR / "pdf-summarizer")
+        code = main(["--demo-mode", "-q", "--db-path", str(temp_cache_db), target])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "pdf-summarizer: SAFE" in captured.out
+
+    def test_scan_timeout_enforcement(
+        self, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that setting timeout to 0 forces stages into timeout handling with degraded flag."""
+        target = str(BENIGN_DIR / "pdf-summarizer")
+        code = main([
+            "scan", target,
+            "--timeout", "0",
+            "--demo-mode",
+            "--format", "json",
+            "--db-path", str(temp_cache_db),
+        ])
+        assert code == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["degraded"] is True
+        messages = [f["message"] for f in data["findings"]]
+        assert any("timeout" in m.lower() for m in messages)
+
+    def test_cache_write_failure_gracefully_handled(
+        self, monkeypatch: pytest.MonkeyPatch, temp_cache_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Assert that a failure when writing to cache does not crash the CLI."""
+        from skillsentry_dev2.core.cache.sqlite_store import CacheStore
+
+        def mock_put_fail(*args: Any, **kwargs: Any) -> None:
+            raise IOError("Simulated disk error during cache write")
+
+        monkeypatch.setattr(CacheStore, "put", mock_put_fail)
+        target = str(BENIGN_DIR / "pdf-summarizer")
+        code = main([
+            "scan", target,
+            "--demo-mode",
+            "--quiet",
+            "--db-path", str(temp_cache_db),
+        ])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "pdf-summarizer: SAFE" in captured.out
+

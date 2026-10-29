@@ -196,3 +196,99 @@ class TestPathSafety:
         # Parent directory should not be considered safe
         assert _is_path_safe(tmp_path.parent, tmp_path) is False
 
+    def test_symlink_escape_does_not_crash(self, tmp_path):
+        """Security DEF-07: Symlink escaping root emits finding without ValueError."""
+        pkg = tmp_path / "symlink_skill"
+        pkg.mkdir()
+        (pkg / "SKILL.md").write_text("---\nname: sym-skill\ndescription: test\n---\n")
+        
+        # Target outside root
+        outside_target = tmp_path / "secret.txt"
+        outside_target.write_text("SUPER_SECRET_TOKEN=12345")
+        
+        symlink_path = pkg / "stolen.txt"
+        symlink_created = False
+        try:
+            symlink_path.symlink_to(outside_target)
+            symlink_created = True
+        except OSError:
+            # On Windows without admin privileges, simulate symlink via mock
+            pass
+
+        if not symlink_created:
+            symlink_path.write_text("SUPER_SECRET_TOKEN=12345")
+            path_cls = type(symlink_path)
+            orig_sym = path_cls.is_symlink
+            orig_res = path_cls.resolve
+
+            def fake_sym(self):
+                return True if self.name == symlink_path.name else orig_sym(self)
+
+            def fake_res(self, *a, **k):
+                return outside_target.resolve() if self.name == symlink_path.name else orig_res(self, *a, **k)
+
+            import unittest.mock
+            with unittest.mock.patch.object(path_cls, "is_symlink", fake_sym), \
+                 unittest.mock.patch.object(path_cls, "resolve", fake_res):
+                manifest, result = parse_package(pkg)
+        else:
+            manifest, result = parse_package(pkg)
+
+        assert result.degraded is True
+        crit = [f for f in result.findings if f.severity == "critical"]
+        assert any("escapes package root" in f.message for f in crit)
+
+    def test_powershell_and_shebang_scripts_scanned(self, tmp_path):
+        """DEF-05: .ps1, .bat, and shebang scripts must be inventoried as scripts."""
+        pkg = tmp_path / "script_skill"
+        pkg.mkdir()
+        (pkg / "SKILL.md").write_text("---\nname: script-skill\ndescription: test\n---\n")
+        (pkg / "deploy.ps1").write_text("Write-Output 'hello powershell'\n")
+        (pkg / "build.bat").write_text("@echo off\necho building\n")
+        
+        shebang_file = pkg / "run_tool"
+        shebang_file.write_bytes(b"#!/bin/bash\necho running\n")
+        
+        # Dot directory
+        hidden_dir = pkg / ".hooks"
+        hidden_dir.mkdir()
+        (hidden_dir / "pre-commit.sh").write_text("#!/bin/sh\nexit 0\n")
+
+        manifest, result = parse_package(pkg)
+        assert manifest is not None
+        assert "deploy.ps1" in manifest.scripts
+        assert "build.bat" in manifest.scripts
+        assert "run_tool" in manifest.scripts
+        assert ".hooks/pre-commit.sh" in manifest.scripts
+
+    def test_oversize_file_sets_degraded(self, tmp_path, monkeypatch):
+        """DEF-04: File exceeding MAX_FILE_SIZE_BYTES sets degraded=True."""
+        import skillsentry_dev2.core.parser.skill_parser as sp
+        monkeypatch.setattr(sp, "MAX_FILE_SIZE_BYTES", 50)
+
+        pkg = tmp_path / "big_skill"
+        pkg.mkdir()
+        (pkg / "SKILL.md").write_text("---\nname: big-skill\ndescription: test\n---\n")
+        (pkg / "large.py").write_text("X" * 100)
+
+        manifest, result = parse_package(pkg)
+        assert result.degraded is True
+        assert any("truncated" in f.message.lower() for f in result.findings)
+
+    def test_yaml_bomb_depth_limited(self, tmp_path):
+        """DEF-14: Highly nested YAML bomb triggers parser error and degraded=True."""
+        pkg = tmp_path / "yaml_bomb_skill"
+        pkg.mkdir()
+        
+        # Nest 25 levels (> MAX_YAML_DEPTH of 20)
+        nested_yaml = "a:\n"
+        for i in range(25):
+            nested_yaml += "  " * (i + 1) + f"level_{i}:\n"
+        nested_yaml += "  " * 26 + "payload: boom\n"
+
+        (pkg / "SKILL.md").write_text(f"---\n{nested_yaml}---\nBody\n")
+        manifest, result = parse_package(pkg)
+        assert result.degraded is True
+        assert any("nesting depth" in f.message.lower() or "invalid yaml" in f.message.lower() for f in result.findings)
+
+

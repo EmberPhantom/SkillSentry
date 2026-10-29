@@ -22,29 +22,16 @@ HASH_EXCLUDED_FILES: frozenset[str] = frozenset({".DS_Store"})
 HASH_EXCLUDED_EXTENSIONS: frozenset[str] = frozenset({".pyc", ".pyo"})
 
 
-def _load_skillsentryignore(root: Path) -> list[str]:
-    """Load patterns from .skillsentryignore if it exists."""
-    ignore_file = root / ".skillsentryignore"
-    if ignore_file.is_file():
-        try:
-            content = ignore_file.read_text(encoding="utf-8", errors="replace")
-            return [
-                line.strip()
-                for line in content.splitlines()
-                if line.strip() and not line.strip().startswith("#")
-            ]
-        except OSError:
-            pass
-    return []
-
-
 def _should_exclude(
     rel_path: str,
     name: str,
     is_dir: bool,
-    ignore_patterns: list[str],
 ) -> bool:
-    """Check if a path should be excluded from hashing."""
+    """Check if a path should be excluded from hashing.
+    
+    Security: Untrusted packages must never control hash exclusions (DEF-02).
+    Only fixed system directories and files are excluded.
+    """
     if is_dir and name in HASH_EXCLUDED_DIRS:
         return True
     if not is_dir:
@@ -52,16 +39,6 @@ def _should_exclude(
             return True
         ext = os.path.splitext(name)[1].lower()
         if ext in HASH_EXCLUDED_EXTENSIONS:
-            return True
-
-    # Check .skillsentryignore patterns (simple glob matching)
-    for pattern in ignore_patterns:
-        if pattern in rel_path or name == pattern:
-            return True
-        # Basic wildcard support
-        if pattern.startswith("*") and rel_path.endswith(pattern[1:]):
-            return True
-        if pattern.endswith("*") and rel_path.startswith(pattern[:-1]):
             return True
 
     return False
@@ -93,8 +70,6 @@ def compute_directory_hash(skill_dir: str | Path) -> str:
     if not root.is_dir():
         raise NotADirectoryError(f"Not a directory: {root}")
 
-    ignore_patterns = _load_skillsentryignore(root)
-
     # Collect all file entries
     entries: list[tuple[str, str, str]] = []  # (posix_path, octal_mode, content_hash)
 
@@ -112,7 +87,7 @@ def compute_directory_hash(skill_dir: str | Path) -> str:
             d for d in dirnames
             if not _should_exclude(
                 str(PurePosixPath(rel_dir) / d) if rel_dir != "." else d,
-                d, True, ignore_patterns,
+                d, True,
             )
         ])
 
@@ -125,7 +100,7 @@ def compute_directory_hash(skill_dir: str | Path) -> str:
             except ValueError:
                 continue
 
-            if _should_exclude(rel_posix, fname, False, ignore_patterns):
+            if _should_exclude(rel_posix, fname, False):
                 continue
 
             # Skip symlinks that escape root

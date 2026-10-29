@@ -56,8 +56,11 @@ EXCLUDED_DIRS = frozenset({".git", "__pycache__", ".mypy_cache", ".pytest_cache"
 EXCLUDED_FILES = frozenset({".DS_Store"})
 EXCLUDED_EXTENSIONS = frozenset({".pyc", ".pyo"})
 
-# Script file extensions
-SCRIPT_EXTENSIONS = frozenset({".py", ".sh", ".bash", ".js", ".mjs", ".ts"})
+# Script file extensions (DEF-05: includes PowerShell, batch, ruby, perl, shell)
+SCRIPT_EXTENSIONS = frozenset({
+    ".py", ".sh", ".bash", ".zsh", ".js", ".mjs", ".ts",
+    ".ps1", ".bat", ".cmd", ".rb", ".pl",
+})
 
 # Image/asset extensions
 IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"})
@@ -113,19 +116,23 @@ def _is_path_safe(file_path: Path, root: Path) -> bool:
 
 
 def _to_posix_relative(file_path: Path, root: Path) -> str:
-    """Convert a path to a POSIX-normalized relative path."""
+    """Convert a path to a POSIX-normalized relative path safely (DEF-07)."""
     try:
-        rel = file_path.resolve().relative_to(root.resolve())
+        # First attempt relative to root directly without resolving symlinks
+        rel = file_path.relative_to(root)
         return str(PurePosixPath(rel))
     except ValueError:
-        # Should not happen if _is_path_safe passed
-        raise ValueError(f"Path {file_path} is not relative to {root}")
+        try:
+            rel = file_path.resolve().relative_to(root.resolve())
+            return str(PurePosixPath(rel))
+        except (ValueError, OSError):
+            return str(PurePosixPath(file_path.name))
 
 
 # ── YAML Safety ─────────────────────────────────────────────────────────
 
 class _DepthLimitedLoader(yaml.SafeLoader):
-    """SafeLoader with recursion depth limit to prevent YAML bombs."""
+    """SafeLoader with recursion depth limit to prevent YAML bombs (DEF-14)."""
     MAX_DEPTH = MAX_YAML_DEPTH
     _depth = 0
 
@@ -149,6 +156,13 @@ def _depth_limited_construct(loader: _DepthLimitedLoader, node: yaml.Node) -> An
 # Register the depth-limited constructors
 for _tag in ("tag:yaml.org,2002:map", "tag:yaml.org,2002:seq"):
     _DepthLimitedLoader.add_constructor(_tag, _depth_limited_construct)
+
+
+class _SafeYAMLHandler(frontmatter.YAMLHandler):
+    """YAMLHandler wiring _DepthLimitedLoader into python-frontmatter (DEF-14)."""
+
+    def load(self, fm: str, **kwargs: object) -> Any:
+        return yaml.load(fm, Loader=_DepthLimitedLoader)
 
 
 # ── Core Parser ─────────────────────────────────────────────────────────
@@ -186,12 +200,14 @@ def parse_package(skill_dir: str | Path) -> tuple[PackageManifest | None, StageR
     root = skill_path.resolve()
 
     # Parse SKILL.md frontmatter
-    name, description, trigger_keywords, raw_fm, fm_findings = _parse_frontmatter(root)
+    name, description, trigger_keywords, raw_fm, fm_findings, fm_degraded = _parse_frontmatter(root)
     findings.extend(fm_findings)
 
     # Inventory files
-    scripts, assets, total_size, inv_findings = _inventory_files(root)
+    scripts, assets, total_size, inv_findings, inv_degraded = _inventory_files(root)
     findings.extend(inv_findings)
+
+    stage_degraded = fm_degraded or inv_degraded or any(f.stage == "spec" and f.severity == "critical" for f in findings)
 
     manifest = PackageManifest(
         name=name or root.name,
@@ -204,15 +220,15 @@ def parse_package(skill_dir: str | Path) -> tuple[PackageManifest | None, StageR
         raw_frontmatter=raw_fm,
     )
 
-    return manifest, StageResult(stage="spec", findings=findings)
+    return manifest, StageResult(stage="spec", findings=findings, degraded=stage_degraded)
 
 
 def _parse_frontmatter(
     root: Path,
-) -> tuple[Optional[str], Optional[str], Optional[list[str]], Optional[dict], list[Finding]]:
+) -> tuple[Optional[str], Optional[str], Optional[list[str]], Optional[dict], list[Finding], bool]:
     """Parse SKILL.md frontmatter and validate against spec.
 
-    Returns (name, description, trigger_keywords, raw_frontmatter, findings).
+    Returns (name, description, trigger_keywords, raw_frontmatter, findings, degraded).
     """
     findings: list[Finding] = []
     skill_md = root / "SKILL.md"
@@ -223,7 +239,7 @@ def _parse_frontmatter(
             severity="high",
             message="No SKILL.md found in package root",
         ))
-        return None, None, None, None, findings
+        return None, None, None, None, findings, False
 
     # Check SKILL.md size
     md_size = skill_md.stat().st_size
@@ -241,15 +257,15 @@ def _parse_frontmatter(
     except OSError as e:
         findings.append(Finding(
             stage="spec",
-            severity="medium",
+            severity="high",
             message=f"Cannot read SKILL.md: {e}",
             file="SKILL.md",
         ))
-        return None, None, None, None, findings
+        return None, None, None, None, findings, True
 
-    # Parse frontmatter
+    # Parse frontmatter with depth-limited safe parser (DEF-14)
     try:
-        post = frontmatter.loads(content)
+        post = frontmatter.loads(content, handler=_SafeYAMLHandler())
         metadata = dict(post.metadata)
     except Exception as e:
         findings.append(Finding(
@@ -261,7 +277,7 @@ def _parse_frontmatter(
         # Attempt regex fallback extraction
         name = _regex_extract_field(content, "name")
         desc = _regex_extract_field(content, "description")
-        return name, desc, None, None, findings
+        return name, desc, None, None, findings, True
 
     # Validate name
     name = metadata.get("name")
@@ -317,7 +333,7 @@ def _parse_frontmatter(
             raw_kw = kw_match.group(1)
             trigger_keywords = [kw.strip() for kw in raw_kw.split(",") if kw.strip()]
 
-    return name, description, trigger_keywords, metadata, findings
+    return name, description, trigger_keywords, metadata, findings, False
 
 
 def _regex_extract_field(content: str, field_name: str) -> Optional[str]:
@@ -331,26 +347,26 @@ def _regex_extract_field(content: str, field_name: str) -> Optional[str]:
 
 def _inventory_files(
     root: Path,
-) -> tuple[dict[str, ScriptFile], dict[str, AssetFile], int, list[Finding]]:
+) -> tuple[dict[str, ScriptFile], dict[str, AssetFile], int, list[Finding], bool]:
     """Walk the package directory and build file inventories.
 
     Enforces path safety, resource limits, and file classification.
-    Returns (scripts, assets, total_size_bytes, findings).
+    Returns (scripts, assets, total_size_bytes, findings, degraded).
     """
     findings: list[Finding] = []
     scripts: dict[str, ScriptFile] = {}
     assets: dict[str, AssetFile] = {}
     total_size = 0
     file_count = 0
+    is_degraded = False
 
     for dirpath_str, dirnames, filenames in os.walk(root, followlinks=False):
         dirpath = Path(dirpath_str)
 
-        # Filter excluded directories in-place
+        # Filter excluded directories in-place (DEF-05: do not skip dot-dirs except EXCLUDED_DIRS)
         dirnames[:] = [
             d for d in dirnames
             if d not in EXCLUDED_DIRS
-            and not d.startswith(".")  # skip hidden dirs
         ]
 
         for fname in filenames:
@@ -366,14 +382,15 @@ def _inventory_files(
             # Check file count limit
             file_count += 1
             if file_count > MAX_FILE_COUNT:
+                is_degraded = True
                 findings.append(Finding(
                     stage="spec",
                     severity="high",
                     message=f"Package exceeds maximum file count ({MAX_FILE_COUNT})",
                 ))
-                return scripts, assets, total_size, findings
+                return scripts, assets, total_size, findings, is_degraded
 
-            # Path safety checks
+            # Path safety checks (DEF-07: safe conversion without crashing)
             rel_path_str = _to_posix_relative(file_path, root)
 
             # Check for path traversal
@@ -389,6 +406,7 @@ def _inventory_files(
             # Check for symlinks escaping root
             if file_path.is_symlink():
                 if not _is_path_safe(file_path, root):
+                    is_degraded = True
                     findings.append(Finding(
                         stage="spec",
                         severity="critical",
@@ -421,9 +439,10 @@ def _inventory_files(
             try:
                 file_size = file_path.stat().st_size
             except OSError:
+                is_degraded = True
                 findings.append(Finding(
                     stage="spec",
-                    severity="note",
+                    severity="high",
                     message=f"Cannot stat file: {rel_path_str}",
                     file=rel_path_str,
                 ))
@@ -433,35 +452,39 @@ def _inventory_files(
 
             # Check total package size
             if total_size > MAX_PACKAGE_SIZE_BYTES:
+                is_degraded = True
                 findings.append(Finding(
                     stage="spec",
                     severity="high",
                     message=f"Package exceeds maximum total size ({MAX_PACKAGE_SIZE_BYTES // (1024*1024)} MB)",
                 ))
-                return scripts, assets, total_size, findings
+                return scripts, assets, total_size, findings, is_degraded
 
             # Compute content hash
             try:
                 content_bytes = file_path.read_bytes()
                 content_hash = hashlib.sha256(content_bytes).hexdigest()
             except OSError:
+                is_degraded = True
                 findings.append(Finding(
                     stage="spec",
-                    severity="note",
+                    severity="high",
                     message=f"Cannot read file: {rel_path_str}",
                     file=rel_path_str,
                 ))
                 continue
 
-            # Classify and inventory
+            # Classify and inventory (DEF-04, DEF-05)
             truncated = file_size > MAX_FILE_SIZE_BYTES
+            is_shebang = content_bytes.startswith(b"#!")
 
-            if ext in SCRIPT_EXTENSIONS or fname == "SKILL.md":
+            if ext in SCRIPT_EXTENSIONS or is_shebang or fname == "SKILL.md":
                 # Read as text with line numbers
                 if truncated:
+                    is_degraded = True
                     findings.append(Finding(
                         stage="spec",
-                        severity="note",
+                        severity="high",
                         message=f"File exceeds {MAX_FILE_SIZE_BYTES // (1024*1024)} MB, content truncated for analysis: {rel_path_str}",
                         file=rel_path_str,
                     ))
@@ -471,6 +494,7 @@ def _inventory_files(
                         text = content_bytes.decode("utf-8-sig", errors="replace")
                         lines = text.splitlines(keepends=True)
                     except Exception:
+                        is_degraded = True
                         lines = []
 
                 scripts[rel_path_str] = ScriptFile(
@@ -500,5 +524,5 @@ def _inventory_files(
                     content_hash=content_hash,
                 )
 
-    return scripts, assets, total_size, findings
+    return scripts, assets, total_size, findings, is_degraded
 

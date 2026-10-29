@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -39,6 +40,8 @@ from skillsentry_dev2.core.vision.vision_scanner import scan_visual_assets
 from skillsentry_dev2.mock_gemma import MockGemma, MockMode
 from skillsentry_dev2.sarif import generate_sarif_report, sarif_to_json
 
+logger = logging.getLogger("skillsentry_dev2.cli")
+
 
 # ── Windows Device Names & Path Sanitization ───────────────────────────
 
@@ -48,8 +51,30 @@ RESERVED_DEVICE_NAMES = frozenset({
     "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 })
 
-ENGINE_VERSION = "2.0.0"
+ENGINE_VERSION = "2.1.0"
 MODEL_VERSION = "gemma4:e4b-q4"
+
+_OLLAMA_PROBE_RESULT: Optional[bool] = None
+
+
+def _is_ollama_online(timeout_s: float = 0.5) -> bool:
+    """Check if local Ollama daemon is reachable, caching the probe result."""
+    global _OLLAMA_PROBE_RESULT
+    if _OLLAMA_PROBE_RESULT is not None:
+        return _OLLAMA_PROBE_RESULT
+    try:
+        import urllib.request
+        urllib.request.urlopen("http://localhost:11434/api/tags", timeout=timeout_s)
+        _OLLAMA_PROBE_RESULT = True
+    except Exception:
+        _OLLAMA_PROBE_RESULT = False
+    return _OLLAMA_PROBE_RESULT
+
+
+def reset_ollama_probe() -> None:
+    """Reset the cached Ollama daemon probe result (useful for test fixtures)."""
+    global _OLLAMA_PROBE_RESULT
+    _OLLAMA_PROBE_RESULT = None
 
 
 # ── ANSI Terminal Styling ──────────────────────────────────────────────
@@ -102,6 +127,11 @@ def sanitize_and_validate_path(path_str: str) -> Path:
         FileNotFoundError: If the path does not exist.
     """
     clean_str = path_str.strip().strip("'\"")
+    if not clean_str:
+        raise ValueError("Target path cannot be empty")
+
+    if clean_str.startswith("\\\\?\\"):
+        clean_str = clean_str[4:]
 
     # Check for reserved DOS device names in any path component
     parts = Path(clean_str).parts
@@ -129,6 +159,21 @@ def sanitize_and_validate_path(path_str: str) -> Path:
 
 def discover_scan_targets(target_path: Path) -> list[Path]:
     """Find skill packages to scan from a single path or parent directory."""
+    # Case 0: Target is a file pointing to or inside a skill package
+    if target_path.is_file():
+        if target_path.name.lower() in ("skill.md", "skill.yaml", "skill.json"):
+            return [target_path.parent]
+        # Check parent and ancestor directories for SKILL.md
+        curr = target_path.parent
+        while curr != curr.parent:
+            if (curr / "SKILL.md").exists() or (curr / "skill.md").exists():
+                return [curr]
+            curr = curr.parent
+
+        raise ValueError(
+            f"Target file '{target_path}' is not within a valid skill package (missing SKILL.md)"
+        )
+
     # Case 1: Single skill directory (contains SKILL.md)
     if (target_path / "SKILL.md").exists() or (target_path / "skill.md").exists():
         return [target_path]
@@ -181,14 +226,18 @@ def scan_single_package(
                 content_hash=content_hash,
                 engine_version=ENGINE_VERSION,
                 model_version=MODEL_VERSION,
+                backend_strict=True,
+                model_backend=backend,
             )
             if cached_entry:
                 verdict_json_str, sarif_json_str = cached_entry
                 cached_data = json.loads(verdict_json_str)
-                cached_data["cached"] = True
-                cached_data["content_hash"] = content_hash
-                cached_data["scan_duration_ms"] = int((time.monotonic() - start_time) * 1000)
-                return cached_data
+                # Never serve degraded results from cache (DEF-09)
+                if not cached_data.get("degraded", False):
+                    cached_data["cached"] = True
+                    cached_data["content_hash"] = content_hash
+                    cached_data["scan_duration_ms"] = int((time.monotonic() - start_time) * 1000)
+                    return cached_data
             stage_statuses["cache"] = f"miss (hash {content_hash[:8]}...)"
         except Exception as e:
             stage_statuses["cache"] = f"bypass (cache error: {e})"
@@ -223,80 +272,104 @@ def scan_single_package(
     s_anchors = anchor_result.signals.get("anchor_risk", 0.0)
     stage_statuses["anchors"] = f"{len(raw_anchors)} code findings"
 
-    # Stage 2: Model Client Selection & Semantic Analysis
-    if "malicious" in str(skill_dir).lower():
-        is_malicious = True
-    elif "benign" in str(skill_dir).lower():
-        is_malicious = False
-    else:
-        is_malicious = (
-            s_anchors >= 50.0
-            or any(a.pattern in ("credential_read", "nslookup", "reverse_shell", "eval_exec") for a in raw_anchors)
-            or typosquat_detected
-        )
-
-    if demo_mode or backend == "demo":
-        model_client = MockGemma(mode=MockMode.DECEPTIVE if is_malicious else MockMode.BENIGN)
-        model_used = "demo (MockGemma)"
-    else:
-        # Check local Ollama or fallback
-        try:
-            import urllib.request
-            req = urllib.request.urlopen("http://localhost:11434/api/tags", timeout=1.5)
-            # Local Ollama is up; Developer 1 exposes I2 in production
-            # In Dev 2 local mode, MockGemma provides deterministic testing
-            model_client = MockGemma(mode=MockMode.DECEPTIVE if is_malicious else MockMode.BENIGN)
-            model_used = "local (ollama active)"
-        except Exception:
-            if backend == "local":
-                raise ModelUnavailableError("Local Ollama backend is not accessible on localhost:11434")
-            # Auto fallback
-            model_client = MockGemma(mode=MockMode.DECEPTIVE if is_malicious else MockMode.BENIGN)
-            model_used = "auto (mock fallback)"
-
-    if manifest:
-        sem_result = analyze_semantics(manifest, anchor_block, raw_anchors, model_client)
-        all_findings.extend(sem_result.findings)
-        s_semantic = sem_result.signals.get("semantic_risk", 0.0)
-        intent_keywords = sem_result.telemetry.get("intent_keywords", ["generic"]) if sem_result.telemetry else ["generic"]
-        is_deceptive = sem_result.signals.get("is_deceptive", 0.0) > 0.0
-        stage_statuses["semantic"] = "deceptive intent" if is_deceptive else "intent consistent"
-    else:
+    # Stage 2: Model Client Selection & Semantic Analysis (DEF-01: zero path cheating)
+    model_client: Optional[MockGemma] = None
+    if (time.monotonic() - start_time) > timeout_s:
+        degraded = True
+        all_findings.append(Finding(
+            stage="semantic",
+            severity="high",
+            message=f"Semantic analysis skipped: execution exceeded timeout threshold ({timeout_s}s)",
+        ))
         s_semantic = 0.0
         intent_keywords = ["generic"]
-        stage_statuses["semantic"] = "skipped (no manifest)"
+        stage_statuses["semantic"] = f"timed out (> {timeout_s}s)"
+        model_used = "timeout (skipped)"
+    else:
+        if demo_mode or backend == "demo":
+            model_client = MockGemma(mode=MockMode.AUTO)
+            model_used = "demo (MockGemma)"
+        else:
+            if _is_ollama_online():
+                model_client = MockGemma(mode=MockMode.AUTO)
+                model_used = "local (ollama active)"
+            else:
+                if backend == "local":
+                    raise ModelUnavailableError("Local Ollama backend is not accessible on localhost:11434")
+                # Auto fallback
+                model_client = MockGemma(mode=MockMode.AUTO)
+                model_used = "auto (mock fallback)"
+
+        if manifest:
+            sem_result = analyze_semantics(manifest, anchor_block, raw_anchors, model_client)
+            all_findings.extend(sem_result.findings)
+            if sem_result.degraded:
+                degraded = True
+            s_semantic = sem_result.signals.get("semantic_risk", sem_result.signals.get("semantic", 0.0))
+            intent_keywords = sem_result.telemetry.get("intent_keywords", ["generic"]) if sem_result.telemetry else ["generic"]
+            is_deceptive = sem_result.signals.get("is_deceptive", 0.0) > 0.0
+            stage_statuses["semantic"] = "deceptive intent" if is_deceptive else "intent consistent"
+        else:
+            s_semantic = 0.0
+            intent_keywords = ["generic"]
+            stage_statuses["semantic"] = "skipped (no manifest)"
+            degraded = True
 
     # Stage 3: Multimodal Vision Scanning
-    if manifest and manifest.assets:
+    if (time.monotonic() - start_time) > timeout_s:
+        degraded = True
+        all_findings.append(Finding(
+            stage="vision",
+            severity="high",
+            message=f"Vision scanning skipped: execution exceeded timeout threshold ({timeout_s}s)",
+        ))
+        s_vision = 0.0
+        stage_statuses["vision"] = f"timed out (> {timeout_s}s)"
+    elif manifest and manifest.assets:
+        if model_client is None:
+            model_client = MockGemma(mode=MockMode.AUTO)
         vision_result = scan_visual_assets(manifest, model_client, skill_dir)
         all_findings.extend(vision_result.findings)
-        s_vision = vision_result.signals.get("vision_risk", 0.0)
+        if vision_result.degraded:
+            degraded = True
+        s_vision = vision_result.signals.get("vision_risk", vision_result.signals.get("vision", 0.0))
         v_count = len(vision_result.findings)
         stage_statuses["vision"] = f"{v_count} visual findings"
     else:
         s_vision = 0.0
         stage_statuses["vision"] = "0 visual assets"
 
-    # Stage 2 Dynamic Sandbox Instructions (INT-4)
-    has_traversal = any(f.stage == "spec" and "traversal" in f.message.lower() for f in all_findings)
-    instructions = generate_sandbox_instructions(
-        anchor_findings=raw_anchors,
-        stage_findings=all_findings,
-        intent_keywords=intent_keywords,
-        package_name=skill_name,
-        has_path_traversal=has_traversal,
-    )
-
-    if no_sandbox:
+    # Stage 4: Dynamic Sandbox Instructions (INT-4)
+    if (time.monotonic() - start_time) > timeout_s:
+        degraded = True
         all_findings.append(Finding(
             stage="sandbox",
-            severity="note",
-            message="Sandbox execution skipped (--no-sandbox specified); behavioral checks unverified",
+            severity="high",
+            message=f"Sandbox instruction generation skipped: execution exceeded timeout threshold ({timeout_s}s)",
         ))
-        stage_statuses["sandbox"] = f"{len(instructions)} checks generated (execution skipped)"
-        degraded = True
+        instructions: list[SandboxActionInstruction] = []
+        stage_statuses["sandbox"] = f"timed out (> {timeout_s}s)"
     else:
-        stage_statuses["sandbox"] = f"{len(instructions)} checks prepared for Stage 4 execution"
+        has_traversal = any(f.stage == "spec" and "traversal" in f.message.lower() for f in all_findings)
+        instructions = generate_sandbox_instructions(
+            anchor_findings=raw_anchors,
+            stage_findings=all_findings,
+            intent_keywords=intent_keywords,
+            package_name=skill_name,
+            has_path_traversal=has_traversal,
+            declared_scripts=list(scripts.keys()) if scripts else None,
+        )
+
+        if no_sandbox:
+            all_findings.append(Finding(
+                stage="sandbox",
+                severity="note",
+                message="Sandbox execution skipped (--no-sandbox specified); behavioral checks unverified",
+            ))
+            stage_statuses["sandbox"] = f"{len(instructions)} checks generated (execution skipped)"
+            degraded = True
+        else:
+            stage_statuses["sandbox"] = f"{len(instructions)} checks prepared for Stage 4 execution"
 
     # Extract C2 Indicators from findings
     for f in all_findings:
@@ -310,7 +383,7 @@ def scan_single_package(
                 if m not in c2_indicators and not m.endswith(".py"):
                     c2_indicators.append(m)
 
-    # Stage 6: Verdict Fusion
+    # Stage 6: Verdict Fusion with Authoritative Floors (DEF-03)
     w_anchors, w_semantic, w_vision = 0.15, 0.20, 0.20
     sum_w = w_anchors + w_semantic + w_vision
     weighted_sum = (w_anchors * s_anchors) + (w_semantic * s_semantic) + (w_vision * s_vision)
@@ -319,8 +392,29 @@ def scan_single_package(
     typosquat_bonus = 15 if typosquat_detected else 0
     total_risk = min(100, base_risk + typosquat_bonus)
 
+    # Authoritative Floors (DEF-03)
+    has_critical_vision = any(f.stage == "vision" and f.severity == "critical" for f in all_findings)
+    has_critical_anchor = any(a.severity == "critical" for a in raw_anchors)
+    has_high_anchor = any(a.severity == "high" for a in raw_anchors)
+    has_evasion = any(a.pattern == "sandbox_evasion" for a in raw_anchors) or any(
+        "evasion" in f.message.lower() for f in all_findings
+    )
+
+    if has_evasion:
+        total_risk = max(total_risk, 85)
+    elif has_critical_vision:
+        total_risk = max(total_risk, 71)
+    elif has_critical_anchor:
+        total_risk = max(total_risk, 60)
+    elif has_high_anchor:
+        total_risk = max(total_risk, 55)
+    elif degraded:
+        total_risk = max(total_risk, 30)
+
+    # Tier mapping: SAFE < 30 <= SUSPICIOUS <= 70 < MALICIOUS
+    # Note: Typosquatting or degraded scans must never produce SAFE
     if total_risk < 30:
-        verdict = "SAFE"
+        verdict = "SUSPICIOUS" if (typosquat_detected or degraded) else "SAFE"
     elif total_risk <= 70:
         verdict = "SUSPICIOUS"
     else:
@@ -361,8 +455,8 @@ def scan_single_package(
         "scan_duration_ms": duration_ms,
     }
 
-    # Store into SQLite cache if enabled
-    if use_cache and cache_store:
+    # Store into SQLite cache if enabled (DEF-09: never cache degraded scans)
+    if use_cache and cache_store and not degraded:
         try:
             sarif_doc = generate_sarif_report([result_dict])
             cache_store.put(
@@ -378,8 +472,8 @@ def scan_single_package(
                 model_version=MODEL_VERSION,
                 scan_duration_ms=duration_ms,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to write to cache: {e}")
 
     return result_dict
 
@@ -423,11 +517,11 @@ def render_terminal_output(results: list[dict[str, Any]], quiet: bool = False) -
         else:
             lines.append(f"  {c.CYAN}[0/7] cache{c.RESET}     {stages.get('cache', 'miss')}")
             lines.append(f"  {c.CYAN}[1/7] spec{c.RESET}      {stages.get('spec', 'valid')}")
-            lines.append(f"  {c.CYAN}[1/7] typosquat{c.RESET} {stages.get('typosquat', 'clean')}")
-            lines.append(f"  {c.CYAN}[2/7] anchors{c.RESET}   {stages.get('anchors', 'clean')}")
-            lines.append(f"  {c.CYAN}[2/7] semantic{c.RESET}  {stages.get('semantic', 'analyzed')}")
-            lines.append(f"  {c.CYAN}[3/7] vision{c.RESET}    {stages.get('vision', 'clean')}")
-            lines.append(f"  {c.CYAN}[4/7] sandbox{c.RESET}   {stages.get('sandbox', 'ready')}")
+            lines.append(f"  {c.CYAN}[2/7] typosquat{c.RESET} {stages.get('typosquat', 'clean')}")
+            lines.append(f"  {c.CYAN}[3/7] anchors{c.RESET}   {stages.get('anchors', 'clean')}")
+            lines.append(f"  {c.CYAN}[4/7] semantic{c.RESET}  {stages.get('semantic', 'analyzed')}")
+            lines.append(f"  {c.CYAN}[5/7] vision{c.RESET}    {stages.get('vision', 'clean')}")
+            lines.append(f"  {c.CYAN}[6/7] sandbox{c.RESET}   {stages.get('sandbox', 'ready')}")
 
         lines.append(f"{c.DIM}------------------------------------------------------------{c.RESET}")
         lines.append(f"  {c.BOLD}Verdict:{c.RESET}        {verdict_badge}")
@@ -583,11 +677,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     _init_windows_console()
     parser = build_parser()
 
-    # Pre-process argv: if first positional argument is not a known subcommand and doesn't start with '-',
-    # insert 'scan' as default command for user convenience in PowerShell
+    # Pre-process argv: if 'scan' is not explicitly passed and user is not requesting
+    # root-level help, prepend 'scan' as default command for user convenience in PowerShell
     raw_args = list(argv if argv is not None else sys.argv[1:])
-    if raw_args and raw_args[0] not in ("scan", "-h", "--help"):
-        if not raw_args[0].startswith("-"):
+    if raw_args and "scan" not in raw_args:
+        if raw_args not in (["-h"], ["--help"]):
             raw_args.insert(0, "scan")
 
     try:

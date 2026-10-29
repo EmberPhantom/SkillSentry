@@ -166,3 +166,57 @@ class TestScanVisualAssets:
         assert result.stage == "vision"
         # Deceptive mock should produce findings
         assert len(result.findings) > 0
+
+    def test_xxe_entity_injection_blocked(self, tmp_path):
+        """DEF-12: XML DTD/entity injection in SVG must be blocked and emit critical finding."""
+        svg_content = '<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><svg>&xxe;</svg>'
+        svg_file = tmp_path / "xxe.svg"
+        svg_file.write_text(svg_content)
+        findings = _scan_svg_static(str(svg_file), "xxe.svg")
+        crit = [f for f in findings if f.severity == "critical"]
+        assert len(crit) > 0
+        assert "entity" in crit[0].message.lower()
+
+    def test_decompression_bomb_detected(self, tmp_path, monkeypatch):
+        """DEF-13: DecompressionBombError caught and emitted as critical finding."""
+        from PIL import Image
+        from skillsentry_dev2.core.vision.image_extractor import extract_image_assets
+
+        # Monkeypatch compute_contrast_ratio to raise DecompressionBombError
+        def raise_bomb(path):
+            raise Image.DecompressionBombError("Image size exceeds limit")
+
+        import skillsentry_dev2.core.vision.image_extractor as ie
+        monkeypatch.setattr(ie, "compute_contrast_ratio", raise_bomb)
+
+        assets = {
+            "bomb.png": AssetFile(
+                relative_path="bomb.png",
+                mime_type="image/png",
+                size_bytes=1000,
+                content_hash="h1",
+            )
+        }
+        (tmp_path / "bomb.png").write_bytes(b"\x00" * 100)
+        prepared, findings = extract_image_assets(assets, tmp_path)
+        crit = [f for f in findings if f.severity == "critical"]
+        assert len(crit) > 0
+        assert "decompression bomb" in crit[0].message.lower()
+
+    def test_missing_model_sets_degraded(self, tmp_path):
+        """DEF-04: Image asset without model client must mark stage as degraded."""
+        manifest = PackageManifest(
+            name="test", description="test",
+            trigger_keywords=[], canonical_root_posix=str(tmp_path),
+            assets={
+                "img.png": AssetFile(
+                    relative_path="img.png",
+                    mime_type="image/png",
+                    size_bytes=100,
+                    content_hash="abc",
+                )
+            },
+        )
+        (tmp_path / "img.png").write_bytes(b"\x00" * 10)
+        result = scan_visual_assets(manifest, None, tmp_path)
+        assert result.degraded is True

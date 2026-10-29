@@ -88,6 +88,17 @@ SEMANTIC_RESPONSE_SCHEMA: dict = {
 }
 
 
+MAX_PROMPT_BUDGET_BYTES = 32 * 1024  # 32 KB prompt size budget (DEF-06)
+
+
+def _sanitize_untrusted_text(text: str) -> str:
+    """Escape fence delimiters in untrusted text to prevent prompt injection breakouts (DEF-06)."""
+    return (
+        text.replace("--- END UNTRUSTED SKILL CONTENT ---", "--- [FENCE ESCAPED] ---")
+            .replace("--- BEGIN UNTRUSTED SKILL CONTENT ---", "--- [FENCE ESCAPED] ---")
+    )
+
+
 def build_system_prompt(anchor_block: str) -> str:
     """Build the system prompt with injected anchor findings.
 
@@ -101,7 +112,7 @@ def build_system_prompt(anchor_block: str) -> str:
 
 
 def build_user_prompt(manifest: PackageManifest) -> str:
-    """Build the user prompt with fenced skill content.
+    """Build the user prompt with fenced skill content and a 32 KB budget (DEF-06).
 
     Scripts are included with line numbers for citation accuracy.
 
@@ -112,6 +123,7 @@ def build_user_prompt(manifest: PackageManifest) -> str:
         Complete user prompt string.
     """
     script_sections: list[str] = []
+    current_bytes = 0
 
     for rel_path, script in sorted(manifest.scripts.items()):
         if script.truncated:
@@ -120,16 +132,27 @@ def build_user_prompt(manifest: PackageManifest) -> str:
 
         numbered_lines: list[str] = []
         for i, line in enumerate(script.lines, 1):
-            numbered_lines.append(f"{i:4d} | {line.rstrip()}")
+            sanitized_line = _sanitize_untrusted_text(line.rstrip())
+            numbered_lines.append(f"{i:4d} | {sanitized_line}")
 
         content = "\n".join(numbered_lines)
-        script_sections.append(f"FILE: {rel_path}\n```\n{content}\n```")
+        section = f"FILE: {rel_path}\n```\n{content}\n```"
+        section_bytes = len(section.encode("utf-8"))
+
+        if current_bytes + section_bytes > MAX_PROMPT_BUDGET_BYTES:
+            remaining_bytes = max(0, MAX_PROMPT_BUDGET_BYTES - current_bytes)
+            truncated_section = section[:remaining_bytes] + "\n[CONTENT TRUNCATED — exceeded 32KB prompt budget]"
+            script_sections.append(truncated_section)
+            break
+
+        script_sections.append(section)
+        current_bytes += section_bytes
 
     script_contents = "\n\n".join(script_sections) if script_sections else "(No scripts found)"
 
     return USER_PROMPT_TEMPLATE.format(
-        skill_name=manifest.name,
-        description=manifest.description or "(No description)",
+        skill_name=_sanitize_untrusted_text(manifest.name),
+        description=_sanitize_untrusted_text(manifest.description or "(No description)"),
         script_contents=script_contents,
     )
 

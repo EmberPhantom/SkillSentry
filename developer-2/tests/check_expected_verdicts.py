@@ -46,9 +46,8 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
     if not fixture_dir.exists():
         raise FileNotFoundError(f"Fixture directory not found: {fixture_dir}")
 
-    is_malicious = "malicious" in fixture_rel_path
-    mock_mode = MockMode.DECEPTIVE if is_malicious else MockMode.BENIGN
-    model_client = MockGemma(mode=mock_mode)
+    # DEF-01: Zero path cheating — evaluate honest content with MockMode.AUTO
+    model_client = MockGemma(mode=MockMode.AUTO)
 
     all_findings: list[Finding] = []
 
@@ -88,7 +87,7 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
     else:
         s_vision = 0.0
 
-    # INT-4 Sandbox Instructions
+    # INT-4 Sandbox Instructions (DEF-17: pass declared scripts)
     has_traversal = any(f.stage == "spec" and "traversal" in f.message.lower() for f in all_findings)
     instructions = generate_sandbox_instructions(
         anchor_findings=raw_anchors,
@@ -96,10 +95,10 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
         intent_keywords=intent_keywords,
         package_name=skill_name,
         has_path_traversal=has_traversal,
+        declared_scripts=list(scripts.keys()) if scripts else None,
     )
 
-    # Risk score fusion formula (docs/02-architecture.md §2.3)
-    # Weights: anchors=0.15, semantic=0.20, vision=0.20, sandbox=0.25 (evaluated in Stage 4)
+    # Risk score fusion formula (docs/02-architecture.md §2.3) with Authoritative Floors (DEF-03)
     w_anchors, w_semantic, w_vision = 0.15, 0.20, 0.20
     sum_w = w_anchors + w_semantic + w_vision
     weighted_sum = (w_anchors * s_anchors) + (w_semantic * s_semantic) + (w_vision * s_vision)
@@ -108,9 +107,30 @@ def run_pipeline_on_fixture(fixture_rel_path: str) -> dict[str, Any]:
     typosquat_bonus = 15 if typosquat_detected else 0
     total_risk = min(100, base_risk + typosquat_bonus)
 
+    # Authoritative risk floors (DEF-03)
+    has_critical_vision = any(f.stage == "vision" and f.severity == "critical" for f in all_findings)
+    has_critical_anchor = any(a.severity == "critical" for a in raw_anchors)
+    has_high_anchor = any(a.severity == "high" for a in raw_anchors)
+    has_evasion = any(a.pattern == "sandbox_evasion" for a in raw_anchors) or any(
+        "evasion" in f.message.lower() for f in all_findings
+    )
+    is_degraded = spec_result.degraded or (manifest and sem_result.degraded) or (manifest and manifest.assets and vision_result.degraded)
+
+    if has_evasion:
+        total_risk = max(total_risk, 85)
+    elif has_critical_vision:
+        total_risk = max(total_risk, 71)
+    elif has_critical_anchor:
+        total_risk = max(total_risk, 60)
+    elif has_high_anchor:
+        total_risk = max(total_risk, 55)
+    elif is_degraded:
+        total_risk = max(total_risk, 30)
+
     # Tier mapping: SAFE < 30 <= SUSPICIOUS <= 70 < MALICIOUS
+    # Note: Typosquatting or degraded scans must never produce SAFE
     if total_risk < 30:
-        verdict = "SAFE"
+        verdict = "SUSPICIOUS" if (typosquat_detected or is_degraded) else "SAFE"
     elif total_risk <= 70:
         verdict = "SUSPICIOUS"
     else:

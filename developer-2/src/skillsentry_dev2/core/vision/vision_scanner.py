@@ -53,9 +53,21 @@ def _scan_svg_static(svg_path: str, rel_path: str) -> list[Finding]:
     except OSError as e:
         findings.append(Finding(
             stage="vision",
-            severity="note",
+            severity="high",
             message=f"Cannot read SVG file: {e}",
             file=rel_path,
+        ))
+        return findings
+
+    # Check for XML Entity / DTD injection (Billion Laughs / XXE defense — DEF-12)
+    content_lower = content.lower()
+    if "<!entity" in content_lower or "<!doctype" in content_lower:
+        findings.append(Finding(
+            stage="vision",
+            severity="critical",
+            message=f"Insecure XML entity/DTD declaration in SVG: {rel_path}",
+            file=rel_path,
+            evidence_json={"pattern": "xxe_dtd_injection"},
         ))
         return findings
 
@@ -123,12 +135,13 @@ def _analyze_image_with_model(
     model_client: ModelClient,
     has_suspicious_regions: bool,
     contrast_ratio: float,
-) -> list[Finding]:
+) -> tuple[list[Finding], bool]:
     """Submit an image to the vision model for OCR and injection detection.
 
-    Returns findings with bounding box coordinates (INT-3 contract).
+    Returns (findings, degraded).
     """
     findings: list[Finding] = []
+    is_degraded = False
 
     try:
         response = model_client.analyze_image(
@@ -142,7 +155,7 @@ def _analyze_image_with_model(
             message=f"Vision model unavailable for image: {rel_path}",
             file=rel_path,
         ))
-        return findings
+        return findings, True
     except Exception as e:
         findings.append(Finding(
             stage="vision",
@@ -150,18 +163,21 @@ def _analyze_image_with_model(
             message=f"Vision analysis error on {rel_path}: {e}",
             file=rel_path,
         ))
-        return findings
+        return findings, True
 
     if not isinstance(response, dict):
-        return findings
+        return findings, True
 
     # Extract OCR and injection results
-    has_hidden_text = response.get("has_hidden_text", False)
-    ocr_text = response.get("ocr_text", "")
-    is_injection = response.get("is_injection", False)
-    injection_type = response.get("injection_type", "none")
+    has_hidden_text = bool(response.get("has_hidden_text", False))
+    ocr_text = str(response.get("ocr_text", ""))
+    is_injection = bool(response.get("is_injection", False))
+    injection_type = str(response.get("injection_type", "none"))
     bboxes = response.get("bboxes", [])
-    confidence = response.get("confidence", 0.5)
+    try:
+        confidence = float(response.get("confidence", 0.5))
+    except (ValueError, TypeError):
+        confidence = 0.5
 
     if is_injection and ocr_text:
         # Build evidence with INT-3 bounding box contract
@@ -169,12 +185,15 @@ def _analyze_image_with_model(
         if bboxes and isinstance(bboxes, list):
             for bb in bboxes:
                 if isinstance(bb, dict):
-                    bbox_list.append([
-                        bb.get("x", 0.0),
-                        bb.get("y", 0.0),
-                        bb.get("w", 0.0),
-                        bb.get("h", 0.0),
-                    ])
+                    try:
+                        bbox_list.append([
+                            float(bb.get("x", 0.0)),
+                            float(bb.get("y", 0.0)),
+                            float(bb.get("w", 0.0)),
+                            float(bb.get("h", 0.0)),
+                        ])
+                    except (ValueError, TypeError):
+                        bbox_list.append([0.0, 0.0, 1.0, 1.0])
 
         findings.append(Finding(
             stage="vision",
@@ -185,7 +204,7 @@ def _analyze_image_with_model(
                 "ocr": ocr_text[:500],
                 "bbox": bbox_list[0] if bbox_list else [0.0, 0.0, 1.0, 1.0],
                 "view_modes": ["Normal", "Contrast", "GemmasEye"],
-                "contrast_ratio": round(contrast_ratio, 3),
+                "contrast_ratio": round(float(contrast_ratio), 3),
                 "confidence": round(confidence, 3),
                 "injection_type": injection_type,
             },
@@ -200,12 +219,12 @@ def _analyze_image_with_model(
                 "ocr": ocr_text[:500],
                 "bbox": [0.0, 0.0, 1.0, 1.0],
                 "view_modes": ["Normal", "Contrast", "GemmasEye"],
-                "contrast_ratio": round(contrast_ratio, 3),
+                "contrast_ratio": round(float(contrast_ratio), 3),
                 "confidence": round(confidence, 3),
             },
         ))
 
-    return findings
+    return findings, is_degraded
 
 
 # ── Public API ──────────────────────────────────────────────────────────
@@ -226,7 +245,8 @@ def scan_visual_assets(
         StageResult with stage='vision' and findings.
     """
     all_findings: list[Finding] = []
-    signals: dict[str, float] = {"vision_risk": 0.0}
+    signals: dict[str, float] = {"vision_risk": 0.0, "vision": 0.0}
+    stage_degraded = False
 
     if not manifest.assets:
         all_findings.append(Finding(
@@ -246,6 +266,8 @@ def scan_visual_assets(
         manifest.assets, package_root,
     )
     all_findings.extend(extract_findings)
+    if any(f.severity == "critical" and "bomb" in f.message.lower() for f in extract_findings):
+        stage_degraded = True
 
     if not prepared_images:
         all_findings.append(Finding(
@@ -271,25 +293,33 @@ def scan_visual_assets(
 
             # SVG vision model scan (rendered raster) — requires model
             if model_client is not None:
-                model_findings = _analyze_image_with_model(
+                model_findings, model_degraded = _analyze_image_with_model(
                     img_info["path"], rel_path, model_client,
                     img_info["has_suspicious_regions"],
                     img_info["contrast_ratio"],
                 )
+                if model_degraded:
+                    stage_degraded = True
                 # Deduplicate with static findings
                 existing_msgs = {f.message for f in svg_findings}
                 for mf in model_findings:
                     if mf.message not in existing_msgs:
                         all_findings.append(mf)
+            else:
+                stage_degraded = True
         else:
             # Raster image: model analysis
             if model_client is not None:
-                model_findings = _analyze_image_with_model(
+                model_findings, model_degraded = _analyze_image_with_model(
                     img_info["path"], rel_path, model_client,
                     img_info["has_suspicious_regions"],
                     img_info["contrast_ratio"],
                 )
+                if model_degraded:
+                    stage_degraded = True
                 all_findings.extend(model_findings)
+            else:
+                stage_degraded = True
 
     # Compute vision risk signal
     critical_findings = [f for f in all_findings if f.severity == "critical"]
@@ -302,11 +332,13 @@ def scan_visual_assets(
         + len(medium_findings) * 10.0
     ))
     signals["vision_risk"] = vision_risk
+    signals["vision"] = vision_risk
 
     return StageResult(
         stage="vision",
         findings=all_findings,
         signals=signals,
+        degraded=stage_degraded,
         telemetry={"image_count": len(prepared_images)},
     )
 

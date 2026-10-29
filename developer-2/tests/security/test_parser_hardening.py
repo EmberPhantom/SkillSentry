@@ -42,17 +42,36 @@ class TestPathTraversalDefense:
         target = Path(tempfile.gettempdir()) / "outside_file.txt"
         target.write_text("I am outside the package")
         link = scripts_dir / "escape.py"
+        symlink_created = False
         try:
             link.symlink_to(target)
+            symlink_created = True
         except OSError:
-            pytest.skip("Cannot create symlinks (requires admin on Windows)")
+            pass
 
-        manifest, result = parse_package(tmp_path)
-        # Should either skip the symlink or flag it
+        if not symlink_created:
+            link.write_text("I am outside the package")
+            path_cls = type(link)
+            orig_sym = path_cls.is_symlink
+            orig_res = path_cls.resolve
+
+            def fake_sym(self):
+                return True if self.name == link.name else orig_sym(self)
+
+            def fake_res(self, *a, **k):
+                return target.resolve() if self.name == link.name else orig_res(self, *a, **k)
+
+            import unittest.mock
+            with unittest.mock.patch.object(path_cls, "is_symlink", fake_sym), \
+                 unittest.mock.patch.object(path_cls, "resolve", fake_res):
+                manifest, result = parse_package(tmp_path)
+        else:
+            manifest, result = parse_package(tmp_path)
+
+        # Should flag the escaping symlink as critical
         critical = [f for f in result.findings if f.severity == "critical"]
-        if link.exists():  # symlink was created
-            assert any("symlink" in f.message.lower() or "escape" in f.message.lower()
-                       for f in critical) or link.resolve().is_relative_to(tmp_path)
+        assert any("symlink" in f.message.lower() or "escape" in f.message.lower()
+                   for f in critical)
 
     def test_reserved_device_name_flagged(self, tmp_path):
         """Files named CON, PRN, etc. should be flagged as critical."""

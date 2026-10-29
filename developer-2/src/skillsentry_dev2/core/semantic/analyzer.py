@@ -112,6 +112,15 @@ def _validate_semantic_response(response: dict[str, Any]) -> list[str]:
     if "suspicious_patterns" in response:
         if not isinstance(response["suspicious_patterns"], list):
             errors.append("'suspicious_patterns' must be a list")
+        else:
+            valid_sevs = {"critical", "high", "medium", "low", "note"}
+            for idx, pat in enumerate(response["suspicious_patterns"]):
+                if not isinstance(pat, dict):
+                    errors.append(f"suspicious_patterns[{idx}] must be a dict")
+                else:
+                    sev = str(pat.get("severity", "")).lower()
+                    if sev and sev not in valid_sevs:
+                        errors.append(f"suspicious_patterns[{idx}].severity '{sev}' is invalid")
 
     if "confidence" in response:
         conf = response["confidence"]
@@ -239,15 +248,23 @@ def analyze_semantics(
     suspicious_patterns = response.get("suspicious_patterns", [])
     confidence = response.get("confidence", 0.5)
 
-    # Convert suspicious patterns to findings
+    # Convert suspicious patterns to findings (DEF-08: defensive validation)
+    valid_sevs = {"critical", "high", "medium", "low", "note"}
     for pattern in suspicious_patterns:
         if isinstance(pattern, dict):
+            raw_sev = str(pattern.get("severity", "medium")).lower()
+            sev = raw_sev if raw_sev in valid_sevs else "medium"
+            raw_line = pattern.get("line")
+            try:
+                line_no = int(raw_line) if raw_line is not None else None
+            except (ValueError, TypeError):
+                line_no = None
             findings.append(Finding(
                 stage="semantic",
-                severity=pattern.get("severity", "medium"),
+                severity=sev,
                 message=f"Semantic: {pattern.get('type', 'unknown')} — {pattern.get('evidence', '')}",
-                file=pattern.get("file"),
-                line=pattern.get("line"),
+                file=str(pattern.get("file")) if pattern.get("file") is not None else None,
+                line=line_no,
                 evidence_json={
                     "type": pattern.get("type"),
                     "evidence": pattern.get("evidence"),
@@ -283,6 +300,7 @@ def analyze_semantics(
         semantic_risk = max(semantic_risk, float(max_anchor_weight))
 
     signals["semantic_risk"] = semantic_risk
+    signals["semantic"] = semantic_risk
 
     # Extract intent keywords (INT-1)
     intent_keywords = _extract_intent_keywords(

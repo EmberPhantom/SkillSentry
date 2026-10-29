@@ -123,6 +123,19 @@ class TestCheckTyposquat:
         result = check_typosquat("anything")
         assert result.stage == "typosquat"
 
+    def test_case_variant_impersonation(self):
+        """DEF-15: Case variant impersonation e.g. Git-Helper vs git-helper must be flagged."""
+        result = check_typosquat("Git-Helper")
+        assert result.signals.get("typosquat_detected", 0) == 100.0
+        assert any("case-variant" in f.message for f in result.findings)
+
+    def test_unicode_nfkc_and_cyrillic_homoglyphs(self):
+        """DEF-15: Unicode NFKC and Cyrillic homoglyphs must be detected."""
+        # Using Cyrillic 'а' (U+0430) instead of ASCII 'a'
+        cyrillic_name = "git-tr\u0430nslate"
+        result = check_typosquat(cyrillic_name)
+        assert result.signals.get("typosquat_detected", 0) == 100.0
+
 
 class TestDictionaryLoading:
     def test_dictionary_path_exists(self):

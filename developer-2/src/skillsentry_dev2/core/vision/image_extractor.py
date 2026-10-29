@@ -18,6 +18,12 @@ from typing import Optional
 
 from skillsentry_dev2.contracts import AssetFile, Finding
 
+try:
+    from PIL import Image, ImageStat
+except ImportError:
+    Image = None  # type: ignore[assignment]
+    ImageStat = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 # ── Constants ───────────────────────────────────────────────────────────
@@ -120,6 +126,9 @@ def compute_contrast_ratio(
 
         return min_cr, has_suspicious, downscaled_bytes
 
+    except Image.DecompressionBombError:
+        # Re-raise decompression bomb so extract_image_assets can emit critical finding (DEF-13)
+        raise
     except Exception as e:
         logger.error(f"Contrast pre-filter error on {image_path}: {e}")
         return 0.0, False, None
@@ -192,7 +201,17 @@ def extract_image_assets(
             continue
 
         # Raster image: run contrast pre-filter
-        cr, suspicious, downscaled = compute_contrast_ratio(abs_path)
+        try:
+            cr, suspicious, downscaled = compute_contrast_ratio(abs_path)
+        except Image.DecompressionBombError as e:
+            findings.append(Finding(
+                stage="vision",
+                severity="critical",
+                message=f"Image decompression bomb detected: {rel_path} ({e})",
+                file=rel_path,
+                evidence_json={"pattern": "image_decompression_bomb"},
+            ))
+            continue
 
         if suspicious:
             findings.append(Finding(

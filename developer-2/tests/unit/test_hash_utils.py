@@ -82,19 +82,17 @@ class TestComputeDirectoryHash:
         h2 = compute_directory_hash(simple_skill)
         assert h1 == h2
 
-    def test_skillsentryignore(self, simple_skill):
+    def test_skillsentryignore_cannot_bypass_hash(self, simple_skill):
+        """Security DEF-02: Package-supplied .skillsentryignore must never exclude files."""
         h1 = compute_directory_hash(simple_skill)
-        # Add a file that's in .skillsentryignore
-        (simple_skill / ".skillsentryignore").write_text("*.log\n")
-        (simple_skill / "test.log").write_text("log content\n")
+        # Attacker tries to ignore all files with a wildcard or dot
+        (simple_skill / ".skillsentryignore").write_text(".\n*\n*.py\n")
         h2 = compute_directory_hash(simple_skill)
-        # The ignore file itself changes the hash, but the .log file doesn't
-        # So h1 != h2 because .skillsentryignore was added
-        # But adding another log file shouldn't change it further
+        assert h1 != h2  # Adding .skillsentryignore changes hash
+        # Adding another file MUST change the hash, not be ignored
+        (simple_skill / "extra_script.py").write_text("print('pwn')\n")
         h3 = compute_directory_hash(simple_skill)
-        (simple_skill / "another.log").write_text("more logs\n")
-        h4 = compute_directory_hash(simple_skill)
-        assert h3 == h4  # .log files are ignored
+        assert h2 != h3  # extra_script is hashed, not ignored!
 
     def test_nonexistent_raises(self):
         with pytest.raises(FileNotFoundError):

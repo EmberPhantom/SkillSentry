@@ -65,7 +65,7 @@ DANGEROUS_PATTERNS: list[DangerousPattern] = [
         description="Dynamic code compilation: compile()",
         severity="medium", weight=15,
         ast_names=("compile",),
-        regex=r"\bcompile\s*\(",
+        regex=r"(?<!re\.)\bcompile\s*\(",
         languages=("py",),
     ),
 
@@ -89,7 +89,8 @@ DANGEROUS_PATTERNS: list[DangerousPattern] = [
         description="Shell command execution: subprocess with shell=True",
         severity="high", weight=25,
         ast_attrs=("subprocess.call", "subprocess.run", "subprocess.Popen", "subprocess.check_output"),
-        regex=r"\bsubprocess\.\w+\s*\([^)]*shell\s*=\s*True",
+        regex="",
+        languages=("py",),
     ),
     DangerousPattern(
         name="pty.spawn",
@@ -99,13 +100,51 @@ DANGEROUS_PATTERNS: list[DangerousPattern] = [
         regex=r"\bpty\.spawn\s*\(",
     ),
 
+    # Sandbox / Container Evasion Probes (DEF-17, high, 35 pts)
+    DangerousPattern(
+        name="sandbox_evasion",
+        description="Sandbox or container evasion probe detected",
+        severity="high", weight=35,
+        regex=r"(?:/\.dockerenv|/proc/(?:1|self)/cgroup|/sys/class/dmi/id|\bIsDebuggerPresent\b)",
+    ),
+
     # Credential Access (critical, 40 pts)
     DangerousPattern(
         name="credential_read",
         description="Credential file access detected",
         severity="critical", weight=40,
         regex=r"(?:~\/|/home/\w+/)\.(?:aws/credentials|ssh/id_rsa|ssh/config|env|netrc|config/gh/hosts\.yml)|"
-              r"\b(?:AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|SLACK_BOT_TOKEN|SLACK_WEBHOOK_URL)\b",
+              r"\b(?:AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|SLACK_BOT_TOKEN)\b",
+    ),
+
+    # Network Socket Creation (DEF-17, medium, 20 pts)
+    DangerousPattern(
+        name="socket_connect",
+        description="Low-level network socket creation",
+        severity="medium", weight=20,
+        ast_attrs=("socket.socket", "socket.create_connection"),
+        regex=r"\bsocket\.(?:socket|create_connection)\s*\(",
+        languages=("py",),
+    ),
+
+    # Insecure Deserialization (DEF-17, high, 30 pts)
+    DangerousPattern(
+        name="pickle_loads",
+        description="Insecure deserialization: pickle.loads",
+        severity="high", weight=30,
+        ast_attrs=("pickle.loads", "pickle.load", "_pickle.loads"),
+        regex=r"\bpickle\.(?:loads|load)\s*\(",
+        languages=("py",),
+    ),
+
+    # Environment Harvest (DEF-17, medium, 15 pts)
+    DangerousPattern(
+        name="environ_dump",
+        description="Environment variables harvest: os.environ",
+        severity="medium", weight=15,
+        ast_attrs=("os.environ.copy", "os.environ.items", "os.environ.values"),
+        regex=r"\bos\.environ\.(?:copy|items|values)\s*\(",
+        languages=("py",),
     ),
 
     # Obfuscation / Decoders (medium, 15 pts)
@@ -193,6 +232,13 @@ DANGEROUS_PATTERNS: list[DangerousPattern] = [
         languages=("py",),
     ),
 ]
+
+# Precompiled regex patterns to eliminate repeated re.compile overhead and prevent ReDoS (DEF-11)
+_COMPILED_PATTERNS: dict[str, re.Pattern] = {
+    p.name: re.compile(p.regex, re.IGNORECASE)
+    for p in DANGEROUS_PATTERNS
+    if p.regex
+}
 
 
 # ── AST Visitor for Python Files ────────────────────────────────────────
@@ -291,34 +337,34 @@ def _regex_scan_file(
     lines: list[str],
     language: str,
 ) -> list[AnchorFinding]:
-    """Scan a file using regex patterns for the given language."""
+    """Scan a file using precompiled regex patterns for the given language (DEF-11)."""
     findings: list[AnchorFinding] = []
 
     for pattern in DANGEROUS_PATTERNS:
         if language not in pattern.languages:
             continue
-        if not pattern.regex:
+        compiled = _COMPILED_PATTERNS.get(pattern.name)
+        if not compiled:
             continue
 
-        compiled = re.compile(pattern.regex, re.IGNORECASE)
-
         for lineno_0, line in enumerate(lines):
+            # Cap line length to 1000 characters to prevent ReDoS on massive lines (DEF-11)
             line_stripped = line.rstrip()
+            line_bounded = line_stripped[:1000]
+
             # Skip comment lines
-            if language == "sh" and line_stripped.lstrip().startswith("#"):
+            if language in ("sh", "py") and line_bounded.lstrip().startswith("#"):
                 continue
-            if language == "py" and line_stripped.lstrip().startswith("#"):
-                continue
-            if language == "js" and line_stripped.lstrip().startswith("//"):
+            if language == "js" and line_bounded.lstrip().startswith("//"):
                 continue
 
-            if compiled.search(line_stripped):
+            if compiled.search(line_bounded):
                 findings.append(AnchorFinding(
                     file=file_path,
                     line=lineno_0 + 1,
                     pattern=pattern.name,
                     description=pattern.description,
-                    code=line_stripped,
+                    code=line_bounded,
                     severity=pattern.severity,
                     weight=pattern.weight,
                 ))
@@ -328,9 +374,18 @@ def _regex_scan_file(
 
 # ── Python AST Scanner ──────────────────────────────────────────────────
 
-def _ast_scan_python(file_path: str, lines: list[str]) -> list[AnchorFinding]:
-    """Scan a Python file using AST walking + regex fallback."""
+def _ast_scan_python(
+    file_path: str,
+    lines: list[str],
+    return_degraded: bool = False,
+) -> list[AnchorFinding] | tuple[list[AnchorFinding], bool]:
+    """Scan a Python file using AST walking + regex fallback.
+
+    If return_degraded=True, returns (findings, is_degraded).
+    Otherwise returns findings for backward compatibility.
+    """
     findings: list[AnchorFinding] = []
+    is_degraded = False
 
     source = "".join(lines)
 
@@ -341,8 +396,8 @@ def _ast_scan_python(file_path: str, lines: list[str]) -> list[AnchorFinding]:
         visitor.visit(tree)
         findings.extend(visitor.findings)
     except SyntaxError:
-        # Fall back to regex-only for unparseable Python
-        pass
+        # Fall back to regex-only for unparseable Python (DEF-04: fail closed / degraded)
+        is_degraded = True
 
     # Also run regex for patterns that AST may miss (e.g., credential paths in strings)
     regex_findings = _regex_scan_file(file_path, lines, "py")
@@ -357,6 +412,8 @@ def _ast_scan_python(file_path: str, lines: list[str]) -> list[AnchorFinding]:
             findings.append(rf)
             seen.add(key)
 
+    if return_degraded:
+        return findings, is_degraded
     return findings
 
 
@@ -394,9 +451,11 @@ def serialize_anchor_block(findings: list[AnchorFinding]) -> str:
 
     lines: list[str] = []
     for f in findings:
+        # Sanitize code snippet to prevent system prompt injection (DEF-06)
+        sanitized_code = f.code.replace("\n", " ").replace("`", "'")[:100].strip()
         lines.append(
             f"- [{f.severity.upper()}] {f.description} "
-            f"at {f.file}:{f.line} — `{f.code}`"
+            f"at {f.file}:{f.line} — `{sanitized_code}`"
         )
     return "\n".join(lines)
 
@@ -415,22 +474,29 @@ def scan_anchors(
         Tuple of (StageResult, raw anchor findings, serialized anchor block).
     """
     all_findings: list[AnchorFinding] = []
+    stage_degraded = False
 
     for rel_path, script in scripts.items():
         if script.truncated:
-            # Don't scan truncated files but record a note
+            # DEF-04: Note truncated file and set stage_degraded
+            stage_degraded = True
             continue
 
         ext = rel_path.rsplit(".", 1)[-1].lower() if "." in rel_path else ""
 
-        if ext == "py":
-            file_findings = _ast_scan_python(rel_path, script.lines)
+        if rel_path == "SKILL.md" or ext in ("md", "markdown", "txt"):
+            # Documentation files are analyzed by semantic analysis, not AST code scanning
+            continue
+        elif ext == "py":
+            file_findings, py_degraded = _ast_scan_python(rel_path, script.lines, return_degraded=True)
+            if py_degraded:
+                stage_degraded = True
         elif ext in ("sh", "bash"):
             file_findings = _regex_scan_file(rel_path, script.lines, "sh")
         elif ext in ("js", "mjs", "ts"):
             file_findings = _regex_scan_file(rel_path, script.lines, "js")
         else:
-            # For SKILL.md and other text files, do a general regex scan
+            # For .ps1, .bat, and other scripts, do general regex scan
             file_findings = _regex_scan_file(rel_path, script.lines, "sh")
 
         all_findings.extend(file_findings)
@@ -456,7 +522,11 @@ def scan_anchors(
     result = StageResult(
         stage="deterministicAnchor",
         findings=stage_findings,
-        signals={"anchor_risk": anchor_score},
+        signals={
+            "anchor_risk": anchor_score,
+            "anchors": anchor_score,
+        },
+        degraded=stage_degraded,
     )
 
     return result, all_findings, anchor_block
