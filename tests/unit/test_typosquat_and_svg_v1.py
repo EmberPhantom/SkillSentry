@@ -23,7 +23,7 @@ def test_case_variant_is_flagged_as_imitation() -> None:
 
 
 def test_cyrillic_homograph_is_flagged() -> None:
-    # Cyrillic і (U+0456) in place of Latin i.
+    # Cyrillic small i (U+0456) in place of Latin i.
     match = check_typosquat("gіt-translate")
 
     assert match is not None
