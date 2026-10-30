@@ -234,6 +234,59 @@ def _scan_file(
                 return
 
 
+_SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
+    AnchorRule(
+        "shell-exec",
+        Severity.HIGH,
+        # No leading \b: inside code the command often follows a literal "\n" escape.
+        re.compile(r"(?:curl|wget)\s[^\n|]*\|\s*(?:sudo\s+)?(?:sh|bash|zsh)\b"),
+        "download piped straight into a shell interpreter",
+    ),
+    AnchorRule(
+        "log-tampering",
+        Severity.HIGH,
+        re.compile(
+            r"\bhistory\s+-c\b|>\s*~?/?[^\s;]*\.(?:bash_|zsh_)?history\b|"
+            r"\brm\s+-[a-z]*f[a-z]*\s+[^\n;]*\.log\b"
+        ),
+        "shell history or log tampering",
+    ),
+    AnchorRule(
+        "persistence",
+        Severity.MEDIUM,
+        re.compile(
+            r"\.config/autostart/|\.(?:bash|zsh)rc\b|\.profile\b|"
+            r"\bcrontab\s+-|/etc/cron\.|\bsystemctl\s+enable\b"
+        ),
+        "writes to a startup, shell-profile or scheduled-task location",
+    ),
+)
+
+_SEVERITY_RANK = {
+    Severity.NOTE: 0,
+    Severity.LOW: 1,
+    Severity.MEDIUM: 2,
+    Severity.HIGH: 3,
+    Severity.CRITICAL: 4,
+}
+
+
+def _merge(findings: list[Finding], item: Finding) -> None:
+    """Add ``item``, or keep the stronger of two findings for the same file, line and type."""
+
+    for index, existing in enumerate(findings):
+        same_site = (
+            existing.evidence.file == item.evidence.file
+            and existing.evidence.line == item.evidence.line
+            and existing.finding_type == item.finding_type
+        )
+        if same_site:
+            if _SEVERITY_RANK[item.severity] > _SEVERITY_RANK[existing.severity]:
+                findings[index] = item
+            return
+    findings.append(item)
+
+
 def scan_anchors(package: SkillPackage) -> StageResult:
     """Run all deterministic rules and return a normalised stage result."""
 
@@ -244,12 +297,16 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         package.text_files, key=lambda item: (item.relative != "SKILL.md", item.relative)
     )
     for text_file in ordered:
-        _scan_file(text_file, _RULES + _INSTRUCTION_RULES, seen=seen, findings=findings)
+        _scan_file(
+            text_file,
+            _RULES + _SHELL_AND_PERSISTENCE_RULES + _INSTRUCTION_RULES,
+            seen=seen,
+            findings=findings,
+        )
         if len(findings) >= MAX_FINDINGS:
             break
 
     parse_errors: list[str] = []
-    known = {(item.evidence.file, item.evidence.line, item.finding_type) for item in findings}
     for text_file in ordered:
         if not text_file.relative.lower().endswith(".py"):
             continue
@@ -257,10 +314,7 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         if error:
             parse_errors.append(error)
         for item in ast_findings:
-            key = (item.evidence.file, item.evidence.line, item.finding_type)
-            if key not in known:
-                known.add(key)
-                findings.append(item)
+            _merge(findings, item)
 
     findings.extend(analyze_credential_flows(package))
 
