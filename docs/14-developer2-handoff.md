@@ -65,3 +65,21 @@ Defects 1, 3, 9, 10 and 16 disappear once the standalone package is archived. Th
 
 ## Definition of done for the handoff
 Every row above is merged on main, each PR passed the checklist, and the Dev 2 standalone package is archived. Afterwards, re-run the eval gates: `tests/check_expected_verdicts.py` with real analyzers, citation accuracy of at least 80%, and SARIF schema validation.
+
+## Status at v1 (2026-10-30)
+Checked against `skillsentry/` on `main`. "Not verified" means the v1 review did not confirm it, so it is not claimed as done.
+
+| PR | v1 status | Evidence or gap |
+|---|---|---|
+| P0 | Not done | `developer-2/` is still only on `feature/developer-2`. No archive tag. |
+| P1 | Partly | Citation checker ported (5/5 within one line, `tests/ground_truth/anchor_citations.json`). Not merged into one expectations file. |
+| P2 | Partly | YAML depth limit, reserved names and ADS, symlink rejection, `.ps1` in scope. Not verified: dot-directories, `.rb .pl .bat .cmd`, shebang scripts, file-count and size caps as findings. |
+| P3 | Partly | NFKC normalisation, confusables, case-variant matching. Not done: packaged data via `importlib.resources`, 150+ names, Damerau-Levenshtein, legitimate-pairs allowlist. |
+| P4 | Partly | AST visitor with alias resolution, new rules, per-line regex work. Not verified: the 10 MB ReDoS timing test. |
+| P5 | Not verified | Schema-validated model output and fuzzed bad-JSON tests were not checked in v1. |
+| P6 | Partly | SVG vector rules (`use`, `data:`, `style`, hidden text, entities). Not done: `defusedxml` (SVG is scanned as decoded text), contrast pre-filter (**v1.1**, see below). |
+| P7 | Superseded | Main has its own `sandbox/instructions.py`. The Developer 2 producer was not ported. |
+| P8 | Partly | 39 labelled cases in `tests/fixtures/decisions/labels.json`. Corpus of 20 to 50 skills not done. |
+| P9 | Partly | `cache stats`, `list` and `clear` are in main. `cache verify` is not in v1. |
+
+**v1.1 item:** port the contrast pre-filter (`compute_contrast_ratio`, `developer-2/src/skillsentry_dev2/core/vision/image_extractor.py`). It needs Pillow in the runtime dependencies, a deterministic finding for low-contrast regions, and budget ordering so flagged images are sent to the model first. It was deferred from v1 because it adds a dependency and cannot be exercised end to end without the real model.
