@@ -161,9 +161,60 @@ def _split_frontmatter(text: str) -> tuple[str, str, bool]:
     return yaml_text, body.lstrip("\n"), True
 
 
+MAX_YAML_DEPTH = 10
+MAX_YAML_EVENTS = 20_000
+
+# Windows device names are reserved in every directory and with any extension.
+_RESERVED_DEVICE_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{index}" for index in range(1, 10)}
+    | {f"LPT{index}" for index in range(1, 10)}
+)
+
+
+def _path_name_issue(relative: str) -> str | None:
+    """Return an issue message for reserved device names or alternate data streams."""
+
+    for component in relative.split("/"):
+        base = component.split(".", 1)[0].rstrip(" ").upper()
+        if base in _RESERVED_DEVICE_NAMES:
+            return f"reserved device name in path: {relative}"
+        if ":" in component:
+            return f"alternate data stream notation in path: {relative}"
+    return None
+
+
+def _check_yaml_structure(yaml_text: str) -> None:
+    """Reject YAML that is deeply nested, uses aliases, or has too many nodes.
+
+    Aliases are refused outright: they are the vehicle for "billion laughs"
+    expansion, and skill frontmatter has no legitimate need for them.  The check
+    walks parser events, so nothing is expanded before it is judged.
+    """
+
+    depth = 0
+    events = 0
+    try:
+        for event in yaml.parse(yaml_text, Loader=yaml.SafeLoader):
+            events += 1
+            if events > MAX_YAML_EVENTS:
+                raise SkillParseError("frontmatter has too many YAML nodes")
+            if isinstance(event, yaml.AliasEvent):
+                raise SkillParseError("YAML aliases are not allowed in frontmatter")
+            if isinstance(event, (yaml.MappingStartEvent, yaml.SequenceStartEvent)):
+                depth += 1
+                if depth > MAX_YAML_DEPTH:
+                    raise SkillParseError(f"frontmatter nests deeper than {MAX_YAML_DEPTH} levels")
+            elif isinstance(event, (yaml.MappingEndEvent, yaml.SequenceEndEvent)):
+                depth -= 1
+    except yaml.YAMLError as exc:
+        raise SkillParseError(f"invalid YAML frontmatter: {exc}") from exc
+
+
 def _safe_yaml(yaml_text: str) -> dict[str, Any]:
     if len(yaml_text.encode("utf-8", "replace")) > FRONTMATTER_MAX_BYTES:
         raise SkillParseError("frontmatter exceeds 256 KiB")
+    _check_yaml_structure(yaml_text)
     try:
         loaded = yaml.safe_load(yaml_text)
     except yaml.YAMLError as exc:
@@ -374,6 +425,11 @@ def parse_skill(path: str | Path) -> SkillPackage:
                 )
             )
             continue
+        name_issue = _path_name_issue(candidate.relative_to(root).as_posix())
+        if name_issue is not None:
+            # Reported as high, and the file is still analysed: a reserved name
+            # must not hide content from the scan.
+            issues.append(PackageIssue("high", name_issue))
         if candidate.is_dir():
             continue
         if not candidate.is_file():
