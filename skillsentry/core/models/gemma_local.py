@@ -39,6 +39,9 @@ class GemmaLocal:
         model: str = DEFAULT_OLLAMA_MODEL,
         timeout_s: float = 180.0,
         max_px: int = 1024,
+        num_ctx: int = 4096,
+        num_predict: int = 768,
+        keep_alive: str = "30m",
         client: httpx.Client | None = None,
     ) -> None:
         if timeout_s <= 0:
@@ -49,8 +52,12 @@ class GemmaLocal:
         self.model = model
         self.timeout_s = timeout_s
         self.max_px = max_px
+        self.num_ctx = num_ctx
+        self.num_predict = num_predict
+        self.keep_alive = keep_alive
         self._client = client or httpx.Client(timeout=timeout_s)
         self._owns_client = client is None
+        # Until a preflight reads the digest, the version is the configured tag.
         self._model_version = model
 
     @property
@@ -114,36 +121,43 @@ class GemmaLocal:
         ) from last_error
 
     def health(self) -> bool:
+        """Ready only when the server answers and the configured model is pulled.
+
+        A reachable server without the model is not healthy: the selector must
+        never answer with a different model without the caller knowing.
+        """
+
+        return self.preflight()
+
+    def preflight(self) -> bool:
+        """Check the server and model presence, and record ``name@digest``."""
+
         try:
             response = self._client.get(
                 f"{self.base_url}/api/tags",
                 timeout=min(self.timeout_s, 2.0),
             )
-            return response.status_code == 200
+            if response.status_code != 200:
+                return False
+            data = response.json()
         except (httpx.HTTPError, OSError, ValueError):
             return False
+        models = data.get("models") if isinstance(data, dict) else None
+        if not isinstance(models, list):
+            return False
+        for entry in models:
+            if not isinstance(entry, dict) or entry.get("name") != self.model:
+                continue
+            digest = entry.get("digest")
+            if isinstance(digest, str) and digest:
+                self._model_version = f"{self.model}@{digest}"
+            return True
+        return False
 
     def refresh_model_version(self) -> str:
-        """Best-effort model digest lookup used for cache invalidation.
+        """Refresh the cache-identity version; keeps the tag if the digest is unknown."""
 
-        Newer Ollama releases expose a digest through ``/api/show``.  If the
-        endpoint is unavailable, the configured model name is a stable fallback
-        and is still safer than omitting the version from the cache key.
-        """
-
-        try:
-            response = self._client.post(
-                f"{self.base_url}/api/show",
-                json={"model": self.model},
-                timeout=min(self.timeout_s, 5.0),
-            )
-            if response.status_code == 200:
-                data = response.json()
-                digest = data.get("digest") if isinstance(data, dict) else None
-                if isinstance(digest, str) and digest:
-                    self._model_version = digest
-        except (httpx.HTTPError, OSError, ValueError):
-            pass
+        self.preflight()
         return self._model_version
 
     # -- internals ----------------------------------------------------------
@@ -159,7 +173,13 @@ class GemmaLocal:
             "model": self.model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0},
+            "keep_alive": self.keep_alive,
+            "options": {
+                "temperature": 0,
+                "seed": 0,
+                "num_ctx": self.num_ctx,
+                "num_predict": self.num_predict,
+            },
         }
         if system:
             payload["system"] = system
@@ -188,6 +208,10 @@ class GemmaLocal:
 
         if not isinstance(data, dict):
             raise ModelUnavailable("ollama response is not a JSON object")
+        if data.get("done_reason") == "length":
+            # Output was cut at num_predict, so the JSON is incomplete: a failure,
+            # never a partial result.
+            raise ModelUnavailable(f"ollama output was truncated for {self.model}")
         text = data.get("response")
         if not isinstance(text, str) or not text.strip():
             raise ModelUnavailable("ollama response did not contain generated text")

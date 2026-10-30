@@ -94,6 +94,9 @@ def _local_client(settings: ModelSettings) -> ModelClient:
         model=settings.ollama_model,
         timeout_s=settings.request_timeout_s,
         max_px=settings.image_max_px,
+        num_ctx=settings.ollama_num_ctx,
+        num_predict=settings.ollama_num_predict,
+        keep_alive=settings.ollama_keep_alive,
     )
 
 

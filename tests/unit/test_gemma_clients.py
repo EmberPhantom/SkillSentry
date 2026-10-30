@@ -134,19 +134,64 @@ def test_local_analyze_image_encodes_and_downscales(tmp_path):
 def test_local_health_and_model_digest():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/tags":
-            return _json_response({"models": []})
-        if request.url.path == "/api/show":
-            return _json_response({"digest": "sha256:abc"})
+            return _json_response({"models": [{"name": "gemma4:e4b-q4", "digest": "abc123"}]})
         return httpx.Response(404)
+
+    gemma = GemmaLocal(
+        base_url="http://ollama.test",
+        model="gemma4:e4b-q4",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert gemma.health() is True
+    assert gemma.refresh_model_version() == "gemma4:e4b-q4@abc123"
+    assert gemma.model_version == "gemma4:e4b-q4@abc123"
+
+
+def test_health_is_false_when_the_model_is_not_pulled():
+    # A running server without the configured model must not be healthy:
+    # answering with another model would silently change the verdict.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _json_response({"models": [{"name": "other:latest", "digest": "x"}]})
+
+    gemma = GemmaLocal(
+        base_url="http://ollama.test",
+        model="gemma4:e4b-q4",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert gemma.health() is False
+
+
+def test_truncated_output_is_a_failure_not_a_result():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _json_response({"response": '{"claims": [', "done_reason": "length"})
 
     gemma = GemmaLocal(
         base_url="http://ollama.test",
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
-    assert gemma.health() is True
-    assert gemma.model_version == "gemma4:e4b-q4"
-    assert gemma.refresh_model_version() == "sha256:abc"
-    assert gemma.model_version == "sha256:abc"
+    with pytest.raises(ModelUnavailable):
+        gemma._generate(prompt="p", system="", schema=None)
+
+
+def test_generation_sends_context_and_prediction_limits():
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return _json_response({"response": "{}", "done_reason": "stop"})
+
+    gemma = GemmaLocal(
+        base_url="http://ollama.test",
+        num_ctx=2048,
+        num_predict=256,
+        keep_alive="5m",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    gemma._generate(prompt="p", system="", schema=None)
+    options = seen["options"]
+    assert options["num_ctx"] == 2048 and options["num_predict"] == 256
+    assert options["seed"] == 0 and options["temperature"] == 0
+    assert seen["keep_alive"] == "5m"
 
 
 def test_local_health_is_false_on_connection_error():

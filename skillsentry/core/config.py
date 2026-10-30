@@ -34,6 +34,9 @@ class ModelSettings(_ConfigModel):
     gemini_model: str = "gemma-4-e4b"
     image_max_px: int = Field(default=1024, ge=256, le=4096)
     request_timeout_s: float = Field(default=180.0, gt=0)
+    ollama_num_ctx: int = Field(default=4096, ge=512, le=32768)
+    ollama_num_predict: int = Field(default=768, ge=1, le=4096)
+    ollama_keep_alive: str = "30m"
 
 
 class DecisionSettings(_ConfigModel):
