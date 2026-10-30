@@ -61,7 +61,7 @@ Report: ~/.skillsentry/reports/3f9c…/report.sarif
 | Flag | Default | Description |
 |:---|:---|:---|
 | `--format text\|json\|sarif\|markdown` | `text` | Console/report format. Folders emit a JSON array (or concatenated SARIF runs). |
-| `--fail-on safe\|suspicious\|malicious` | `malicious` | CI gate: exit `1` when any verdict meets or exceeds this tier. `safe` therefore always passes. |
+| `--fail-on safe\|suspicious\|malicious` | `suspicious` | CI gate: exit `1` when any verdict meets or exceeds this tier. `safe` therefore always passes. |
 | `--output <file>` | — | Write the rendered report to a file instead of stdout (text reports are also echoed). |
 | `--sarif-out <file>` | — | Write a SARIF 2.1.0 sidecar in addition to the selected `--format`. |
 | `--no-cache` | off | Bypass Stage 0 read **and** write for this scan. |
@@ -73,30 +73,29 @@ Report: ~/.skillsentry/reports/3f9c…/report.sarif
 
 `scan` accepts either one skill directory or a folder. Discovery recurses deterministically, skips symlinked/ignored directories, and refuses more than 500 skills rather than silently truncating. `--watch`, `--upload-sarif`, and managed `cache`/`export` commands remain roadmap items, not M1 CLI flags.
 
-### `skillsentry init` (plan, Phase 1 DX)
+### `skillsentry init`
 
-Creates `./skillsentry.toml` with documented defaults; `--force` overwrites; detects Ollama/Docker and pre-fills backend advice. Also offers `ollama pull` helper for the model (plan: "model auto-download helper").
+Writes a documented `skillsentry.toml`. `--path` chooses the file (default `./skillsentry.toml`); `--force` overwrites an existing file. It does not probe Ollama or Docker; use `skillsentry doctor` for that.
 
-### `skillsentry cache …` (proposed, backed by plan's SQLite cache)
+### `skillsentry cache …`
 
 | Command | Description |
 |:---|:---|
-| `cache stats` | Entries, hit rate, DB size, engine/model versions |
-| `cache list [--verdict malicious]` | Inspect cached hashes |
-| `cache clear [--older-than 90d]` | Prune |
-| `cache verify [--sample N]` | Re-hash N random entries, recompute verdicts with `--no-cache`, diff results |
+| `cache stats` | Number of cached verdicts and the database size |
+| `cache list [--limit N]` | Most recent scans and their verdicts (1–500, default 20) |
+| `cache clear [--older-than 7d]` | Remove cached verdicts; `--older-than` accepts a number of days or hours (`7d`, `12h`) |
 
-### `skillsentry export <scan_id> --format sarif|markdown|stix` (proposed)
+### `skillsentry export <scan_id> [--format sarif|markdown|stix] [-o FILE]`
 
-Re-emit stored reports from `~/.skillsentry/reports/<scan_id>/` (STIX requires a triggered Poisoned Well).
+Re-render the report of a stored scan without re-running it. `--format` defaults to `markdown`; `-o`/`--output` writes to a file instead of stdout. STIX output needs a triggered Poisoned Well.
 
-### `skillsentry serve [--port 8000] [--demo-mode]` (proposed)
+### `skillsentry serve [--host 127.0.0.1] [--port 8000] [--demo-mode] [--speed 1.0]`
 
-Runs the FastAPI server + React dashboard ([05-api-reference.md](05-api-reference.md), [06-ui-ux.md](06-ui-ux.md)).
+Runs the FastAPI server and dashboard ([05-api-reference.md](05-api-reference.md), [06-ui-ux.md](06-ui-ux.md)). `--demo-mode` serves the canned store; `--speed` sets the demo replay speed (0 is instant). The bind address defaults to loopback.
 
-### `skillsentry self-audit` (plan: SkillSentry ships its own `SKILL.md`)
+### `skillsentry self-audit`
 
-Scans SkillSentry's own Agent Skill package (`skillsentry/skill/SKILL.md` + `scripts/audit.sh`) — the product audits itself, on stage.
+Scans SkillSentry's own Agent Skill package (`skillsentry/skill/SKILL.md` + `scripts/audit.sh`) — the product audits itself. It takes the same `--format`, `--fail-on`, `-q`, `--no-cache`, `--sandbox/--no-sandbox`, `--backend` and `--timeout` options as `scan`, and `--fail-on` defaults to `suspicious`.
 
 ## 7.3 Configuration — `skillsentry.toml`
 
@@ -133,17 +132,17 @@ db_path = "~/.skillsentry/skillsentry.db"
 backend_strict = false           # true ⇒ cache hits must match backend identity
 
 [ci]
-fail_on = "malicious"            # exit-code gate
-upload_sarif = false
+fail_on = "malicious"            # not read in v1; the CLI gate is --fail-on (default suspicious)
+upload_sarif = false             # not read in v1; roadmap with the GitHub Action
 ```
 
-## 7.4 Environment Variables (proposed)
+## 7.4 Environment Variables
 
 | Variable | Effect |
 |:---|:---|
 | `SKILLSENTRY_BACKEND` | Overrides `model.backend` |
 | `SKILLSENTRY_NO_SANDBOX` | `1` ⇒ static-only mode |
-| `SKILLSENTRY_DEMO` | `1` ⇒ demo mode |
+| `SKILLSENTRY_CONFIG` | Path to the config file, instead of `./skillsentry.toml` |
 | `SKILLSENTRY_DB` | Override SQLite path |
 | `GEMINI_API_KEY` | Required for cloud backend; never logged, never embedded in reports |
 | `OLLAMA_HOST` | Passed through to the Ollama client |
@@ -166,7 +165,7 @@ upload_sarif = false
 | Code | Meaning | CI usage |
 |:--|:---|:---|
 | `0` | All scanned skills are below the `--fail-on` threshold | Merge allowed |
-| `1` | At least one verdict meets/exceeds `--fail-on` (default: MALICIOUS) | **Blocks PR merge** |
+| `1` | At least one verdict meets/exceeds `--fail-on` (default: SUSPICIOUS) | **Blocks PR merge** |
 | `2` | Usage error (unsupported `--format`, `--fail-on`, `--backend`, or invalid option) | Pipeline config bug |
 | `3` | Operational error (missing/invalid skill path, Docker/DB failure, no scan completed) — *never* a fabricated verdict | Retry/alert |
 | `4` | Reserved for a future hard model-unavailable abort. Current live scans degrade model-dependent stages honestly, emit an explicit degradation finding, and still return a verdict. | Fix backend config |
