@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from skillsentry.core.anchors import analyze_credential_flows
+from skillsentry.core.anchors.credential_flow import RULES_VERSION
 from skillsentry.core.contracts import (
     Finding,
     FindingEvidence,
@@ -245,6 +247,8 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         if len(findings) >= MAX_FINDINGS:
             break
 
+    findings.extend(analyze_credential_flows(package))
+
     score = 0.0
     if findings:
         highest = max(_SEVERITY_SCORE[item.severity] for item in findings)
@@ -257,6 +261,7 @@ def scan_anchors(package: SkillPackage) -> StageResult:
             "files_scanned": len(package.text_files),
             "findings": len(findings),
             "prompt_injection_rules": len(_INSTRUCTION_RULES),
+            "credential_flow_rules_version": RULES_VERSION,
         },
     )
 
