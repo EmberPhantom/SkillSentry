@@ -8,29 +8,25 @@ and exact names are never flagged.
 
 from __future__ import annotations
 
+import json
 import unicodedata
 from dataclasses import dataclass
+from importlib import resources
 
-KNOWN_SKILL_NAMES: tuple[str, ...] = (
-    "git-helper",
-    "git-translate",
-    "github-helper",
-    "pdf-summarizer",
-    "image-resizer",
-    "weather-fetch",
-    "slack-notifier",
-    "cloud-sync",
-    "file-organizer",
-    "code-reviewer",
-    "web-search",
-    "calendar-assistant",
-    "email-assistant",
-    "database-helper",
-    "docker-helper",
-    "pdf-reader",
-    "markdown-editor",
-    "notion-sync",
-)
+
+def _load_known_names() -> tuple[str, ...]:
+    """Load the curated list from the packaged data file (works from a wheel install)."""
+
+    raw = (
+        resources.files("skillsentry.data")
+        .joinpath("known_skills_v1.json")
+        .read_text(encoding="utf-8")
+    )
+    entries = json.loads(raw)["entries"]
+    return tuple(sorted({str(entry["name"]) for entry in entries}))
+
+
+KNOWN_SKILL_NAMES: tuple[str, ...] = _load_known_names()
 
 _TRANSLATION = str.maketrans(
     {
