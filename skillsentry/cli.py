@@ -541,5 +541,31 @@ def export_report(
         typer.echo(f"wrote {output}")
 
 
+sandbox_app = typer.Typer(help="Build and inspect the sandbox image.", no_args_is_help=True)
+app.add_typer(sandbox_app, name="sandbox")
+
+
+@sandbox_app.command("build")
+def sandbox_build() -> None:
+    """Build the sandbox image from the sources packaged with SkillSentry."""
+
+    import docker
+
+    cfg = load_config()
+    assets = Path(__file__).resolve().parent / "core" / "sandbox" / "assets"
+    try:
+        client = docker.from_env()
+        client.images.build(
+            path=str(assets),
+            dockerfile="Dockerfile.sandbox",
+            tag=cfg.sandbox.base_image,
+            rm=True,
+        )
+    except docker.errors.DockerException as exc:
+        typer.echo(f"error: could not build the sandbox image: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
+    typer.echo(f"built {cfg.sandbox.base_image}")
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
