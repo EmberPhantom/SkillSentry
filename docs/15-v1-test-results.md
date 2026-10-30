@@ -77,3 +77,19 @@ Run in this order on the machine with Ollama, Docker and the real skills. Record
 4. `scripts/acceptance.sh --e2e <skills-dir>`, with the 66 unique local skills from a scratch copy. Record crashes, degraded stages, time per skill and peak memory.
 5. Triage every non-SAFE result by hand (`docs/08`). Record false positives with the reason.
 6. Latency: cached scan (target under 2 s) and uncached scan (target under 90 s). Record the measured numbers, and the cause and fallback if a target is missed.
+
+## Developer 2 integration (measured, 2026-10-30)
+
+Ported from `feature/developer-2` onto `integrate/dev2-v1`. Their branch was not merged; files were ported one at a time, each with its own test. See [14-developer2-handoff.md](14-developer2-handoff.md#integration-log-2026-10-30).
+
+| Measure | Result |
+|:---|:---|
+| Typosquat list | 67 names, packaged. New hits on 53 unique local skill directory names: 0. New hits on 11 repo fixture names: 0. |
+| Citation ground truth from feature/developer-2 | Not imported. 15 of 18 annotations cite fixtures that are not on `main`. The 3 that are cite lines 24, 37 and 45 of a 26-line file with no credential code. Our own harness is unchanged: 5 of 5 within one line. |
+| Credential bindings | 11 tests plus 1 cache-identity test. Full suite after the integration: 511 passed, 7 skipped (the 2 live tests skip when generation fails). |
+| Real-model generation on this machine | Ollama 0.40.13 answers the preflight for `gemma4:e4b-it-qat`, but generation returns HTTP 500 (about 3 GB free of 16 GB RAM). |
+| Uncached scans, real model path | About 16 s each. Both scans degraded the semantic stage, so this timing is for the deterministic path only. |
+| `cloud-sync-pro` (static, real model path) | MALICIOUS 100 from the anchors. Semantic stage degraded in 3 of 3 runs. |
+| `pdf-summarizer` (static, real model path) | SUSPICIOUS 30 in 3 of 3 runs, because the semantic stage degraded. The demo model gives SAFE. |
+
+**Real-model finding.** The semantic stage never completes on this machine. The degraded message says "no schema-valid JSON", but the underlying cause is the HTTP 500 at generation. The message hides that cause; fixing that is a follow-up. The live tests now skip with the HTTP 500 reason, so they can no longer pass without the model answering.

@@ -22,6 +22,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **Team & workload assignment** (`docs/11-team-and-workload.md`): revised 3-developer split — Dev 1 (Backend + AI Integration: sandbox, Poisoned Well, models, verdict/reports, server), Dev 2 (Backend — Skill Analysis: parser, anchors, semantic, vision, cache), Dev 3 (Frontend only) — with work packages, milestone plan M0–M5, stage RACI, interface contracts I1–I5, and swing-task rebalancing. Supersedes the original plan §8 division; docs 02/08/10, CONTRIBUTING, and README updated for consistency.
 - **Task-level work checklists** (`docs/checklists/`): 27 checklists (CL-D1-0…8, CL-D2-0…8, CL-D3-0…8) elaborating every work package into concrete tasks with dependencies, spec references, and "Done means" acceptance criteria; index includes milestone → checklist matrix and cross-developer dependency map.
 - **v1 test coverage**: the documented CLI surface is checked against `--help` and the exit codes (`tests/unit/test_cli_surface.py`); outages fail closed and stay contained to their scan (`tests/unit/test_chaos.py`); SARIF output validates against the official 2.1.0 schema, vendored under `tests/fixtures/sarif/` (`tests/unit/test_sarif_schema.py`).
+- **Ported from feature/developer-2** (chauhanaman41): fusion monotonicity and floor tests; ten-run static determinism; a packaged typosquat list of 67 names (`skillsentry/data/known_skills_v1.json`, loaded with `importlib.resources`); docs hygiene gates; credential service bindings (a credential is judged against the vendor it belongs to); live Ollama tests that require a real generation.
+- **Credential service bindings**: declared and bound is informational; undeclared but bound is MEDIUM; an unbound destination and DNS exfiltration stay CRITICAL. Plain HTTP, disabled verification and a custom proxy never count as a binding.
 
 ### Changed
 - Local model client: configurable context size, prediction cap, seed and keep-alive. Health requires the configured model to be pulled, so a server without it no longer answers with another model. Cache identity uses `name@digest`.
@@ -34,6 +36,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - Documentation: `docs/07` matches `--help` (fail-on default, `init`, `serve`, `self-audit`, cache and export flags, environment variables). `docs/02`, `04` and `08` now state the 768 px vision cap, the three-image budget, the fail-closed model path and the cloud backend name.
 
 ### Fixed
+- Cache identity now includes a fingerprint of the credential rules file, so editing the rules cannot serve cached verdicts from before the edit.
 - Fusion applies the strongest malicious override floor, so an evasion probe reports 100 even when a Poisoned Well override is listed first.
 - Parser: YAML aliases and nesting deeper than 10 levels are refused before expansion. Reserved device names and alternate data stream notation are reported and the file stays in analysis.
 - Typosquat: a case-only variant of a known name, and Cyrillic or Greek homographs, are flagged.

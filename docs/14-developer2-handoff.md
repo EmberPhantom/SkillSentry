@@ -83,3 +83,36 @@ Checked against `skillsentry/` on `main`. "Not verified" means the v1 review did
 | P9 | Partly | `cache stats`, `list` and `clear` are in main. `cache verify` is not in v1. |
 
 **v1.1 item:** port the contrast pre-filter (`compute_contrast_ratio`, `developer-2/src/skillsentry_dev2/core/vision/image_extractor.py`). It needs Pillow in the runtime dependencies, a deterministic finding for low-contrast regions, and budget ordering so flagged images are sent to the model first. It was deferred from v1 because it adds a dependency and cannot be exercised end to end without the real model.
+
+## Integration log (2026-10-30)
+
+Work was ported onto `integrate/dev2-v1` from `main`. `feature/developer-2` was not merged: its history replays older commits under new SHAs, and a merge would conflict across 372 files. Each port has its own commit that names its source.
+
+### Ported
+| Item | Commit subject (on `integrate/dev2-v1`) | Note |
+|---|---|---|
+| Fusion monotonicity | `test(fusion): monotonicity and floor enforcement` | Unchanged except lint. |
+| Static determinism | `test(determinism): ten no-cache runs` | Adapted to the v1 engine constructor and `MockGemma` in `core/models/mock.py`. |
+| Typosquat list | `feat(typosquat): packaged known-name list` | Union of our 18 and their 55 names (67). No local or fixture name gained a match. |
+| Docs hygiene | `test(docs): hygiene gates` | Measured counts are allowed in `docs/15` and `docs/evidence/`. |
+| Credential bindings | `feat(credentials): service bindings` | Our taint now carries its sources. Declared and bound is a NOTE. |
+| Live Ollama tests | `test(live): live Ollama tests` | Require a real generation. A degraded semantic stage fails. |
+
+### Not ported
+- **Citation ground truth (`tests/ground_truth.json`).** Of the 18 annotations, 15 cite fixtures not on `main`. The 3 that are on `main` cite line 37 and line 45 of a 26-line file (`invoice-helper/scripts/process.py`), and line 24 has no credential code. The file is byte-identical on both branches, so the annotations are wrong. The report's 100% recall is therefore not evidence. Our harness (`tests/unit/test_citation_accuracy.py`) keeps its own hand-annotated ground truth.
+- **Semantic pipeline** (`chunker`, `coverage`, `gemma_analyzer`, `schemas`). Our `analyzer.py` already chunks with coverage gaps. Porting theirs would be a second implementation.
+- **`pyproject.toml` version and wheel config.** Their branch pins the version to 2.0.0 and drops the dynamic version and dashboard artifacts. Ours is correct.
+- **`cli.py`, `engine.py`, `models/selector.py`, `models/mock.py` changes.** Each regresses `main`; see below.
+- **`readbeforemurger.md`, `docs/evidence/*`, `developer-2/`, their scripts.** Stale topology, uncommitted evidence, or standalone code.
+
+### Regressions to send back to Developer 2
+1. `MockGemma` is imported by `cli.py`, `engine.py` and `models/selector.py`. The "zero mocks" gate does not scan those files.
+2. The cache identity dropped the rules and prompt versions. `main` now fingerprints the rules file.
+3. `--fail-on` defaults to `malicious` again for `scan` and `self-audit`.
+4. `--model-name`, `--ollama-host`, `--max-ctx` and `--no-semantic` are removed, and their `doctor` differs from `main`.
+5. Parity: `docker-compose-helper` (benign) is SUSPICIOUS 70 and the report still says every benign fixture is SAFE.
+6. Citation headline: precision is 60% (12 false positives). Report precision alongside recall.
+
+### Still open
+- The real model's generation returns HTTP 500 on this machine (about 3 GB free of 16 GB). Re-run `tests/live` on the test machine.
+- The degraded message hides the HTTP status. The underlying error should be carried through.
