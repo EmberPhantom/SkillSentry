@@ -11,9 +11,11 @@ import contextlib
 import json
 import sys
 from pathlib import Path
+from uuid import UUID
 
 import typer
 
+from skillsentry.core.cache import SQLiteStore
 from skillsentry.core.config import (
     ConfigError,
     SkillsEntryConfig,
@@ -120,7 +122,7 @@ def scan(
     path: Path = typer.Argument(..., help="Skill directory, or a folder containing skills."),
     demo_mode: bool = typer.Option(False, "--demo-mode", help="Use the canned demo store."),
     output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
-    fail_on: str = typer.Option("malicious", "--fail-on", help="safe | suspicious | malicious"),
+    fail_on: str = typer.Option("suspicious", "--fail-on", help="safe | suspicious | malicious"),
     quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
     sandbox: bool = typer.Option(
@@ -227,7 +229,7 @@ def scan(
 @app.command("self-audit")
 def self_audit(
     output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
-    fail_on: str = typer.Option("malicious", "--fail-on", help="safe | suspicious | malicious"),
+    fail_on: str = typer.Option("suspicious", "--fail-on", help="safe | suspicious | malicious"),
     quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
     sandbox: bool = typer.Option(True, "--sandbox/--no-sandbox"),
@@ -448,6 +450,95 @@ def _should_fail(verdict: Verdict, fail_on: str) -> bool:
     if fail_on == "suspicious":
         return rank >= 1
     return rank >= 2
+
+
+cache_app = typer.Typer(help="Inspect and clear the local verdict cache.", no_args_is_help=True)
+app.add_typer(cache_app, name="cache")
+
+
+def _store() -> SQLiteStore:
+    return SQLiteStore(load_config().db_path)
+
+
+@cache_app.command("stats")
+def cache_stats() -> None:
+    """Show the number of cached verdicts and the database size."""
+
+    with contextlib.closing(_store()) as store:
+        entries, size_bytes = store.cache_stats()
+    typer.echo(f"entries: {entries}")
+    typer.echo(f"size_bytes: {int(size_bytes)}")
+
+
+@cache_app.command("list")
+def cache_list(
+    limit: int = typer.Option(20, "--limit", min=1, max=500, help="Rows to show."),
+) -> None:
+    """List the most recent scans and their verdicts."""
+
+    with contextlib.closing(_store()) as store:
+        rows = store.list_scans(limit=limit)
+    if not rows:
+        typer.echo("no scans recorded")
+        return
+    for row in rows:
+        typer.echo(
+            f"{row.get('scanId')}  {row.get('skillName')}  "
+            f"{row.get('status')}  {row.get('verdict') or '-'}"
+        )
+
+
+@cache_app.command("clear")
+def cache_clear(
+    older_than: str | None = typer.Option(
+        None, "--older-than", help="Only remove entries older than this, e.g. 7d or 12h."
+    ),
+) -> None:
+    """Remove cached verdicts, optionally only those older than a given age."""
+
+    with contextlib.closing(_store()) as store:
+        try:
+            deleted, retained = store.clear_cache(older_than)
+        except ValueError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    typer.echo(f"deleted: {deleted}  retained: {retained}")
+
+
+@app.command("export")
+def export_report(
+    scan_id: str = typer.Argument(..., help="Scan ID printed by `scan` or `cache list`."),
+    fmt: str = typer.Option("markdown", "--format", help="sarif | markdown | stix"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write to a file."),
+) -> None:
+    """Re-render the report of a stored scan without re-running it."""
+
+    formats = {
+        "sarif": ExportFormat.SARIF,
+        "markdown": ExportFormat.MARKDOWN,
+        "stix": ExportFormat.STIX,
+    }
+    if fmt not in formats:
+        typer.echo(f"error: unsupported --format {fmt!r}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
+    try:
+        parsed = UUID(scan_id)
+    except ValueError as exc:
+        typer.echo(f"error: {scan_id!r} is not a scan ID", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    with contextlib.closing(_store()) as store:
+        stored = store.get_result(parsed)
+    if stored is None:
+        typer.echo(f"error: no stored scan {scan_id}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
+    verdict, _detail, stages, _cached = stored
+    rendered = render_report(verdict, formats[fmt], stage_results=stages).content.decode("utf-8")
+    if output is None:
+        typer.echo(rendered.rstrip())
+    else:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered, encoding="utf-8")
+        typer.echo(f"wrote {output}")
 
 
 if __name__ == "__main__":  # pragma: no cover
