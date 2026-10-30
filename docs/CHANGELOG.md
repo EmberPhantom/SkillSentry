@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ### Added
 - **Web dashboard** (`ui/`, React 18 and TypeScript): triage table with verdict filter, search and sort; new-scan form with a live console over the scan WebSocket; skill detail with overview, static findings, vision evidence, sandbox trace, Poisoned Well and export tabs; cache stats and clear. It ships inside the wheel and is served at `/` by `skillsentry serve`.
 - **CLI:** `cache stats|list|clear`, `export <scan_id>` (re-renders a stored report), and `sandbox build` (builds the sandbox image from the packaged sources).
+- **`skillsentry doctor`** checks what a full scan needs: the model pulled into the local server, a writable database and the built dashboard are required; Docker and the sandbox image are optional.
+- **Sandbox execution plan** (INT-4): the baseline checks are always present, anchor-derived checks only add to them, and the engine refuses to run a plan that fails validation.
+- **Acceptance tooling:** `scripts/acceptance.sh` runs the local gates and the release build; with `--e2e` it also scans the core fixtures and a folder of real skills.
 - **Dockerfile** for the server image (multi-stage: dashboard build, then a non-root Python runtime). The Docker socket is not mounted by default.
 - **Release script** `scripts/build_release.sh` and local check `scripts/check.sh` (lint, tests, schema drift, demo smoke) while CI is blocked.
 - **Dev 1 M0 backend**: frozen Verdict v1 Pydantic contracts with generated `schemas/verdict.v1.json` + `schemas/api.v1.json`, deterministic `MockGemma`, SARIF 2.1.0 / Markdown / STIX 2.1 writers, and a 7-skill demo server covering REST, WebSocket replay, cache, batch scans, tab payloads, and error envelopes. Adds `skillsentry serve`, `skillsentry init`, and `skillsentry scan --demo-mode`; GitHub Actions lint/schema/demo-smoke gates. Live analysis still fails honestly with `503 engine_not_ready` until CL-D1-2…5 land.
@@ -24,6 +27,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - Legacy semantic analysis splits skills into line-aligned chunks within a call budget. Anything not analysed is reported as a coverage gap and sets the stage to degraded.
 - Raster images sent to the model are capped at three per scan, downscaled to 768 px. The rest are reported as partial coverage.
 - `--fail-on` defaults to `suspicious` for `scan` and `self-audit`.
+- The default model is `gemma4:e4b-it-qat`, the build that was pulled and verified.
 - The Laya decision backend is opt-in (`decision.backend = "legacy"` by default) until its calibration gates pass.
 - The version is read from `skillsentry/core/version.py`.
 

@@ -148,6 +148,19 @@ upload_sarif = false
 | `GEMINI_API_KEY` | Required for cloud backend; never logged, never embedded in reports |
 | `OLLAMA_HOST` | Passed through to the Ollama client |
 
+## 7.4a Commands added for version 1
+
+| Command | Purpose |
+|:---|:---|
+| `skillsentry doctor` | Check the model, dashboard and database (required), and Docker and the sandbox image (optional). Exits 3 when a required check fails. |
+| `skillsentry cache stats` | Show the number of cached verdicts and the database size. |
+| `skillsentry cache list [--limit N]` | List the most recent scans and their verdicts. |
+| `skillsentry cache clear [--older-than 7d]` | Remove cached verdicts, optionally only the older ones. |
+| `skillsentry export <scan_id> [--format sarif\|markdown\|stix] [-o FILE]` | Re-render the report of a stored scan without re-running it. |
+| `skillsentry sandbox build` | Build the sandbox image from the sources packaged with SkillSentry. |
+
+`--fail-on` defaults to `suspicious` for `scan` and `self-audit`.
+
 ## 7.5 Exit Codes (CI contract)
 
 | Code | Meaning | CI usage |
