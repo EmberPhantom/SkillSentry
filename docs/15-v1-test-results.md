@@ -9,6 +9,8 @@ Every number here was measured on the development machine on 2026-10-30, with th
 438 passed, 5 skipped
 ```
 
+SARIF output is checked against the official 2.1.0 schema (vendored at `tests/fixtures/sarif/sarif-schema-2.1.0.json`) in `tests/unit/test_sarif_schema.py`: both a finding case and an empty case validate with zero errors.
+
 The skips are the real-Laya tests (the `laya` extra is not installed) and two Windows-only checks (reserved device names cannot be created on Windows).
 
 ## Static detection (labelled decision corpus)
@@ -57,5 +59,4 @@ Each skill gave the same verdict and score on every run, and no stage degraded. 
 
 - Cached and uncached scan latency with the real model (targets: under 2 s and under 90 s).
 - Accuracy of the real model on real skills (`scripts/batch_skills.py`).
-- SARIF validation against the official 2.1.0 schema.
 - A chaos run (Docker, model and timeout failures during a batch).
