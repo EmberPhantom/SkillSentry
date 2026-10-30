@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skillsentry"
-version = "2.0.0"
+dynamic = ["version"]
 description = "A context-aware firewall for the agent skill supply chain with Poisoned Well active defense."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -53,8 +53,14 @@ dev = [
 [project.scripts]
 skillsentry = "skillsentry.cli:app"
 
+[tool.hatch.version]
+path = "skillsentry/core/version.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["skillsentry"]
+# The dashboard is built into skillsentry/ui/dist and is gitignored, so it must be listed
+# explicitly or the wheel would omit it.
+artifacts = ["skillsentry/ui/dist/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [

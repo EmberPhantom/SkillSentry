@@ -27,6 +27,15 @@ _DEV_ORIGINS = [
 ]
 
 
+def _default_ui_dist() -> Path:
+    """Dashboard build: shipped inside the package, with the repo build as a dev fallback."""
+
+    packaged = Path(__file__).resolve().parent.parent / "ui" / "dist"
+    if (packaged / "index.html").is_file():
+        return packaged
+    return Path.cwd() / "ui" / "dist"
+
+
 def create_app(
     backend: ScanBackend | None = None,
     *,
@@ -70,7 +79,7 @@ def create_app(
 
     app.include_router(router)
 
-    ui_dist = Path(static_dir) if static_dir is not None else Path.cwd() / "ui" / "dist"
+    ui_dist = Path(static_dir) if static_dir is not None else _default_ui_dist()
     ui_index = ui_dist / "index.html"
 
     @app.get("/", include_in_schema=False)

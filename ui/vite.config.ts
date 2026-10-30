@@ -9,7 +9,8 @@ export default defineConfig({
   plugins: [react()],
   base: "./",
   build: {
-    outDir: "dist",
+    // Built into the package so the wheel ships the dashboard (see pyproject.toml).
+    outDir: "../skillsentry/ui/dist",
     emptyOutDir: true,
     sourcemap: false,
   },
