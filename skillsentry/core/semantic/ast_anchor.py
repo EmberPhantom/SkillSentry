@@ -21,6 +21,7 @@ from skillsentry.core.contracts import (
     StageResult,
 )
 from skillsentry.core.parser import SkillPackage, TextFile
+from skillsentry.core.semantic.ast_python import scan_python_ast
 
 MAX_FINDINGS = 80
 
@@ -247,6 +248,20 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         if len(findings) >= MAX_FINDINGS:
             break
 
+    parse_errors: list[str] = []
+    known = {(item.evidence.file, item.evidence.line, item.finding_type) for item in findings}
+    for text_file in ordered:
+        if not text_file.relative.lower().endswith(".py"):
+            continue
+        ast_findings, error = scan_python_ast(text_file.relative, text_file.text)
+        if error:
+            parse_errors.append(error)
+        for item in ast_findings:
+            key = (item.evidence.file, item.evidence.line, item.finding_type)
+            if key not in known:
+                known.add(key)
+                findings.append(item)
+
     findings.extend(analyze_credential_flows(package))
 
     score = 0.0
@@ -257,11 +272,14 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         stage=Stage.DETERMINISTIC_ANCHOR,
         findings=findings,
         signals={"anchors": score},
+        degraded=bool(parse_errors),
+        error="; ".join(parse_errors)[:1000] if parse_errors else None,
         telemetry={
             "files_scanned": len(package.text_files),
             "findings": len(findings),
             "prompt_injection_rules": len(_INSTRUCTION_RULES),
             "credential_flow_rules_version": RULES_VERSION,
+            "python_parse_errors": len(parse_errors),
         },
     )
 
