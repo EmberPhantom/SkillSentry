@@ -67,6 +67,7 @@ from skillsentry.core.poisoned_well.canary_gen import (
 )
 from skillsentry.core.poisoned_well.exfil_tracker import Correlation, ExfilTracker
 from skillsentry.core.reports import render_report
+from skillsentry.core.sandbox.instructions import build_plan as build_sandbox_plan
 from skillsentry.core.sandbox.masquerade import MasqueradeConfig
 from skillsentry.core.sandbox.runner import (
     SandboxError,
@@ -598,6 +599,18 @@ class ScanEngine:
                 stage=Stage.SANDBOX,
                 degraded=True,
                 error="declared entrypoint is invalid or missing; refusing to execute a fallback",
+            )
+        plan = build_sandbox_plan(
+            ctx.package,
+            StageResult(stage=Stage.DETERMINISTIC_ANCHOR),
+            timeout_s=min(self.config.sandbox.timeout_s, ctx.options.timeout_s),
+        )
+        if plan.validation_status != "valid":
+            # An invalid plan never runs: a partial check set must not read as a clean sandbox.
+            return StageResult(
+                stage=Stage.SANDBOX,
+                degraded=True,
+                error="sandbox plan rejected: " + "; ".join(plan.problems),
             )
         runner = self._get_sandbox_runner()
         request = SandboxRequest(
