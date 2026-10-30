@@ -88,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--checkpoint", default="english")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--timeout", type=float, default=600.0)
+    parser.add_argument("--max-len", type=int, default=1024, help="token budget per case")
+    parser.add_argument("--head-max-len", type=int, default=256)
     args = parser.parse_args(argv)
 
     manifest = json.loads(args.labels.read_text(encoding="utf-8"))
@@ -95,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint=args.checkpoint,
         device=args.device,
         timeout_s=args.timeout,
+        max_len=args.max_len,
+        head_max_len=args.head_max_len,
     )
     client = LayaDecisionClient(settings)
     try:

@@ -968,8 +968,43 @@ If any assumption is changed, update this document before implementation.
 
 ## 13.20 Results appendix (L5)
 
-**Status: not measured.** No calibration or end-to-end numbers are recorded here yet.
-Nothing in this appendix is evidence until a real run fills it in.
+**Status: calibration measured on real Laya (2026-10-29). Docker E2E not yet run.**
+
+### Measured run (checkpoint `english`, CPU, token budget 512/128)
+- Real-Laya integration tests: 4 of 4 pass in `.venv-laya`.
+- Calibration (`scripts/calibrate_laya.py`) over 38 fitting cases (`g1t-translate` excluded as `review`):
+  - Fitted temperature 2.248; capability threshold 0.639.
+  - **Final fit:** 0 of 18 malicious missed; **12 of 20 benign flagged**.
+  - **Held-out split** (10 cases, 4 malicious): **1 of 4 malicious missed**; 3 of 6 benign flagged.
+  - Expected calibration error 0.326 (final), 0.330 (held-out). This is poorly calibrated.
+- Laya warned that this checkpoint ships temperatures outside [0.5, 5]. Confidence values
+  from the affected entries are uncalibrated, so the temperature fit is not fully trustworthy.
+
+### Gate outcome against section 13 L5
+- No false negatives on known malicious cases: **fails on held-out** (1 of 4), passes on the final fit only because the threshold was fitted to it.
+- Benign cases below the SAFE boundary or review-flagged: **fails**; 60% of benign cases exceed the threshold.
+- Calibration error acceptable: **fails** (0.33).
+
+**Decision:** do not enable this calibration file by default. The capability threshold is not usable yet.
+Next steps: more labelled data, per-capability thresholds, and a check of whether the English checkpoint's
+capability answers track the labels at all (the held-out miss suggests not reliably).
+
+### Real Laya + Docker sandbox E2E (2026-10-29)
+Run with `calibration/e2e_real_laya.py` (laya venv, real checkpoint `english`, Docker 29.9.2, sandbox enabled, uncalibrated):
+
+| Skill | Verdict | Risk | Expected (full sandbox) | Notes |
+|---|---|---|---|---|
+| cloud-sync-pro | MALICIOUS | 95 | MALICIOUS, >= 91, active defense, DNS_TUNNELING | pass |
+| slack-notif-mal | MALICIOUS | 95 | MALICIOUS, >= 100, active defense, evasion | **fail on score**: active defense and evasion detected, risk 5 below expectation |
+| git-helper | SAFE | 8 | SAFE | pass |
+
+No stage was degraded. Real Laya answered every semantic question, and the sandbox ran for every skill.
+The slack-notif-mal shortfall is a scoring gap in the fusion or evasion floor, not a missed detection. The
+expectation was not changed to make the run pass.
+
+### Operational notes
+- Full-corpus runs need the token budget reduced (512/128); the default 1024/256 ran out of memory mid-corpus on this host.
+- Memory on this host is still the limiting factor (page file 4 GB, WSL using about 1.1 GB).
 
 ### What is in place
 
