@@ -8,39 +8,32 @@ This document provides a comprehensive reference for executing, verifying, and m
 
 As of **SkillSentry 2.0 (Remediated Architecture)**, all hardcoded heuristics, path cheating, and runtime mock engines have been eliminated. The system features:
 - **Zero mocks in runtime code** (`git grep -n "Mock" skillsentry/` returns 0).
-- **566 automated tests passing with 0 failures** across both root `tests/` and `developer-2/tests/`.
+- **All automated tests passing with 0 failures** across both root `tests/` (370 succeeded, 8 skipped) and `developer-2/tests/` (228 succeeded).
 - **Full CI regression gate passing** across all 20 test fixtures (12 benign confirmed `SAFE`, 8 malicious flagged `SUSPICIOUS` or `MALICIOUS`).
-- **Complete Single-Page Application (SPA) Web Dashboard** served at `/` and `/assets/*` with real-time WebSocket telemetry and SARIF/STIX export.
+- **Transparent Inference Status:** Unit tests use `httpx.MockTransport` for client-level protocol verification; live model inference requires an active Ollama instance with `gemma4:e4b` and fails closed (`degraded=True`, risk 30) when offline.
 
 ### Test Metrics Summary
 
-| Test Suite | Location | Tests Collected | Passed | Skipped | Failed | Execution Time |
-|---|---|---|---|---|---|---|
-| **Root Tests** | `tests/` | 345 | **338** | 7 (env/docker) | **0** | ~10.6s |
-| **Developer-2 Tests** | `developer-2/tests/` | 228 | **228** | 0 | **0** | ~3.2s |
-| **Total Automated** | Entire Workspace | 573 | **566** | 7 | **0** | ~13.8s |
+| Test Suite | Location | Tests Collected | Passed | Skipped | Failed | Notes |
+|---|---|:---:|:---:|:---:|:---:|---|
+| **Root Tests** | `tests/` | 378 | **370** | 8 | **0** | Skips: 2 symlink (Windows permissions), 1 Docker, 4 Laya extra, 1 Live Ollama |
+| **Developer-2 Tests** | `developer-2/tests/` | 228 | **228** | 0 | **0** | Subsystem unit, contract, security, benchmarks |
+| **Combined Passing** | Entire Workspace | 606 | **598** | 8 | **0** | 100% pass rate among executed tests |
 
 ---
 
-## 2. Test Execution Environment Setup
-
-All tests run using the dedicated Python 3.11 virtual environment configured with dependencies:
-
-```powershell
-# Set shortcut to virtual environment Python
-$PY = "developer-2\.venv\Scripts\python.exe"
-```
+## 2. Test Execution Commands
 
 ### Running All Root Tests
 ```powershell
-developer-2\.venv\Scripts\python.exe -m pytest tests
+python -m pytest tests
 ```
-*Expected: 338 succeeded, 7 skipped (Docker/Laya optional extras), 0 failures.*
+*Expected: 370 succeeded, 8 skipped, 0 failures.*
 
 ### Running Developer-2 Subsystem Tests
 ```powershell
 cd developer-2
-..\developer-2\.venv\Scripts\python.exe -m pytest
+python -m pytest
 cd ..
 ```
 *Expected: 228 succeeded, 0 failures in ~3.2s.*
@@ -50,18 +43,15 @@ cd ..
 ## 3. Key Test Categories & Critical CI Guards
 
 ### A. Zero Mocks in Runtime CI Guard (`tests/unit/test_no_mocks_in_runtime.py`)
-Enforces that no mock classes (`MockGemma`, `MockMode`, `MockDecisionClient`, `FakeModel`) or hardcoded fixture cheat names appear anywhere in `skillsentry/`.
+Enforces that no mock classes (`MockGemma`, `MockMode`, `MockDecisionClient`, `FakeModel`) or hardcoded fixture cheat names appear in Developer 2 production analyzers.
 ```powershell
-developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_no_mocks_in_runtime.py
+python -m pytest tests/unit/test_no_mocks_in_runtime.py
 ```
-*Asserts:*
-1. `test_runtime_has_no_mocks`: Scans all `.py` files in `skillsentry/` against banned patterns.
-2. `test_runtime_has_no_fixture_cheats`: Confirms core engine and rule evaluators never reference fixture names to predetermine outcomes.
 
 ### B. Taint Analysis & Credential Flow (`tests/unit/test_credential_flow.py`)
 Validates that AST taint analysis traces data flow from credential sources to network/DNS sinks without name-based false positives:
 ```powershell
-developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_credential_flow.py
+python -m pytest tests/unit/test_credential_flow.py
 ```
 - `test_benign_code_no_credential_flow`: Benign code reading config has 0 findings.
 - `test_exfiltration_taint_detected`: Code passing `os.environ["API_KEY"]` to `requests.post()` raises a `credential-exfiltration` finding.
@@ -71,7 +61,7 @@ developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_credential_flow.p
 ### C. File Chunking, Coverage & Grounding (`tests/unit/test_chunker_coverage.py`)
 Validates large file ingestion without silent truncation:
 ```powershell
-developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_chunker_coverage.py
+python -m pytest tests/unit/test_chunker_coverage.py
 ```
 - `test_coverage_ledger_tracking`: Tracks analyzed vs. unanalyzed line ranges and computes coverage percentage.
 - `test_file_chunker_markdown`: Splits markdown files respecting header hierarchy and token budgets.
@@ -81,21 +71,11 @@ developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_chunker_coverage.
 ### D. Fusion Floors & Monotonicity (`tests/unit/test_fusion_monotonic.py`)
 Validates fail-closed behavior and hard/soft score floor mathematics:
 ```powershell
-developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_fusion_monotonic.py
+python -m pytest tests/unit/test_fusion_monotonic.py
 ```
 - `test_hard_deterministic_floor_cannot_be_lowered_by_model`: A hard malicious anchor (risk 95) cannot be suppressed by a model returning risk 0.
 - `test_degraded_stage_floors_at_suspicious`: When a stage is marked `degraded` (e.g. timeout, service offline), risk score is floored at 30 (`SUSPICIOUS`).
 - `test_score_monotonicity`: Incremental findings can only increase the overall risk score, never decrease it.
-
-### E. CLI Smoke & Doctor Commands (`tests/unit/test_cli.py`)
-```powershell
-developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_cli.py
-```
-Validates:
-- `skillsentry --version`: Emits version 2.0.0 and `Powered by Gemma 4`.
-- `skillsentry doctor`: Verifies Ollama connectivity, model preflight, context length, and Docker availability.
-- `skillsentry scan <path> --format json`: Verifies JSON output integrity, exit codes, and threshold enforcement.
-- `skillsentry init`: Creates documented `skillsentry.toml`.
 
 ---
 
@@ -103,7 +83,7 @@ Validates:
 
 ### A. Root Static Regression Gate
 ```powershell
-developer-2\.venv\Scripts\python.exe tests/check_expected_verdicts.py --static-only
+python tests/check_expected_verdicts.py --static-only
 ```
 **Output:**
 ```text
@@ -119,7 +99,7 @@ PASS static g1t-translate (SUSPICIOUS risk=30)
 
 ### B. Developer-2 20-Fixture Regression Gate
 ```powershell
-developer-2\.venv\Scripts\python.exe developer-2/tests/check_expected_verdicts.py
+python developer-2/tests/check_expected_verdicts.py
 ```
 **Output:**
 ```text
@@ -152,25 +132,9 @@ RESULT: ALL FIXTURES PASSED REGRESSION GATE
 
 ---
 
-## 5. Web Dashboard Single-Page Application Verification
+## 5. Frontend & Web Dashboard Alignment (Developer 3)
 
-The web dashboard is served directly by `skillsentry serve` (or `skillsentry serve --demo-mode`):
-
-```powershell
-developer-2\.venv\Scripts\python.exe -c "
-from fastapi.testclient import TestClient
-from skillsentry.server.app import create_app
-from skillsentry.server.demo_backend import DemoBackend
-
-app = create_app(DemoBackend())
-client = TestClient(app)
-
-assert client.get('/').status_code == 200
-assert client.get('/assets/style.css').status_code == 200
-assert client.get('/assets/app.js').status_code == 200
-assert client.get('/dashboard').status_code == 200
-print('Web dashboard serving verified 100%!')
-"
-```
-*Output: `Web dashboard serving verified 100%!`, with no 404s on SPA routing.*
-
+As defined in `docs/checklists/dev3-frontend.md`:
+- The Web Dashboard is the assigned responsibility of **Developer 3**.
+- Developer 2's backend provides the REST endpoints (`GET /meta`, `POST /scan`, `GET /scans`, `GET /scan/{id}/verdicts`) and WebSocket event stream (`/scan/{id}/stream`).
+- Serving of dashboard assets is verified through backend tests (`tests/unit/test_live_api.py` and `tests/unit/test_backend.py`), while UI layout, components, and visuals are owned by Developer 3.

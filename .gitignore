@@ -28,6 +28,13 @@ developer-2/SKILLSENTRY_NEXT_STEPS_AND_DECISIONS.md
 *.sarif
 stix-bundle.json
 
+# Transient local test & evaluation documentation not for review commit
+/tests.md
+/DEVELOPER_2_COMPLETE_TECHNICAL_DOCUMENTATION.md
+/test.md
+developer-2/test.md
+*.tmp.md
+
 # Frontend
 ui/node_modules/
 ui/dist/
