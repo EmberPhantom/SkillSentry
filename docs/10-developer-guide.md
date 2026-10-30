@@ -8,7 +8,7 @@
 
 ```bash
 # 1. Prereqs: Python 3.11+, Docker, Node 20+, Ollama
-ollama pull gemma4:e4b-q4                 # local model (~night-before for demos)
+ollama pull gemma4:e4b-it-qat                 # local model (~night-before for demos)
 
 # 2. Backend
 git clone https://github.com/<org>/skillsentry && cd skillsentry

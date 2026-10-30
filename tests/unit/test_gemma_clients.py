@@ -134,17 +134,17 @@ def test_local_analyze_image_encodes_and_downscales(tmp_path):
 def test_local_health_and_model_digest():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/tags":
-            return _json_response({"models": [{"name": "gemma4:e4b-q4", "digest": "abc123"}]})
+            return _json_response({"models": [{"name": "gemma4:e4b-it-qat", "digest": "abc123"}]})
         return httpx.Response(404)
 
     gemma = GemmaLocal(
         base_url="http://ollama.test",
-        model="gemma4:e4b-q4",
+        model="gemma4:e4b-it-qat",
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     assert gemma.health() is True
-    assert gemma.refresh_model_version() == "gemma4:e4b-q4@abc123"
-    assert gemma.model_version == "gemma4:e4b-q4@abc123"
+    assert gemma.refresh_model_version() == "gemma4:e4b-it-qat@abc123"
+    assert gemma.model_version == "gemma4:e4b-it-qat@abc123"
 
 
 def test_health_is_false_when_the_model_is_not_pulled():
@@ -155,7 +155,7 @@ def test_health_is_false_when_the_model_is_not_pulled():
 
     gemma = GemmaLocal(
         base_url="http://ollama.test",
-        model="gemma4:e4b-q4",
+        model="gemma4:e4b-it-qat",
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     assert gemma.health() is False

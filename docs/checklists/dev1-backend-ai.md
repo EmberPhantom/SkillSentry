@@ -14,7 +14,7 @@
 
 - [ ] Read [01-overview](../01-project-overview.md), [02-architecture](../02-architecture.md) (pipeline + scoring), [04-security](../04-security.md) (§4.4–4.6 — you own the trust boundary), [11-team](../11-team-and-workload.md)
 - [ ] Environment per [10-developer-guide §10.1](../10-developer-guide.md): Python 3.11+ venv, Docker daemon, Node 20 (for testing against Dev 3's UI)
-- [ ] `ollama pull gemma4:e4b-q4`; run one text + one image inference; **record baseline latency** (risk: E4B too slow — mitigation decision needed by end of M1)
+- [ ] `ollama pull gemma4:e4b-it-qat`; run one text + one image inference; **record baseline latency** (risk: E4B too slow — mitigation decision needed by end of M1)
 - [ ] Create repo scaffold branches: `feat/contracts`, `feat/sandbox`, `feat/models`
 - [ ] Wire CI badge + `pyproject.toml` skeleton so Dev 2/Dev 3 can `pip install -e .` from day one
 

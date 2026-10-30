@@ -26,7 +26,7 @@ pip install -e ".[dev]"
 | Dependency | Required for | Check |
 |:---|:---|:---|
 | Python 3.11+ | everything | `python --version` |
-| Ollama + Gemma 4 E4B (Q4) | local semantic/vision analysis | `ollama list` → pull: `ollama pull gemma4:e4b-q4` |
+| Ollama + Gemma 4 E4B (Q4) | local semantic/vision analysis | `ollama list` → pull: `ollama pull gemma4:e4b-it-qat` |
 | Docker daemon | sandbox, Poisoned Well, evasion detection | `docker info` |
 | Gemini API key (**opt-in**) | cloud fallback | `export GEMINI_API_KEY=…` |
 
@@ -106,7 +106,7 @@ Created by `skillsentry init`; precedence: **CLI flags > env vars > config file 
 [model]
 backend = "auto"                 # auto | local | cloud
 ollama_url = "http://localhost:11434"
-ollama_model = "gemma4:e4b-q4"
+ollama_model = "gemma4:e4b-it-qat"
 gemini_model = "gemma-4-e4b"     # used only when backend = cloud/auto-fallback
 image_max_px = 1024              # vision downscale (plan §4)
 

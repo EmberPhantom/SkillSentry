@@ -541,6 +541,93 @@ def export_report(
         typer.echo(f"wrote {output}")
 
 
+@app.command("doctor")
+def doctor() -> None:
+    """Check what a scan needs on this machine, and say what is missing.
+
+    Required checks must pass for a full scan.  Docker and the sandbox image are
+    optional: without them, scans run with --no-sandbox and the sandbox stage
+    reports itself as degraded.
+    """
+
+    from skillsentry.core.models.gemma_local import GemmaLocal
+    from skillsentry.server.app import _default_ui_dist
+
+    cfg = load_config()
+    required_failed = False
+
+    def report(ok: bool, name: str, detail: str, *, required: bool = True) -> None:
+        nonlocal required_failed
+        if ok:
+            status = "PASS"
+        elif required:
+            status = "FAIL"
+            required_failed = True
+        else:
+            status = "WARN"
+        typer.echo(f"{status}  {name}: {detail}")
+
+    try:
+        model = GemmaLocal(base_url=cfg.model.ollama_url, model=cfg.model.ollama_model)
+        try:
+            pulled = model.preflight()
+        finally:
+            model.close()
+    except Exception as exc:  # any probe failure is a finding, not a crash
+        pulled = False
+        model_detail = f"could not reach {cfg.model.ollama_url} ({type(exc).__name__})"
+    else:
+        model_detail = (
+            f"{cfg.model.ollama_model} is pulled"
+            if pulled
+            else f"{cfg.model.ollama_model} is not pulled; run: ollama pull {cfg.model.ollama_model}"
+        )
+    report(pulled, "model", model_detail)
+
+    ui_index = _default_ui_dist() / "index.html"
+    report(
+        ui_index.is_file(),
+        "dashboard",
+        "built" if ui_index.is_file() else "not built; run scripts/build_release.sh",
+    )
+
+    try:
+        with contextlib.closing(_store()):
+            db_ok = True
+        db_detail = f"writable at {cfg.db_path}"
+    except Exception as exc:
+        db_ok = False
+        db_detail = f"cannot open {cfg.db_path}: {exc}"
+    report(db_ok, "database", db_detail)
+
+    try:
+        import docker
+
+        client = docker.from_env()
+        client.ping()
+        docker_ok = True
+        docker_detail = "engine reachable"
+    except Exception:
+        client = None
+        docker_ok = False
+        docker_detail = "engine not reachable; sandbox scans are unavailable (use --no-sandbox)"
+    report(docker_ok, "docker", docker_detail, required=False)
+
+    if client is not None:
+        try:
+            client.images.get(cfg.sandbox.base_image)
+            image_ok = True
+            image_detail = f"{cfg.sandbox.base_image} is present"
+        except Exception:
+            image_ok = False
+            image_detail = f"{cfg.sandbox.base_image} is missing; run: skillsentry sandbox build"
+        report(image_ok, "sandbox image", image_detail, required=False)
+
+    if required_failed:
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+    typer.echo("ready for a full scan")
+
+
 sandbox_app = typer.Typer(help="Build and inspect the sandbox image.", no_args_is_help=True)
 app.add_typer(sandbox_app, name="sandbox")
 

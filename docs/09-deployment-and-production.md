@@ -42,7 +42,7 @@ flowchart LR
 **Requirements:** 8 GB+ RAM recommended (Gemma 4 E4B Q4 + Docker sandbox), ~10 GB disk for the model, Docker daemon, Python 3.11+.
 
 ```bash
-ollama pull gemma4:e4b-q4        # pre-cache the model (do this the night before demos)
+ollama pull gemma4:e4b-it-qat        # pre-cache the model (do this the night before demos)
 pip install skillsentry
 skillsentry init                  # writes skillsentry.toml
 skillsentry scan ./my-skill       # first run: full pipeline (<90 s target)

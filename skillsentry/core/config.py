@@ -30,7 +30,7 @@ class _ConfigModel(BaseModel):
 class ModelSettings(_ConfigModel):
     backend: str = "auto"  # auto | local | cloud | demo
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma4:e4b-q4"
+    ollama_model: str = "gemma4:e4b-it-qat"
     gemini_model: str = "gemma-4-e4b"
     image_max_px: int = Field(default=768, ge=256, le=4096)
     request_timeout_s: float = Field(default=180.0, gt=0)
@@ -164,7 +164,7 @@ DEFAULT_CONFIG_TOML = """\
 [model]
 backend = "auto"                 # auto | local | cloud | demo
 ollama_url = "http://localhost:11434"
-ollama_model = "gemma4:e4b-q4"
+ollama_model = "gemma4:e4b-it-qat"
 gemini_model = "gemma-4-e4b"     # used only when backend = cloud/auto-fallback
 image_max_px = 1024
 request_timeout_s = 180

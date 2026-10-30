@@ -17,7 +17,7 @@ from skillsentry.core.models.image_utils import (
 )
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
-DEFAULT_OLLAMA_MODEL = "gemma4:e4b-q4"
+DEFAULT_OLLAMA_MODEL = "gemma4:e4b-it-qat"
 
 
 class GemmaLocal:
