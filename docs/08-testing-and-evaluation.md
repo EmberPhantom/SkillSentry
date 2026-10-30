@@ -13,7 +13,7 @@
 | **Unit** (pytest) | Pure functions, fast, no Docker/model | Frontmatter parser edge cases · Levenshtein typosquat detector · AST anchor regexes · fusion weight math & tier boundaries · directory-hash determinism (rename/reorder/permission changes) · SARIF writer schema validation · canary marker generation/encoding (base64/hex/subdomain-label matching) |
 | **Integration** | Subsystems with real dependencies | Sandbox runner enforces 60 s/512 MB/1 CPU · masquerade hides `/.dockerenv` & `/proc/1/cgroup` · DNS sinkhole captures queries · fake HTTP responder returns 200 + secondary canary · inotify fires on canary reads · Poisoned Well correlation (seeded read + replayed exfil ⇒ confirmed) · SQLite cache hit/miss/invalidation |
 | **End-to-end** | Full pipeline over the fixture corpus | Every fixture produces the expected verdict/risk band (§8.4); citation accuracy measured against hand-annotated ground truth |
-| **Contract** | Frozen schemas | Verdict JSON v1 validated (Pydantic + JSON Schema) on both real API and mock server; WS event schema checked; SARIF validates against SARIF 2.1.0 schema |
+| **Contract** | Frozen schemas | Verdict JSON v1 validated (Pydantic + JSON Schema) on both real API and mock server; WS event schema checked; SARIF validates against the official 2.1.0 schema (`tests/unit/test_sarif_schema.py`, vendored schema) |
 | **Chaos** | Failure injection | §8.6 |
 | **Model-in-the-loop** (nightly, local) | Gemma-dependent stages | Semantic + vision outputs on fixtures with the exact pinned model; flags drift after model updates |
 

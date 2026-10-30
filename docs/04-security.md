@@ -112,8 +112,8 @@ A security tool that parses hostile input is itself an attack surface. Enumerate
 | 1 | **Parser vulnerabilities** (malformed SKILL.md, YAML bombs, path traversal `../../.ssh` in package paths, zip-slip-style writes) | Strict frontmatter parser with size caps; all package paths normalized and rejected if they escape the package root; no extraction to host temp without sanitization |
 | 2 | **Prompt injection into the analyzer** | §4.8 |
 | 3 | **Sandbox escape** (container breakout, kernel exploit) | Hardened runtime (§4.5); no privileged mode; no host mounts rw; documented limitation: SkillSentry inherits Docker's isolation guarantees — users needing more should run the engine inside a VM (§4.11) |
-| 4 | **Resource exhaustion** (huge packages, decompression bombs, image floods) | File-count/size caps before Stage 2; per-file truncation with explicit `truncated` finding; images downscaled to 1024 px; 60 s/512 MB/1 CPU caps |
-| 5 | **Cache poisoning** (attacker pre-seeds `scan_cache` with SAFE verdicts) | DB lives in `~/.skillsentry/` under user permissions; cache rows bind `engine_version` + `model_version`; `skillsentry cache verify` recomputes a sample; CI mode can run `--no-cache` |
+| 4 | **Resource exhaustion** (huge packages, decompression bombs, image floods) | File-count/size caps before Stage 2; per-file truncation with explicit `truncated` finding; images downscaled to 768 px and at most 3 per scan (the rest are reported as partial coverage); 60 s/512 MB/1 CPU caps |
+| 5 | **Cache poisoning** (attacker pre-seeds `scan_cache` with SAFE verdicts) | DB lives in `~/.skillsentry/` under user permissions; cache rows bind `engine_version` + `model_version`; `skillsentry cache clear` prunes entries; `--no-cache` re-scans without reading or writing the cache (`cache verify` is not in v1) |
 | 6 | **Sinkhole abuse** (skill uses the fake responder as an oracle, or floods it) | Responder is inert, rate-limited, and logs everything; correlation requires marker match, so probing cannot fabricate a "clean" result |
 | 7 | **Dependency supply chain** (SkillSentry's own deps) | Pinned lockfile; minimal dependency set; Phase-1 signed releases; Docker image built in CI from pinned manifest |
 | 8 | **Model supply chain** (tampered Ollama model) | Record `model_version` (digest) with every verdict; docs recommend verifying Ollama model digests; cloud fallback is TLS + API-key scoped |
@@ -122,7 +122,7 @@ A security tool that parses hostile input is itself an attack surface. Enumerate
 ## 4.7 Privacy & Data Handling
 
 - **100% local by default.** Skill packages, prompts, and model inference never leave the machine (Ollama on `localhost:11434`).
-- **Cloud fallback is opt-in** (`model.backend = "gemini-api"`); when enabled, *skill content* is sent to the Gemini API for analysis. The UI header shows the active backend (Local ☁ / API) so the user always knows where inference happens.
+- **Cloud fallback is opt-in** (`model.backend = "cloud"`, with `GEMINI_API_KEY` set); when enabled, *skill content* is sent to the Gemini API for analysis. The UI header shows the active backend (Local ☁ / API) so the user always knows where inference happens.
 - **No telemetry.** There is no analytics, phone-home, or update-check network call. The only outbound network use in normal operation is the opt-in cloud model.
 - **Proprietary skills stay private** — this is the core privacy promise ("your proprietary skills never leave your machine for auditing").
 - Stored evidence may include sensitive-looking strings; they are canaries (fake) or the skill's own content, kept in the user-owned SQLite file and export files.

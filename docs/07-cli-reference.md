@@ -107,7 +107,7 @@ backend = "auto"                 # auto | local | cloud
 ollama_url = "http://localhost:11434"
 ollama_model = "gemma4:e4b-it-qat"
 gemini_model = "gemma-4-e4b"     # used only when backend = cloud/auto-fallback
-image_max_px = 1024              # vision downscale (plan §4)
+image_max_px = 768               # vision downscale; at most 3 images per scan
 
 [sandbox]
 enabled = true

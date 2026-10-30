@@ -21,6 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **CLI stdio hardening**: `skillsentry` reconfigures redirected stdout/stderr to UTF-8 with replacement, so emoji banners no longer crash `serve` on legacy Windows code pages before uvicorn binds. Verified with a real `skillsentry serve --demo-mode` smoke on loopback (`GET /meta`, `/health`, `/scans`, and `/skills/{id}` returned 200).
 - **Team & workload assignment** (`docs/11-team-and-workload.md`): revised 3-developer split — Dev 1 (Backend + AI Integration: sandbox, Poisoned Well, models, verdict/reports, server), Dev 2 (Backend — Skill Analysis: parser, anchors, semantic, vision, cache), Dev 3 (Frontend only) — with work packages, milestone plan M0–M5, stage RACI, interface contracts I1–I5, and swing-task rebalancing. Supersedes the original plan §8 division; docs 02/08/10, CONTRIBUTING, and README updated for consistency.
 - **Task-level work checklists** (`docs/checklists/`): 27 checklists (CL-D1-0…8, CL-D2-0…8, CL-D3-0…8) elaborating every work package into concrete tasks with dependencies, spec references, and "Done means" acceptance criteria; index includes milestone → checklist matrix and cross-developer dependency map.
+- **v1 test coverage**: the documented CLI surface is checked against `--help` and the exit codes (`tests/unit/test_cli_surface.py`); outages fail closed and stay contained to their scan (`tests/unit/test_chaos.py`); SARIF output validates against the official 2.1.0 schema, vendored under `tests/fixtures/sarif/` (`tests/unit/test_sarif_schema.py`).
 
 ### Changed
 - Local model client: configurable context size, prediction cap, seed and keep-alive. Health requires the configured model to be pulled, so a server without it no longer answers with another model. Cache identity uses `name@digest`.
@@ -30,6 +31,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - The default model is `gemma4:e4b-it-qat`, the build that was pulled and verified.
 - The Laya decision backend is opt-in (`decision.backend = "legacy"` by default) until its calibration gates pass.
 - The version is read from `skillsentry/core/version.py`.
+- Documentation: `docs/07` matches `--help` (fail-on default, `init`, `serve`, `self-audit`, cache and export flags, environment variables). `docs/02`, `04` and `08` now state the 768 px vision cap, the three-image budget, the fail-closed model path and the cloud backend name.
 
 ### Fixed
 - Fusion applies the strongest malicious override floor, so an evasion probe reports 100 even when a Poisoned Well override is listed first.

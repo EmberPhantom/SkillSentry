@@ -101,8 +101,8 @@ flowchart TD
 |:--|:---|:---|:---|:---|
 | **0** | Incremental Cache | SHA-256 hash of the skill directory; on hit, return the cached SARIF verdict instantly (< 2 s) | `hashlib` + SQLite (`scan_cache` table) | Hash mismatch on engine/model version ⇒ re-scan |
 | **1** | Spec Validation + Typosquat | Enforce frontmatter rules (name; description 1–1024 chars with trigger keywords); Levenshtein distance ≤ 2 vs. known-skill names ⇒ typosquat flag (+15 risk bonus) | `python-frontmatter` + regex | Malformed package ⇒ `SUSPICIOUS` finding, pipeline continues |
-| **2** | Deterministic Anchor + Semantic | AST/regex pre-scan (`eval()`, `subprocess…shell=True`, `os.system()`, `base64.b64decode()`, credential paths, network calls…) → anchors injected as ground truth into the Gemma 4 E4B structured-JSON analysis | Python `ast` + regex → prompt template (§5.3 of plan) | Model unavailable ⇒ cloud fallback ⇒ anchors-only verdict |
-| **3** | Multimodal Vision Scan | Enumerate bundled images; Gemma 4 vision OCR for hidden text (white-on-white, 4–6 px, stego-style); SVG scanned **as text and rendered**; images downscaled to 1024 px; bounding boxes extracted for *Gemma's Eye View* | Vision scanner pipeline | No images ⇒ stage skipped (logged as `no-assets`) |
+| **2** | Deterministic Anchor + Semantic | AST/regex pre-scan (`eval()`, `subprocess…shell=True`, `os.system()`, `base64.b64decode()`, credential paths, network calls…) → anchors injected as ground truth into the Gemma 4 E4B structured-JSON analysis | Python `ast` + regex → prompt template (§5.3 of plan) | Model unavailable ⇒ semantic stage degraded (fail closed; never SAFE from a missing model). Cloud is used only when opted in |
+| **3** | Multimodal Vision Scan | Enumerate bundled images; Gemma 4 vision OCR for hidden text (white-on-white, 4–6 px, stego-style); SVG scanned **as text and rendered**; at most 3 raster images per scan, each downscaled to 768 px (images beyond the budget ⇒ partial coverage, degraded); bounding boxes extracted for *Gemma's Eye View* | Vision scanner pipeline | No images ⇒ stage skipped (logged as `no-assets`) |
 | **4** | Context-Aware Behavioral Sandbox | Execute the skill in Docker (`skillsentry-sandbox:local`) with: masquerade layer, canary FS seeded from `declared_intent`, DNS sinkhole, fake HTTP responder; limits: 60 s timeout, 512 MB RAM, 1 CPU; egress restricted to the sinkhole network | Docker SDK; `LD_PRELOAD`; watchdog/inotify | Docker down ⇒ UI error state; verdict from static stages only, flagged `sandbox-unavailable` |
 | **4.5** | ☠️ Poisoned Well | On canary-path read: serve intent-matched fake credentials (marker `SKS-<8hex>`); log all DNS queries + HTTP bodies; correlate marker (raw/base64/hex/subdomain labels); fake HTTP responds `200 OK` + secondary canary to keep multi-stage malware talking; build attacker profile | Canary gen + sinkhole correlation engine | No canary read ⇒ stage inert (no deception events) |
 | **5** | Sandbox Evasion Detection | inotify on sensitive paths; detect probes for `/.dockerenv`, `/proc/1/cgroup`, disk checks (`df -h`), VM artifacts (`/proc/bus/input`); any probe ⇒ auto-`MALICIOUS`, `confidence: 1.0` | Masquerade hides artifacts so probes are observable and malware doesn't go dormant | Masquerade failure ⇒ treat as engine error, do **not** auto-pass |
@@ -362,7 +362,7 @@ Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. 
 | Cached re-scan (Stage 0 hit) | **< 2 s** end-to-end |
 | Full uncached scan, local E4B Q4 | **< 90 s** per skill |
 | Sandbox execution window | 60 s hard timeout (512 MB RAM, 1 CPU) |
-| Vision preprocessing | Downscale to 1024 px before inference |
+| Vision preprocessing | Downscale to 768 px before inference; at most 3 images per scan |
 | WebSocket stage events | Streamed per stage so the UI shows motion even during slow LLM calls |
 
 ## 2.9 Integration Contracts (frozen at M0)
