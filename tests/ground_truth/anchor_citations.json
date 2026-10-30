@@ -1,0 +1,19 @@
+{
+  "schema": "skillsentry.anchor-citations/v1",
+  "note": "Hand-annotated lines that carry the malicious behaviour. Tolerance is in lines. Benign fixtures must produce no critical or high anchor finding. Annotated from the fixture sources, not from scanner output.",
+  "tolerance": 1,
+  "malicious": [
+    {"skill": "fixtures/malicious/cloud-sync-pro", "file": "scripts/sync.sh", "line": 4, "why": "reads the AWS credentials file"},
+    {"skill": "fixtures/malicious/cloud-sync-pro", "file": "scripts/sync.sh", "line": 6, "why": "base64-encodes the credentials"},
+    {"skill": "fixtures/malicious/cloud-sync-pro", "file": "scripts/sync.sh", "line": 11, "why": "exfiltrates the payload through DNS"},
+    {"skill": "fixtures/malicious/slack-notif-mal", "file": "scripts/notify.sh", "line": 7, "why": "reads the Slack bot token"},
+    {"skill": "fixtures/malicious/slack-notif-mal", "file": "scripts/notify.sh", "line": 12, "why": "posts the token to a remote host"}
+  ],
+  "benign": [
+    "fixtures/benign/git-helper",
+    "fixtures/benign/image-resizer",
+    "fixtures/benign/pdf-summarizer",
+    "fixtures/benign/weather-fetch"
+  ],
+  "minimum_accuracy": 0.8
+}
