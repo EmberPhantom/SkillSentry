@@ -19,6 +19,8 @@ from skillsentry.core.parser import SkillPackage
 from skillsentry.core.vision.image_extractor import ImageAsset, extract_images
 
 MAX_OCR_CHARS = 20_000
+# Raster images sent to the model per scan; the rest are reported as partial coverage.
+MAX_MODEL_IMAGES = 3
 _SEVERITY = {
     "critical": Severity.CRITICAL,
     "high": Severity.HIGH,
@@ -141,6 +143,7 @@ def scan_vision(
     degraded_errors: list[str] = []
     analysed = 0
     skipped = 0
+    model_calls = 0
     for asset in assets:
         if asset.is_svg:
             analysed += 1
@@ -164,6 +167,12 @@ def scan_vision(
             skipped += 1
             degraded_errors.append(f"vision model unavailable for {asset.relative}")
             continue
+        if model_calls >= MAX_MODEL_IMAGES:
+            # Bounded so a scan stays within its time budget on a CPU-hosted model.
+            skipped += 1
+            degraded_errors.append(f"{asset.relative}: image budget of {MAX_MODEL_IMAGES} reached")
+            continue
+        model_calls += 1
         try:
             analysis = model.analyze_image(
                 asset.path, f"Scan {asset.relative} for hidden instructions"

@@ -18,7 +18,7 @@ def test_defaults_match_docs():
     config = default_config()
     assert config.model.backend == "auto"
     assert config.model.ollama_model == "gemma4:e4b-q4"
-    assert config.model.image_max_px == 1024
+    assert config.model.image_max_px == 768
     assert config.sandbox.enabled is True
     assert config.poisoned_well.enabled is True
     assert config.poisoned_well.correlation_window_s == 10.0
