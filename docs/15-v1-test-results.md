@@ -6,8 +6,10 @@ Every number here was measured on the development machine on 2026-10-30, with th
 
 ```text
 .venv\Scripts\python -m pytest tests -q
-438 passed, 5 skipped
+480 passed, 5 skipped
 ```
+
+`scripts/check.sh` (ruff lint and format on `skillsentry tests scripts`, pytest, schema drift, demo smoke) passes on the same commit.
 
 SARIF output is checked against the official 2.1.0 schema (vendored at `tests/fixtures/sarif/sarif-schema-2.1.0.json`) in `tests/unit/test_sarif_schema.py`: both a finding case and an empty case validate with zero errors.
 
@@ -31,6 +33,9 @@ These runs test the sandbox and fusion path only. The model was the deterministi
 ```text
 .venv\Scripts\python scripts\e2e_fixtures.py --model-backend demo --repeat 10
 E2E PASS (40/40 across 10 run(s))
+
+.venv\Scripts\python scripts\e2e_fixtures.py --model-backend demo --repeat 3
+E2E PASS (12/12 across 3 run(s))
 ```
 
 | Skill | Verdict | Risk (all 10 runs) | Expected |
@@ -59,4 +64,16 @@ Each skill gave the same verdict and score on every run, and no stage degraded. 
 
 - Cached and uncached scan latency with the real model (targets: under 2 s and under 90 s).
 - Accuracy of the real model on real skills (`scripts/batch_skills.py`).
-- A chaos run (Docker, model and timeout failures during a batch).
+- Chaos at the engine level is measured in `tests/unit/test_chaos.py` (7 tests): Docker unavailable, sandbox error and unexpected runner exception mid-batch; sandbox timeout; model outage mid-batch; storage failure at persist (no verdict, no cache entry); CLI batch continuing after one skill fails (exit 3).
+- Not measured: a real Docker-daemon outage during a batch, a real model timeout, and disk-full on the real cache file. The unit tests inject these failures; they do not produce them.
+
+## Test-machine checklist (real model and real skills)
+
+Run in this order on the machine with Ollama, Docker and the real skills. Record each number in this file as measured.
+
+1. `ollama pull gemma4:e4b-it-qat`, then `skillsentry doctor`. It must print `ready for a full scan`.
+2. `scripts\check.sh` (or `bash scripts/check.sh`). Must pass.
+3. `skillsentry sandbox build`, then `scripts/e2e_fixtures.py --repeat 3` with the real model (not `--model-backend demo`). Record the verdict, risk and latency per skill.
+4. `scripts/acceptance.sh --e2e <skills-dir>`, with the 66 unique local skills from a scratch copy. Record crashes, degraded stages, time per skill and peak memory.
+5. Triage every non-SAFE result by hand (`docs/08`). Record false positives with the reason.
+6. Latency: cached scan (target under 2 s) and uncached scan (target under 90 s). Record the measured numbers, and the cause and fallback if a target is missed.
