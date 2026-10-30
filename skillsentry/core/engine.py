@@ -600,6 +600,14 @@ class ScanEngine:
                 degraded=True,
                 error="declared entrypoint is invalid or missing; refusing to execute a fallback",
             )
+        if ctx.package.entrypoint is None and not _has_script(ctx.package):
+            # Nothing executable in the package: there is nothing to run, so this is
+            # not a degraded sandbox.  Scripts without a declared entrypoint still degrade.
+            return StageResult(
+                stage=Stage.SANDBOX,
+                findings=[],
+                telemetry={"skipped": True, "reason": "no executable content in the package"},
+            )
         plan = build_sandbox_plan(
             ctx.package,
             StageResult(stage=Stage.DETERMINISTIC_ANCHOR),
@@ -1347,6 +1355,21 @@ class ScanEngine:
                     detail=detail,
                 )
             )
+
+
+_SCRIPT_SUFFIXES = frozenset(
+    {".py", ".sh", ".bash", ".zsh", ".js", ".mjs", ".ts", ".ps1", ".rb", ".pl", ".bat", ".cmd"}
+)
+
+
+def _has_script(package: SkillPackage) -> bool:
+    """True when the package contains anything the sandbox could execute."""
+
+    return any(
+        Path(text_file.relative).suffix.lower() in _SCRIPT_SUFFIXES
+        for text_file in package.text_files
+        if text_file.relative != "SKILL.md"
+    )
 
 
 def _sarif_format():
