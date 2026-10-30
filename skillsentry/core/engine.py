@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4, uuid5
 
+from skillsentry.core.anchors.credential_flow import RULES_FINGERPRINT
 from skillsentry.core.cache import HashError, SQLiteStore
 from skillsentry.core.cache.sqlite_store import StoreError
 from skillsentry.core.config import SkillsEntryConfig, load_config
@@ -1297,6 +1298,8 @@ class ScanEngine:
         else:
             backend = str(getattr(model, "backend", "unknown"))
             version = str(getattr(model, "model_version", "unknown"))
+        # A rules edit changes findings, so it must never reuse a cached verdict.
+        version = f"{version}|rules={RULES_FINGERPRINT}"
         semantic = self._semantic_identity(model)
         if semantic:
             version = f"{version}|{semantic}"

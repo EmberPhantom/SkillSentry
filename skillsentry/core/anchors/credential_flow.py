@@ -3,33 +3,60 @@
 Python scripts are analysed with a small AST taint tracker.  Shell and JavaScript
 scripts get a weaker pattern check, because a regex cannot prove a flow.
 
-Severity maps onto main's fusion floors (CRITICAL 95, HIGH 70, MEDIUM 30):
+Every tainted value carries its sources (the environment variable or the path it
+came from).  A destination is judged against those sources:
 
-* credential data sent to an undeclared host, or put into a DNS query: CRITICAL
+* credential data sent to a host the skill declares, and bound to that credential's
+  vendor (for example SLACK_TOKEN to slack.com): NOTE, informational
+* credential data sent to a declared host that the credential is not bound to: MEDIUM
+* credential data sent to an undeclared host that the credential is bound to: MEDIUM
+* credential data sent to an undeclared host with no binding: CRITICAL
+* credential data put into a DNS query: CRITICAL
 * credential data sent to an unresolved (dynamic) host: HIGH
-* credential data sent to a host the skill declares: MEDIUM (reported, not cleared)
 * unverified shell or JavaScript pattern match: MEDIUM
 
-The taint tracker is conservative in one direction only: it over-approximates
-flows through calls, and it clears a name when that name is reassigned from an
-untainted value.
+A binding does not count when the request is plain HTTP, disables certificate
+verification, or routes through a custom proxy.
+
+Severity maps onto main's fusion floors (CRITICAL 95, HIGH 70, MEDIUM 30).  The
+taint tracker over-approximates flows through calls, and it clears a name when that
+name is reassigned from an untainted value.
+
+Binding table: feature/developer-2 (chauhanaman41), adopted into rules/credential_rules.toml.
 """
 
 from __future__ import annotations
 
 import ast
 import fnmatch
+import hashlib
 import os
 import re
 import tomllib
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 
 from skillsentry.core.anchors.declared_hosts import extract_declared_hosts, is_host_declared
 from skillsentry.core.contracts import Finding, FindingEvidence, Severity, Stage
 from skillsentry.core.parser import SkillPackage
 
 RULES_PATH = Path(__file__).resolve().parent.parent.parent / "rules" / "credential_rules.toml"
+
+# A credential source is ("env", NAME) for an environment variable or ("path", PATH).
+Source = tuple[str, str]
+_NONE: frozenset[Source] = frozenset()
+
+
+@dataclass(frozen=True)
+class ServiceBinding:
+    """A credential that belongs to the vendor behind ``hosts``."""
+
+    name: str
+    credential_env: tuple[re.Pattern[str], ...]
+    credential_paths: tuple[str, ...]
+    hosts: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -39,6 +66,7 @@ class CredentialRules:
     path_globs: tuple[str, ...]
     python_sinks: frozenset[str]
     script_sinks: tuple[re.Pattern[str], ...]
+    bindings: tuple[ServiceBinding, ...]
 
 
 def _load_rules(path: Path = RULES_PATH) -> CredentialRules:
@@ -58,15 +86,33 @@ def _load_rules(path: Path = RULES_PATH) -> CredentialRules:
             re.compile(p)
             for p in list(sinks.get("js_patterns", [])) + list(sinks.get("shell_patterns", []))
         ),
+        bindings=tuple(
+            ServiceBinding(
+                name=str(item.get("name", "unnamed")),
+                credential_env=tuple(re.compile(p) for p in item.get("credential_env", [])),
+                credential_paths=tuple(item.get("credential_paths", [])),
+                hosts=tuple(str(host).lower() for host in item.get("hosts", [])),
+            )
+            for item in data.get("service_bindings", [])
+        ),
     )
 
 
 RULES = _load_rules()
 RULES_VERSION = RULES.version
+# Any edit to the rules file changes this, so cached verdicts never outlive the rules.
+RULES_FINGERPRINT = hashlib.sha256(RULES_PATH.read_bytes()).hexdigest()[:12]
 
 
 def _evidence(file: str, line: int, code: str) -> FindingEvidence:
     return FindingEvidence(file=file, line=line, code=code[:200] or None)
+
+
+def _union(parts: Iterable[frozenset[Source]]) -> frozenset[Source]:
+    merged: set[Source] = set()
+    for part in parts:
+        merged |= part
+    return frozenset(merged)
 
 
 def _first_string_arg(node: ast.Call) -> str | None:
@@ -77,12 +123,55 @@ def _first_string_arg(node: ast.Call) -> str | None:
     return None
 
 
+def _host_of(destination: str) -> str:
+    parsed = urlparse(destination if "://" in destination else f"//{destination}")
+    return (parsed.hostname or destination).lower()
+
+
+def _path_matches(path: str, glob: str) -> bool:
+    expanded_path = os.path.expanduser(path.replace("\\", "/")).replace("\\", "/")
+    expanded_glob = os.path.expanduser(glob)
+    return fnmatch.fnmatch(expanded_path, expanded_glob)
+
+
+def is_credential_bound(sources: frozenset[Source], destination: str) -> bool:
+    """True when a credential the payload carries belongs to the vendor behind ``destination``."""
+
+    host = _host_of(destination)
+    for binding in RULES.bindings:
+        if not any(host == bound or host.endswith("." + bound) for bound in binding.hosts):
+            continue
+        for kind, value in sources:
+            if kind == "env" and any(p.search(value) for p in binding.credential_env):
+                return True
+            if kind == "path" and any(_path_matches(value, g) for g in binding.credential_paths):
+                return True
+    return False
+
+
+def _weakens_binding(node: ast.Call, destination: str) -> bool:
+    """Plain HTTP, disabled verification or a custom proxy means a binding does not count."""
+
+    if destination.lower().startswith("http://"):
+        return True
+    for keyword in node.keywords:
+        if (
+            keyword.arg == "verify"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value is False
+        ):
+            return True
+        if keyword.arg in ("proxies", "proxy"):
+            return True
+    return False
+
+
 @dataclass
 class _Tracker(ast.NodeVisitor):
     filename: str
     declared_hosts: set[str]
-    tainted_vars: set[str] = field(default_factory=set)
-    tainted_functions: set[str] = field(default_factory=set)
+    tainted_vars: dict[str, frozenset[Source]] = field(default_factory=dict)
+    tainted_functions: dict[str, frozenset[Source]] = field(default_factory=dict)
     string_constants: dict[str, str] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
 
@@ -110,11 +199,11 @@ class _Tracker(ast.NodeVisitor):
             parts.append(current.id)
         return ".".join(reversed(parts))
 
-    def _tainted(self, node: ast.AST | None) -> bool:
+    def _sources(self, node: ast.AST | None) -> frozenset[Source]:
         if node is None:
-            return False
+            return _NONE
         if isinstance(node, ast.Name):
-            return node.id in self.tainted_vars
+            return self.tainted_vars.get(node.id, _NONE)
         if isinstance(node, ast.Subscript):
             value = node.value
             if (
@@ -123,44 +212,51 @@ class _Tracker(ast.NodeVisitor):
                 and isinstance(node.slice, ast.Constant)
                 and isinstance(node.slice.value, str)
             ):
-                return self._secret_name(node.slice.value)
-            return self._tainted(node.value)
+                name = node.slice.value
+                return frozenset({("env", name)}) if self._secret_name(name) else _NONE
+            return self._sources(node.value)
         if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute) and self._tainted(node.func.value):
-                return True
+            if isinstance(node.func, ast.Attribute):
+                inherited = self._sources(node.func.value)
+                if inherited:
+                    return inherited
             name = self._call_name(node)
             literal = _first_string_arg(node)
             if name in ("os.getenv", "os.environ.get") and literal is not None:
-                return self._secret_name(literal)
+                return frozenset({("env", literal)}) if self._secret_name(literal) else _NONE
             if (
                 name in ("open", "Path", "Path.read_text", "Path.read_bytes")
                 and literal is not None
             ):
-                return self._sensitive_path(literal)
+                return frozenset({("path", literal)}) if self._sensitive_path(literal) else _NONE
             if any(
                 token in name
                 for token in ("b64encode", "b64decode", "dumps", "encode", "decode", "str", "bytes")
             ):
-                return any(self._tainted(arg) for arg in node.args)
+                return _union(self._sources(arg) for arg in node.args)
             if isinstance(node.func, ast.Name) and node.func.id in self.tainted_functions:
-                return True
-            return any(self._tainted(arg) for arg in node.args)
+                return self.tainted_functions[node.func.id]
+            return _union(self._sources(arg) for arg in node.args)
         if isinstance(node, ast.JoinedStr):
-            return any(
-                isinstance(part, ast.FormattedValue) and self._tainted(part.value)
+            return _union(
+                self._sources(part.value)
                 for part in node.values
+                if isinstance(part, ast.FormattedValue)
             )
         if isinstance(node, ast.BinOp):
-            return self._tainted(node.left) or self._tainted(node.right)
+            return self._sources(node.left) | self._sources(node.right)
         if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
-            return any(self._tainted(element) for element in node.elts)
+            return _union(self._sources(element) for element in node.elts)
         if isinstance(node, ast.Dict):
-            return any(self._tainted(value) for value in node.values)
-        return False
+            return _union(self._sources(value) for value in node.values)
+        return _NONE
+
+    def _tainted(self, node: ast.AST | None) -> bool:
+        return bool(self._sources(node))
 
     # -- propagation --------------------------------------------------------
     def _bind(self, targets: list[ast.expr], value: ast.AST | None) -> None:
-        tainted = self._tainted(value)
+        sources = self._sources(value)
         literal = (
             value.value
             if isinstance(value, ast.Constant) and isinstance(value.value, str)
@@ -169,11 +265,11 @@ class _Tracker(ast.NodeVisitor):
         for target in targets:
             if not isinstance(target, ast.Name):
                 continue
-            if tainted:
-                self.tainted_vars.add(target.id)
+            if sources:
+                self.tainted_vars[target.id] = sources
             else:
                 # Reassignment from an untainted value clears the taint.
-                self.tainted_vars.discard(target.id)
+                self.tainted_vars.pop(target.id, None)
             if literal is not None:
                 self.string_constants[target.id] = literal
             else:
@@ -189,10 +285,11 @@ class _Tracker(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Return) and self._tainted(sub.value):
-                self.tainted_functions.add(node.name)
-                break
+        returned = _union(
+            self._sources(sub.value) for sub in ast.walk(node) if isinstance(sub, ast.Return)
+        )
+        if returned:
+            self.tainted_functions[node.name] = returned
         self.generic_visit(node)
 
     # -- sinks --------------------------------------------------------------
@@ -244,11 +341,16 @@ class _Tracker(ast.NodeVisitor):
 
     def _check_network_sink(self, node: ast.Call, call: str) -> None:
         url_node = node.args[0] if node.args else None
-        payload = self._tainted(url_node) or any(self._tainted(arg) for arg in node.args[1:])
-        payload = payload or any(
-            keyword.arg in ("data", "json", "params", "headers", "content", "auth")
-            and self._tainted(keyword.value)
-            for keyword in node.keywords
+        payload = _union(
+            [
+                self._sources(url_node),
+                *(self._sources(arg) for arg in node.args[1:]),
+                *(
+                    self._sources(keyword.value)
+                    for keyword in node.keywords
+                    if keyword.arg in ("data", "json", "params", "headers", "content", "auth")
+                ),
+            ]
         )
         if not payload:
             return
@@ -261,13 +363,34 @@ class _Tracker(ast.NodeVisitor):
                 "credential-flow-unresolved-host",
                 f"Credential material flows to a dynamic destination in {call}",
             )
-        elif is_host_declared(destination, self.declared_hosts):
+            return
+        bound = is_credential_bound(payload, destination) and not _weakens_binding(
+            node, destination
+        )
+        if is_host_declared(destination, self.declared_hosts):
+            if bound:
+                self._report(
+                    node,
+                    call,
+                    Severity.NOTE,
+                    "credential-flow-declared-bound",
+                    f"Credential sent to its own declared service host: {destination}",
+                )
+            else:
+                self._report(
+                    node,
+                    call,
+                    Severity.MEDIUM,
+                    "credential-flow-declared-host",
+                    f"Credential material is sent to a declared service host: {destination}",
+                )
+        elif bound:
             self._report(
                 node,
                 call,
                 Severity.MEDIUM,
-                "credential-flow-declared-host",
-                f"Credential material is sent to a declared service host: {destination}",
+                "credential-flow-undeclared-bound",
+                f"Credential for {destination}'s vendor is sent to undeclared host {destination}",
             )
         else:
             self._report(
@@ -314,4 +437,4 @@ def analyze_credential_flows(package: SkillPackage) -> list[Finding]:
     return findings
 
 
-__all__ = ["RULES_VERSION", "analyze_credential_flows"]
+__all__ = ["RULES_FINGERPRINT", "RULES_VERSION", "analyze_credential_flows", "is_credential_bound"]
