@@ -56,6 +56,7 @@ from skillsentry.core.decisions.calibration import CalibrationError, load_calibr
 from skillsentry.core.decisions.mapping import CAPABILITY_THRESHOLD
 from skillsentry.core.evasion.detector import EvasionResult, detect_probes
 from skillsentry.core.models.base import ModelClient, ModelError
+from skillsentry.core.models.mock import MockGemma
 from skillsentry.core.models.selector import select_model
 from skillsentry.core.parser import SkillPackage, SkillParseError, parse_skill
 from skillsentry.core.parser.typosquat import TyposquatMatch, check_typosquat
@@ -1245,6 +1246,9 @@ class ScanEngine:
         if self._model_selected:
             return self._model
         self._model_selected = True
+        if self.config.model.backend == "demo":
+            self._model = MockGemma()
+            return self._model
         try:
             self._model = select_model(self.config)
         except (ModelError, ValueError, OSError) as exc:
@@ -1266,17 +1270,12 @@ class ScanEngine:
         return self._model_identity()
 
     def _model_identity(self) -> tuple[str, str]:
-        from skillsentry.core.anchors.credential_flow import CREDENTIAL_RULES_VERSION
-        from skillsentry.core.semantic.prompts import PROMPT_VERSION
-        from skillsentry.core.semantic.schemas import SCHEMA_VERSION
-
         model = self._get_model()
         if model is None:
             backend, version = "unavailable", "unavailable"
         else:
             backend = str(getattr(model, "backend", "unknown"))
             version = str(getattr(model, "model_version", "unknown"))
-        version = f"{version}|rules={CREDENTIAL_RULES_VERSION}|p={PROMPT_VERSION}|s={SCHEMA_VERSION}"
         semantic = self._semantic_identity(model)
         if semantic:
             version = f"{version}|{semantic}"

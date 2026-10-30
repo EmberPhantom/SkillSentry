@@ -16,6 +16,7 @@ from skillsentry.core.decisions.base import (
     EvidenceCandidate,
 )
 from skillsentry.core.decisions.laya import LayaDecisionClient
+from skillsentry.core.decisions.mock import MockDecisionClient
 from skillsentry.core.decisions.questions import (
     CAPABILITY_QUESTIONS,
     DECEPTION_CHOICES,
@@ -37,6 +38,7 @@ __all__ = [
     "DecisionUnavailable",
     "EvidenceCandidate",
     "LayaDecisionClient",
+    "MockDecisionClient",
     "select_decision_model",
     "semantic_questions",
 ]

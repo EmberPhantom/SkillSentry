@@ -24,6 +24,10 @@ def ground_quote(quote: str, chunk: Chunk) -> Optional[Tuple[int, int]]:
     if not quote:
         return None
 
+    norm_q = normalize_code(quote)
+    if len(norm_q) < 5:
+        return None
+
     lines = chunk.text.splitlines()
     if not lines:
         return None
@@ -34,10 +38,6 @@ def ground_quote(quote: str, chunk: Chunk) -> Optional[Tuple[int, int]]:
             return chunk.start_line + i, chunk.start_line + i
 
     # 2. Normalized single-line search
-    norm_q = normalize_code(quote)
-    if len(norm_q) < 5:
-        return None
-
     for i, line in enumerate(lines):
         if norm_q in normalize_code(line):
             return chunk.start_line + i, chunk.start_line + i

@@ -23,6 +23,7 @@ from skillsentry.core.config import (
 from skillsentry.core.contracts import ExportFormat, ScanOptions, Verdict, VerdictTier
 from skillsentry.core.engine import ScanEngine, ScanError, ScanOutcome
 from skillsentry.core.exit_codes import ExitCode
+from skillsentry.core.models.mock import MockGemma
 from skillsentry.core.reports import render_report
 from skillsentry.core.version import GEMMA_BADGE, __version__
 from skillsentry.server.demo_data import build_demo_store
@@ -99,33 +100,6 @@ def serve(
 
 
 @app.command()
-def doctor() -> None:
-    """Validate runtime environment: Ollama, Gemma model, context, Docker."""
-    from skillsentry.core.models.ollama_client import OllamaClient
-    from skillsentry.core.sandbox.runner import SandboxRunner
-
-    config = load_config()
-    client = OllamaClient(config.model)
-    healthy = True
-    try:
-        info = client.preflight()
-        typer.echo(f"Ollama server: reachable ({client.base_url})")
-        typer.echo(f"Model: {info.name} (digest: {info.digest})")
-        typer.echo(f"Context length: {info.context_length} (effective: {info.effective_ctx})")
-        typer.echo(f"Supports vision: {info.supports_vision}")
-    except Exception as exc:
-        typer.echo(f"Ollama/Model error: {exc}", err=True)
-        healthy = False
-
-    docker_ok = SandboxRunner().available()
-    typer.echo(f"Docker sandbox: {'available' if docker_ok else 'unavailable'}")
-
-    if healthy:
-        raise typer.Exit(code=int(ExitCode.OK))
-    raise typer.Exit(code=int(ExitCode.OPERATIONAL))
-
-
-@app.command()
 def init(
     path: Path = typer.Option(
         Path("skillsentry.toml"), "--path", help="Where to write the config."
@@ -146,7 +120,7 @@ def scan(
     path: Path = typer.Argument(..., help="Skill directory, or a folder containing skills."),
     demo_mode: bool = typer.Option(False, "--demo-mode", help="Use the canned demo store."),
     output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
-    fail_on: str = typer.Option("suspicious", "--fail-on", help="safe | suspicious | malicious"),
+    fail_on: str = typer.Option("malicious", "--fail-on", help="safe | suspicious | malicious"),
     quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
     sandbox: bool = typer.Option(
@@ -164,10 +138,6 @@ def scan(
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write a SARIF 2.1.0 report to a file."
     ),
-    model_name: str | None = typer.Option(None, "--model-name", help="Override Ollama model name."),
-    ollama_host: str | None = typer.Option(None, "--ollama-host", help="Override Ollama host URL."),
-    max_ctx: int | None = typer.Option(None, "--max-ctx", help="Override effective context budget."),
-    no_semantic: bool = typer.Option(False, "--no-semantic", help="Disable semantic LLM stage."),
 ) -> None:
     """Audit one skill directory or a folder of skills."""
 
@@ -207,27 +177,9 @@ def scan(
 
     try:
         config = _config_for_backend(backend)
-        if model_name:
-            config.model.ollama_model = model_name
-        if ollama_host:
-            config.model.ollama_url = ollama_host
-        if no_semantic:
-            config.decision.backend = "none"
     except ConfigError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE)) from exc
-
-    if output_format == "text" and not quiet:
-        if no_semantic:
-            sys.stderr.write("model: disabled (--no-semantic)\n")
-        else:
-            from skillsentry.core.models.ollama_client import OllamaClient
-            try:
-                cl = OllamaClient(config.model)
-                inf = cl.preflight()
-                sys.stderr.write(f"model: ollama {inf.name} digest={inf.digest} ctx={inf.effective_ctx}\n")
-            except Exception:
-                sys.stderr.write(f"model: {config.model.backend} {config.model.ollama_model} (preflight unverified)\n")
 
     engine = _make_engine(config, backend)
     try:
@@ -275,7 +227,7 @@ def scan(
 @app.command("self-audit")
 def self_audit(
     output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
-    fail_on: str = typer.Option("suspicious", "--fail-on", help="safe | suspicious | malicious"),
+    fail_on: str = typer.Option("malicious", "--fail-on", help="safe | suspicious | malicious"),
     quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
     no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
     sandbox: bool = typer.Option(True, "--sandbox/--no-sandbox"),
@@ -325,8 +277,8 @@ def _config_for_backend(backend: str) -> SkillsEntryConfig:
 
 
 def _make_engine(config: SkillsEntryConfig, backend: str) -> ScanEngine:
-    del backend
-    return ScanEngine(config)
+    model = MockGemma() if backend == "demo" else None
+    return ScanEngine(config, model=model)
 
 
 def _demo_verdict_for(path: Path) -> Verdict:

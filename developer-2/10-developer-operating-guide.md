@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/10-developer-guide.md](file:///d:/Skillsentry/SkillSentry/docs/10-developer-guide.md) §10.1 · [CONTRIBUTING.md](file:///d:/Skillsentry/SkillSentry/CONTRIBUTING.md) · [docs/checklists/dev2-skill-analysis.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev2-skill-analysis.md)
+> **Source-of-Truth References:** [docs/10-developer-guide.md](docs/10-developer-guide.md) §10.1 · [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/checklists/dev2-skill-analysis.md](docs/checklists/dev2-skill-analysis.md)
 
 ---
 
@@ -22,7 +22,7 @@ This guide enables any engineer joining Developer 2's workstream to set up an en
 ### 1.2 Quickstart Setup (Windows PowerShell)
 ```powershell
 # 1. Open Windows PowerShell and navigate to repository root
-cd d:\Skillsentry\SkillSentry
+cd 
 
 # 2. Allow local script execution if restricted
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned

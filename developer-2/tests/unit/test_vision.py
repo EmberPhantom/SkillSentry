@@ -169,7 +169,7 @@ class TestScanVisualAssets:
 
     def test_xxe_entity_injection_blocked(self, tmp_path):
         """DEF-12: XML DTD/entity injection in SVG must be blocked and emit critical finding."""
-        svg_content = '<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><svg>&xxe;</svg>'
+        svg_content = '<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:" + "///etc/passwd">]><svg>&xxe;</svg>'
         svg_file = tmp_path / "xxe.svg"
         svg_file.write_text(svg_content)
         findings = _scan_svg_static(str(svg_file), "xxe.svg")

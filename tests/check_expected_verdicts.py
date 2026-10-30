@@ -47,7 +47,7 @@ def _scan_one(name: str, expected: dict[str, Any], *, sandbox: bool) -> CheckRes
     from skillsentry.core.config import SkillsEntryConfig
     from skillsentry.core.contracts import ScanOptions
     from skillsentry.core.engine import ScanEngine
-    from tests.support.mock_gemma import MockGemma
+    from skillsentry.core.models.mock import MockGemma
 
     with tempfile.TemporaryDirectory(prefix="skillsentry-fixture-") as temp:
         store = SQLiteStore(Path(temp) / "scan.sqlite")

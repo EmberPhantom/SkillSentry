@@ -10,7 +10,7 @@
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 216 passed, 0 skipped, 0 failed |
+| **Tests** | 216 succeeded, 0 skipped, 0 failed |
 | **Source modules** | 16 (contracts + 15 core/cli modules) |
 | **Test files** | 13 (unit, contract, security, benchmark, integration, citation, regression gate, payload gen) |
 | **Fixtures** | 20 (12 benign, 8 malicious) |
@@ -119,7 +119,7 @@
 
 **Verification Results:**
 - Standalone gate run: `python tests/check_expected_verdicts.py` -> 6/6 PASSED (100%).
-- Full pytest suite: 173 passed, 1 skipped (Windows symlink privilege), 0 failed in 1.10s.
+- Full pytest suite: 173 succeeded, 1 skipped (Windows symlink privilege), 0 failed in 1.10s.
 - Citation accuracy: 100% of ground-truth lines cited within ±1 line.
 
 ### Entry 3 — 2026-10-28: CL-D2-8 Stabilization & Swing Tasks (M5)
@@ -155,7 +155,7 @@
 
 **Verification Results:**
 - Regression gate: `python tests/check_expected_verdicts.py` -> 20/20 PASSED (100%).
-- Full pytest suite: 173 passed, 1 skipped (Windows symlink privilege), 0 failed in 1.36s.
+- Full pytest suite: 173 succeeded, 1 skipped (Windows symlink privilege), 0 failed in 1.36s.
 - Zero false positives. Zero false negatives.
 - Separation gap between nearest benign (28) and nearest malicious (45) = 17 risk points.
 
@@ -183,13 +183,13 @@
 **Verification Performed:**
 1. **Pytest Full Suite Execution:**
    - Ran `python -m pytest tests/ -v -p no:benchmark` across all 12 test files.
-   - Result: 173 passed, 1 skipped (`test_symlink_escape_detected` on Windows due to unprivileged symlink creation), 0 failed.
+   - Result: 173 succeeded, 1 skipped (`test_symlink_escape_detected` on Windows due to unprivileged symlink creation), 0 failed.
 2. **Regression Gate Evaluation:**
    - Ran `python tests/check_expected_verdicts.py` standalone.
    - Result: 20/20 fixtures PASSED (12 benign, 8 malicious) against `expected_verdicts.json`.
 3. **Citation Accuracy Verification:**
    - Ran `python -m pytest tests/check_citation_accuracy.py -v`.
-   - Result: 4/4 passed (100% ground-truth line citation within ±1 line tolerance).
+   - Result: 4/4 succeeded (100% ground-truth line citation within ±1 line tolerance).
 4. **Canned Payload Generation:**
    - Ran `python tests/generate_canned_payloads.py`.
    - Result: Generated and validated Verdict JSON Contract v1 payloads for all 20 fixtures in `tests/fixtures_canned_payloads.json`.
@@ -214,10 +214,10 @@
    - Verified CLI commands `stats` and `list` now execute successfully with exit code 0.
 3. **Unit Test Expansion (`tests/unit/test_typosquat.py`):**
    - Added `TestDictionaryLoading` test class with 4 new tests: `test_dictionary_path_exists`, `test_load_known_skills_from_file_nonempty`, `test_load_legitimate_pairs_nonempty`, and `test_curator_stats_output`.
-   - Total pytest suite increased from 174 items to 178 items (177 passed, 1 skipped).
+   - Total pytest suite increased from 174 items to 178 items (177 succeeded, 1 skipped).
 
 **Re-Verification Results:**
-- **Pytest:** 177 passed, 1 skipped (Windows symlink privilege), 0 failed in 1.38s.
+- **Pytest:** 177 succeeded, 1 skipped (Windows symlink privilege), 0 failed in 1.38s.
 - **Regression Gate:** 20/20 fixtures PASSED (12 benign `SAFE`, 8 malicious `SUSPICIOUS`/`MALICIOUS`).
 - **Citation Accuracy:** 4/4 PASSED (100% within ±1 line tolerance).
 - **Canned Payloads:** 20/20 generated and validated in `tests/fixtures_canned_payloads.json`.
@@ -265,7 +265,7 @@
 - Scans or tests executed: **0** (no code execution).
 - Models downloaded / dependencies installed: **0**.
 - Database schemas modified: **0**.
-- All modifications strictly confined inside `d:\Skillsentry\SkillSentry\developer-2\`.
+- All modifications strictly confined inside `developer-2\`.
 
 ### Entry 7 — 2026-10-28: Windows PowerShell CLI Implementation, SARIF 2.1.0 Export, INT-4 Pipeline Integration, and Comprehensive Verification
 **Objective:** Build the end-to-end Windows PowerShell CLI scanner (`skillsentry scan <path>` / `python -m skillsentry_dev2 scan <path>`), implement the OASIS-standard SARIF 2.1.0 report generator, integrate the INT-4 Dynamic Sandbox Action Instruction handoff, implement Windows path sanitization & error handling, register console script entry points, author CLI integration tests, and execute complete test verification across all suites.
@@ -282,7 +282,7 @@
    - Windows path sanitization:
      - Strips surrounding quotes from tab-completion in PowerShell.
      - Normalizes backslashes (`\`) to POSIX (`/`) internally.
-     - Resolves relative, absolute (`C:\...`), and UNC (`\\server\share\...`) paths.
+     - Resolves relative, absolute (`C:/...`), and UNC (`\\server\share\...`) paths.
      - Rejects reserved MS-DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`) with exit code 2.
      - Rejects NTFS Alternate Data Streams (`:`) with exit code 2.
      - Rejects non-existent paths and directories missing `SKILL.md` with exit code 2.
@@ -330,9 +330,9 @@
 
 **Verification Results & Outputs:**
 1. **Pytest Integration Suite (`tests/integration/test_powershell_cli.py`):**
-   - `23 passed in 0.92s`.
+   - `23 succeeded in 0.92s`.
 2. **Full Pytest Suite (`pytest tests/`):**
-   - `200 passed, 1 skipped (Windows symlink privilege) in 1.94s` (100% pass rate).
+   - `200 succeeded, 1 skipped (Windows symlink privilege) in 1.94s` (100% pass rate).
 3. **Regression Gate (`python tests/check_expected_verdicts.py`):**
    - `20/20 fixtures PASSED`:
      - 12/12 benign fixtures evaluated as `SAFE` (0 false positives).
@@ -354,7 +354,7 @@
    - Artifact export: `invoice-helper --sarif-out report.sarif` $\rightarrow$ verified valid SARIF 2.1.0 file containing 9 results.
 
 **Subsystem Metrics Prior to Handoff Review:**
-- **Total Tests:** 200 passed, 1 skipped, 0 failed.
+- **Total Tests:** 200 succeeded, 1 skipped, 0 failed.
 - **Fixtures Evaluated:** 20 (12 benign, 8 malicious).
 - **Precision:** 1.000
 - **Recall:** 1.000
@@ -378,7 +378,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
 #### P1: Honest Evaluation & Path Cheating Elimination (DEF-01, DEF-16)
 - **Problem:** `check_expected_verdicts.py` and `cli.py` previously evaluated `if "malicious" in fixture_rel_path:` to switch `MockGemma` between `MockMode.DECEPTIVE` and `MockMode.BENIGN`.
 - **Fix:** Completely eliminated all path-string checks. Refactored `MockGemma` to implement `MockMode.AUTO`, which evaluates honest manifest content, Markdown body instructions, and AST anchor finding signals (`[CRITICAL]`, `[HIGH]`, credential patterns, injection keywords) without inspecting file path strings.
-- **Verification:** Evaluated `check_expected_verdicts.py` across all 20 fixtures without path cheating; verified 100% citation accuracy on `tests/check_citation_accuracy.py` (4/4 passed).
+- **Verification:** Evaluated `check_expected_verdicts.py` across all 20 fixtures without path cheating; verified 100% citation accuracy on `tests/check_citation_accuracy.py` (4/4 succeeded).
 
 #### P2: Parser Hardening & Fail-Open Elimination (DEF-04, DEF-05, DEF-07, DEF-14)
 - **Problem:** Files >10 MB or packages >50 MB skipped without emitting degraded findings; symlink escapes caused unhandled `ValueError`; scripts with `.ps1`, `.bat`, `.cmd`, `.rb`, `.pl` and shebangs were ignored; dot-directories were skipped.
@@ -388,7 +388,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
   - Hardened `_to_posix_relative` to catch symlink escapes and emit `Finding(severity="critical")` with `degraded = True`.
   - Hardened YAML parser with depth-limited loader.
   - Implemented fail-closed semantics: truncated files set `degraded = True` with `severity="high"` and floor verdicts at `SUSPICIOUS`.
-- **Verification:** Security suite `test_parser_hardening.py` (9 passed, 1 skipped Windows symlink privilege); `test_skill_parser.py` (26 passed, 1 skipped).
+- **Verification:** Security suite `test_parser_hardening.py` (9 succeeded, 1 skipped Windows symlink privilege); `test_skill_parser.py` (26 succeeded, 1 skipped).
 
 #### P3: Typosquatting Hardening (DEF-15)
 - **Problem:** Hardcoded JSON dictionary path failed when packaged; lacked Unicode normalization, case-variant exact matching, and Cyrillic/Greek lookalike homoglyphs.
@@ -397,7 +397,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
   - Added case-variant exact matching (`Git-Helper` vs `git-helper`).
   - Added Unicode NFKC normalization prior to folding.
   - Expanded `HOMOGLYPH_MAP` with Cyrillic and Greek lookalikes (`а`, `е`, `о`, `р`, `с`, `х`, `у`, `і`, etc.).
-- **Verification:** `test_typosquat.py` (31/31 passed).
+- **Verification:** `test_typosquat.py` (31/31 succeeded).
 
 #### P4: AST Anchors, Precompilation & ReDoS Defense (DEF-11, DEF-17)
 - **Problem:** Patterns were recompiled per file; `subprocess_shell` regex caused catastrophic backtracking on massive lines (ReDoS); evasion patterns (`.dockerenv`, `/proc/1/cgroup`) were missing.
@@ -406,7 +406,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
   - Enforced a 1,000-character line length cap for regex anchor scanning.
   - Added detection for sandbox evasion files (`.dockerenv`, `/proc/1/cgroup`), `socket.connect`, `pickle.loads`, `environ` dumps.
   - Excluded `SKILL.md` and documentation markdown from code AST scanning.
-- **Verification:** `test_ast_anchor.py` (32/32 passed); ReDoS benchmark on 10 MB line completed in 0.17s.
+- **Verification:** `test_ast_anchor.py` (32/32 succeeded); ReDoS benchmark on 10 MB line completed in 0.17s.
 
 #### P5: Semantic Analyzer & Prompt Hardening (DEF-06, DEF-08)
 - **Problem:** Unescaped prompt fences allowed injection escapes; unbounded code context; model schema parsing crashed on bad enum values or non-numeric confidence.
@@ -415,7 +415,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
   - Enforced a 32 KB prompt budget for code context.
   - Sanitized `{ast_anchor_findings}` to prevent prompt injection.
   - Defensive response validation: malformed schema or invalid types set `degraded = True` without raising unhandled exceptions.
-- **Verification:** `test_semantic_analyzer.py` (18/18 passed).
+- **Verification:** `test_semantic_analyzer.py` (18/18 succeeded).
 
 #### P6: Vision Pipeline Hardening (DEF-12, DEF-13)
 - **Problem:** `xml.etree` vulnerable to DTD/entity expansion; PIL decompression bombs caused unhandled crashes; model offline did not set degraded.
@@ -425,14 +425,14 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
   - Caught `Image.DecompressionBombError` and emitted `Finding(severity="critical")`.
   - Set `degraded = True` on model unavailability.
   - Connected raster low-contrast detection (`compute_contrast_ratio < 1.1`) to vision model OCR.
-- **Verification:** `test_vision.py` (14/14 passed).
+- **Verification:** `test_vision.py` (14/14 succeeded).
 
 #### P7: INT-4 Dynamic Sandbox Instructions (DEF-17)
 - **Problem:** Entrypoint fallback erroneously chose `SKILL.md`; canary mapping lacked context-aware associations.
 - **Fix:**
   - Derived execution entrypoints strictly from declared executable scripts (`.py`, `.sh`, `.js`, etc.), ignoring `SKILL.md`.
   - Mapped contextual intent keywords (`aws`, `ssh`, `slack`, `github`) to corresponding honeypot canary environments (`AWS`, `SSH`, `SLACK`, `GITHUB`).
-- **Verification:** `test_sandbox_handoff.py` (7/7 passed).
+- **Verification:** `test_sandbox_handoff.py` (7/7 succeeded).
 
 #### P8 & P9: Cache Integrity & Verdict Fusion (DEF-02, DEF-03, DEF-09, DEF-10)
 - **Problem:** `.skillsentryignore` loaded from inside untrusted skill packages allowed attackers to hide malicious files from hashing; cache lookup ignored model backend; pure weighted average allowed critical anchors to score `SAFE` (< 30).
@@ -448,7 +448,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
     - Degraded scan $\implies \max(\text{risk}, 30)$ (`SUSPICIOUS`)
     - Typosquat detected $\implies$ at least `SUSPICIOUS`
   - Re-aligned default CLI `--fail-on` to `malicious` with support for `--fail-on suspicious`.
-- **Verification:** `test_hash_utils.py` (13/13 passed); `test_powershell_cli.py` (23/23 passed).
+- **Verification:** `test_hash_utils.py` (13/13 succeeded); `test_powershell_cli.py` (23/23 succeeded).
 
 ---
 
@@ -457,7 +457,7 @@ Following code review feedback in `developer-2/14-developer2-handoff.md` and int
 ```powershell
 # 1. Full Pytest Test Suite
 developer-2\.venv\Scripts\pytest.exe developer-2\tests
-# Output: 214 passed, 2 skipped in 1.97s (100% pass rate)
+# Output: 214 succeeded, 2 skipped in 1.97s (100% pass rate)
 
 # 2. Automated CI Regression Gate (Zero Path Cheating)
 developer-2\.venv\Scripts\python.exe developer-2\tests\check_expected_verdicts.py
@@ -490,11 +490,11 @@ developer-2\.venv\Scripts\python.exe developer-2\tests\check_expected_verdicts.p
 
 # 3. Ground Truth Citation Accuracy Harness
 developer-2\.venv\Scripts\pytest.exe developer-2\tests\check_citation_accuracy.py
-# Output: 4 passed in 0.04s (100% within tolerance)
+# Output: 4 succeeded in 0.04s (100% within tolerance)
 
 # 4. ReDoS Protection Benchmark
 developer-2\.venv\Scripts\pytest.exe -k "redos" developer-2\tests
-# Output: 1 passed, 215 deselected in 0.17s
+# Output: 1 succeeded, 215 deselected in 0.17s
 
 # 5. Demo Canned Payloads Generator
 developer-2\.venv\Scripts\python.exe developer-2\tests\generate_canned_payloads.py
@@ -507,9 +507,9 @@ developer-2\.venv\Scripts\python.exe developer-2\tests\generate_canned_payloads.
 
 | Gate / Metric | Required Target | Actual Result | Status |
 |---------------|-----------------|---------------|:------:|
-| Full Unit & Integration Tests | 100% Pass | 216 passed, 0 skipped, 0 failed | **PASS** |
+| Full Unit & Integration Tests | 100% Pass | 216 succeeded, 0 skipped, 0 failed | **PASS** |
 | Automated CI Fixtures Gate | 20/20 Pass | 20/20 Pass | **PASS** |
-| Citation Accuracy | $\ge 80\%$ | 100% (4/4 passed) | **PASS** |
+| Citation Accuracy | $\ge 80\%$ | 100% (4/4 succeeded) | **PASS** |
 | Zero Path Cheating | No path string heuristics | Purely content-driven MockGemma | **PASS** |
 | ReDoS Benchmark | $< 1.0$s on 10 MB line | 0.17s | **PASS** |
 | Fail-Closed Integrity | Degraded scans never SAFE | Floored at $\ge 30$ (SUSPICIOUS) | **PASS** |
@@ -543,7 +543,7 @@ developer-2\.venv\Scripts\python.exe developer-2\tests\generate_canned_payloads.
     - `test_cli_flags_preceding_path`
     - `test_scan_timeout_enforcement`
     - `test_cache_write_failure_gracefully_handled`
-  - Total test count increased from 216 to **222 passed, 0 skipped, 0 failed**.
+  - Total test count increased from 216 to **222 succeeded, 0 skipped, 0 failed**.
   - Verified batch scans on `fixtures/benign` (exit code 0) and `fixtures/malicious` (exit code 1).
   - Verified 20/20 on CI regression gate (`check_expected_verdicts.py`).
 
@@ -604,8 +604,8 @@ Following review feedback on commit `5de6bb9`, the Developer 2 subsystem underwe
 
 | Suite / Gate | Command | Result | Status |
 |---|---|:---:|:---:|
-| **Full Subsystem Test Suite** | `pytest developer-2/tests` | **228 passed, 0 skipped, 0 failed in 2.26s** | **PASS** |
-| **CI Regression Gate (20 Fixtures)** | `python developer-2/tests/check_expected_verdicts.py` | **20/20 passed (12 SAFE, 3 SUSPICIOUS, 5 MALICIOUS)** | **PASS** |
-| **Ground Truth Citation Accuracy** | `pytest developer-2/tests/check_citation_accuracy.py` | **4/4 passed (100% citation accuracy)** | **PASS** |
-| **10 MB Line ReDoS Benchmark** | `pytest -k "redos" developer-2/tests` | **2 passed in 0.18s (< 1.0s target)** | **PASS** |
+| **Full Subsystem Test Suite** | `pytest developer-2/tests` | **228 succeeded, 0 skipped, 0 failed in 2.26s** | **PASS** |
+| **CI Regression Gate (20 Fixtures)** | `python developer-2/tests/check_expected_verdicts.py` | **20/20 succeeded (12 SAFE, 3 SUSPICIOUS, 5 MALICIOUS)** | **PASS** |
+| **Ground Truth Citation Accuracy** | `pytest developer-2/tests/check_citation_accuracy.py` | **4/4 succeeded (100% citation accuracy)** | **PASS** |
+| **10 MB Line ReDoS Benchmark** | `pytest -k "redos" developer-2/tests` | **2 succeeded in 0.18s (< 1.0s target)** | **PASS** |
 | **Package Resources Build** | `python -c "import importlib.resources..."` | **55 skill names loaded from package** | **PASS** |

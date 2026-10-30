@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/08-testing-and-evaluation.md](file:///d:/Skillsentry/SkillSentry/docs/08-testing-and-evaluation.md) · [docs/checklists/dev2-skill-analysis.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev2-skill-analysis.md) CL-D2-6, CL-D2-7
+> **Source-of-Truth References:** [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) · [docs/checklists/dev2-skill-analysis.md](docs/checklists/dev2-skill-analysis.md) CL-D2-6, CL-D2-7
 
 ---
 
@@ -109,7 +109,7 @@ Developer 2 maintains hand-annotated suspicious line numbers for all malicious f
 ## 4. Citation Accuracy Harness Specification
 
 ### 4.1 The $\pm 1$ Line Accuracy Rule
-In static analysis, comments or multi-line commands can shift line numbers slightly across parsers. Developer 2 implements the official citation accuracy metric per [docs/08-testing-and-evaluation.md](file:///d:/Skillsentry/SkillSentry/docs/08-testing-and-evaluation.md) §8.4:
+In static analysis, comments or multi-line commands can shift line numbers slightly across parsers. Developer 2 implements the official citation accuracy metric per [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.4:
 
 - **Matching Criteria**: A reported finding $F$ is classified as an **Accurate Citation** if:
   1. $F.\text{file} == G.\text{file}$ (Exact relative path match).
@@ -180,5 +180,5 @@ During the Milestone M4 all-hands **Chaos Run**, Developer 2 is directly respons
 3. **Symlink Loop Test**: Introduce recursive directory symlinks $\rightarrow$ verify directory walker detects recursion depth and terminates cleanly.
 4. **Offline Resilience**: Disconnect host network $\rightarrow$ verify all unit tests and local Ollama analyses complete normally without attempting network calls.
 5. **Windows PowerShell Interrupt (Ctrl+C)**: Send `SIGINT` during directory hashing or AST scanning $\rightarrow$ verify database lock is released cleanly and temporary files are unlinked.
-6. **Windows Path Anomalies Drill**: Submit paths with Windows drive letters (`C:\`), backslashes, mixed slashes, spaces, and trailing slashes $\rightarrow$ verify deterministic hashing and identical SARIF generation.
+6. **Windows Path Anomalies Drill**: Submit paths with Windows drive letters (`C:/`), backslashes, mixed slashes, spaces, and trailing slashes $\rightarrow$ verify deterministic hashing and identical SARIF generation.
 7. **PowerShell 5.1 vs 7.x Console Encoding Drill**: Verify terminal output renders cleanly without mojibake or UTF-8 decoding exceptions across Windows PowerShell 5.1 and PowerShell 7.x.

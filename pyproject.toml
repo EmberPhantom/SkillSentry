@@ -87,6 +87,10 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "fake_transport: tests using httpx.MockTransport rather than live service",
+  "live_ollama: end-to-end test against a live Ollama server",
+]
 asyncio_mode = "auto"
 addopts = "-ra"
 filterwarnings = [

@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/01-project-overview.md](file:///d:/Skillsentry/SkillSentry/docs/01-project-overview.md) · [docs/02-architecture.md](file:///d:/Skillsentry/SkillSentry/docs/02-architecture.md) · [docs/checklists/dev2-skill-analysis.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev2-skill-analysis.md)
+> **Source-of-Truth References:** [docs/01-project-overview.md](docs/01-project-overview.md) · [docs/02-architecture.md](docs/02-architecture.md) · [docs/checklists/dev2-skill-analysis.md](docs/checklists/dev2-skill-analysis.md)
 
 ---
 
@@ -50,7 +50,7 @@ Verifiable Acceptance Evidence ("Done means")
 | **REQ-EVAL-02** | `08-test` §8.8 | Automated CI expected-verdicts regression gate | **W2.7**<br>CL-D2-7 | `tests/check_expected_verdicts.py` | GitHub Actions CI Run | Fails build if any fixture drifts in verdict, risk band, or required findings. | Planned (M3) |
 | **REQ-CHAOS-01**| `08-test` §8.6 | Corrupted-fixture resilience during M4 Chaos Run | **W2.7**<br>CL-D2-7 | `core/parser/skill_parser.py` | `tests/chaos/test_corrupted_fixtures.py` | Truncated YAML, 0-byte images, symlink loops handled cleanly with findings. | Planned (M4) |
 | **REQ-STAB-01** | `11-team` §11.8<br>`08-test` §8.2 | Expand evaluation corpus to 20 skills & publish metrics | **W2.8**<br>CL-D2-8 | `fixtures/corpus_20/` | `tests/e2e/test_corpus_20.py` | 20-skill suite green in CI; precision, recall, and F1 documented in README. | Planned (M5) |
-| **REQ-D2-PS-01**| Plan Update §5 | Windows PowerShell path normalization & device name rejection | **W2.1**<br>CL-D2-1 | `core/parser/skill_parser.py` | `tests/unit/test_powershell_paths.py` | Normalizes drive letters (`C:\`), backslashes, spaces, quotes; rejects `CON`, `NUL`, `PRN`. | Planned (M1) |
+| **REQ-D2-PS-01**| Plan Update §5 | Windows PowerShell path normalization & device name rejection | **W2.1**<br>CL-D2-1 | `core/parser/skill_parser.py` | `tests/unit/test_powershell_paths.py` | Normalizes drive letters (`C:/`), backslashes, spaces, quotes; rejects `CON`, `NUL`, `PRN`. | Planned (M1) |
 | **REQ-D2-PS-02**| Plan Update §5<br>`07-cli` §7.5 | Windows PowerShell CLI options & exit code contract (0/1/2/3/4) | **W2.1**<br>CL-D2-7 | `cli.py` / `skill_parser.py` | `tests/integration/test_powershell_cli.py` | Correct exit codes on safe (0) vs malicious (1) vs usage (2) vs op error (3) vs model (4); clean ANSI text. | Planned (M1) |
 | **REQ-D2-SBX-01**| Plan Update §6 | Dynamic SandboxActionInstruction generation from AST anchors | **W2.2**<br>CL-D2-2 | `core/semantic/sandbox_instructions.py` | `tests/unit/test_sandbox_instructions.py` | Emits structured INT-4 checks (`CREDENTIAL_CANARY_MONITOR`, `DNS_SINKHOLE_WATCH`). | Planned (M1) |
 | **REQ-D2-SBX-02**| Plan Update §6 | Intent-adaptive parameter & canary handoff to Stage 4 | **W2.3**<br>CL-D2-3 | `core/semantic/sandbox_instructions.py` | `tests/contract/test_sandbox_handoff.py` | Maps `contextual_intent` keywords to canary tokens and container constraints. | Planned (M1) |

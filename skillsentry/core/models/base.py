@@ -20,18 +20,6 @@ class ModelUnavailable(ModelError):
     """No backend is reachable (callers must emit a ``*-unavailable`` finding)."""
 
 
-class ModelTimeout(ModelError):
-    """Inference request timed out."""
-
-
-class ModelBadResponse(ModelError):
-    """Model returned unparsable, schema-invalid, or cut-off output."""
-
-
-class PromptTruncated(ModelError):
-    """Prompt exceeded context window or was truncated by server."""
-
-
 @runtime_checkable
 class ModelClient(Protocol):
     """Typed interface between Dev 2's analyzers and Dev 1's model plumbing."""

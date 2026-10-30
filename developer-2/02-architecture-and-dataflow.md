@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/02-architecture.md](file:///d:/Skillsentry/SkillSentry/docs/02-architecture.md) · [docs/03-database.md](file:///d:/Skillsentry/SkillSentry/docs/03-database.md) · [docs/04-security.md](file:///d:/Skillsentry/SkillSentry/docs/04-security.md)
+> **Source-of-Truth References:** [docs/02-architecture.md](docs/02-architecture.md) · [docs/03-database.md](docs/03-database.md) · [docs/04-security.md](docs/04-security.md)
 
 ---
 
@@ -16,7 +16,7 @@ The end-to-end user experience on Windows systems progresses through ten coordin
 1. **User Opens PowerShell**: The user opens Windows PowerShell (5.1 or 7.x Core) in a supported terminal (Windows Terminal, VS Code, or ConHost) with Python 3.11+ virtual environment active.
 2. **User Invokes Scan**: The user runs the documented command interface:
    ```powershell
-   skillsentry scan "C:\path\to\skill" --format text
+   skillsentry scan "C:/path\to\skill" --format text
    ```
 3. **Target Specification**: The user specifies a target: a single skill folder, a parent directory of skills, or a relative/absolute/UNC path (including paths with spaces and quotes).
 4. **Input Validation & Ingestion**: SkillSentry normalizes backslashes to POSIX slashes, verifies directory containment, validates frontmatter, and checks for reserved Windows DOS device names (`CON`, `PRN`, `AUX`, `NUL`).
@@ -29,7 +29,7 @@ The end-to-end user experience on Windows systems progresses through ten coordin
 
 ```mermaid
 flowchart TD
-    PS_USER["💻 User in Windows PowerShell<br/><code>skillsentry scan C:\path\to\skill</code>"] --> NORM["<b>Path Normalizer & Ingestion</b><br/>Windows path sanitization (C:\, backslashes, encoding)"]
+    PS_USER["💻 User in Windows PowerShell<br/><code>skillsentry scan C:/path\to\skill</code>"] --> NORM["<b>Path Normalizer & Ingestion</b><br/>Windows path sanitization (C:/, backslashes, encoding)"]
     NORM --> PKG["📦 Untrusted Skill Package<br/>(SKILL.md + scripts/ + assets/)"]
     PKG --> S0
 
@@ -92,7 +92,7 @@ skillsentry/core/
 ```mermaid
 graph TD
     subgraph Input_Layer["1. Input & Ingestion Layer (Windows PowerShell)"]
-        PS["PowerShell CLI: skillsentry scan &lt;path&gt;"] --> NORM["Path Normalizer<br/>(C:\, backslashes, encoding)"]
+        PS["PowerShell CLI: skillsentry scan &lt;path&gt;"] --> NORM["Path Normalizer<br/>(C:/, backslashes, encoding)"]
         NORM --> HU["hash_utils.py<br/>(Canonical SHA-256)"]
         NORM --> SP["skill_parser.py<br/>(Safe Traversal & Frontmatter)"]
     end
@@ -161,7 +161,7 @@ sequenceDiagram
     participant SBX as Dev 1 Docker Sandbox (Stage 4)
     participant FUS as Dev 1 Fusion Engine
 
-    USER->>CLI: skillsentry scan C:\Skills\custom-skill --format text
+    USER->>CLI: skillsentry scan C:/Skills\custom-skill --format text
     CLI->>ORCH: initiate_scan(target_path, options)
     
     %% STAGE 0: CACHE
@@ -244,7 +244,7 @@ Developer 2’s code operates directly on the **untrusted host boundary**. Becau
   3. Fenced Prompt Data Wrapping (Code wrapped as inert data: --- BEGIN SKILL DATA ---)
   4. AST Anchor Ground-Truth Invariance (Model forbidden from overriding AST facts)
   5. Image Normalization (Downscale to 1024px, PIL decompression bomb protection)
-  6. Windows Path Normalization (C:\, backslashes, long-path protection)
+  6. Windows Path Normalization (C:/, backslashes, long-path protection)
         │
         ▼
 [ TRUSTED ZONE ]

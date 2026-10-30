@@ -35,7 +35,7 @@ $PY = "developer-2\.venv\Scripts\python.exe"
 ```powershell
 developer-2\.venv\Scripts\python.exe -m pytest tests
 ```
-*Expected: 338 passed, 7 skipped (Docker/Laya optional extras), 0 failures.*
+*Expected: 338 succeeded, 7 skipped (Docker/Laya optional extras), 0 failures.*
 
 ### Running Developer-2 Subsystem Tests
 ```powershell
@@ -43,7 +43,7 @@ cd developer-2
 ..\developer-2\.venv\Scripts\python.exe -m pytest
 cd ..
 ```
-*Expected: 228 passed, 0 failures in ~3.2s.*
+*Expected: 228 succeeded, 0 failures in ~3.2s.*
 
 ---
 

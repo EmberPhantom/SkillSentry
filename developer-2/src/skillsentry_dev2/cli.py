@@ -141,7 +141,7 @@ def sanitize_and_validate_path(path_str: str) -> Path:
             )
 
     # Check for NTFS Alternate Data Stream notation (colon after drive letter)
-    # A colon is allowed only at index 1 for Windows drive letters (e.g. C:\)
+    # A colon is allowed only at index 1 for Windows drive letters (e.g. C:/)
     rest_of_path = clean_str[2:] if (len(clean_str) >= 2 and clean_str[1] == ":") else clean_str
     if ":" in rest_of_path:
         raise ValueError(

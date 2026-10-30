@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from skillsentry.core.models.base import ModelClient
-from tests.support.mock_gemma import (
+from skillsentry.core.models.mock import (
     CLEAN_RESPONSE,
     CLOUD_DECEPTIVE,
     INVOICE_BBOX,

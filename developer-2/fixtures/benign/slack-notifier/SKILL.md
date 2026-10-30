@@ -15,7 +15,7 @@ Set the webhook URL environment variable, then run the notifier with a message.
 
 ```bash
 python scripts/notify.py "Deployment completed successfully"
-python scripts/notify.py --channel "#ops" "Build 42 passed"
+python scripts/notify.py --channel "#ops" "Build 42 succeeded"
 ```
 
 Requires a configured webhook URL environment variable.

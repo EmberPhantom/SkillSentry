@@ -21,6 +21,8 @@ skillsentry.toml
 *.db-wal
 *.db-shm
 reports/
+*.bundle
+developer-2/SKILLSENTRY_NEXT_STEPS_AND_DECISIONS.md
 
 # Reports produced during local runs
 *.sarif

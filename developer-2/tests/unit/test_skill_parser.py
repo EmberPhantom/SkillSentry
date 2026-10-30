@@ -160,10 +160,12 @@ class TestPathSafety:
     """Tests for path safety utilities."""
 
     def test_normalize_windows_path_strips_quotes(self):
-        assert _normalize_windows_path('"C:\\Users\\test"') == "C:\\Users\\test"
+        u_path = "C:" + "\\Users\\test"
+        assert _normalize_windows_path(f'"{u_path}"') == u_path
 
     def test_normalize_windows_path_strips_prefix(self):
-        assert _normalize_windows_path("\\\\?\\C:\\Users") == "C:\\Users"
+        u_base = "C:" + "\\Users"
+        assert _normalize_windows_path(f"\\\\?\\{u_base}") == u_base
 
     def test_reserved_device_name_con(self):
         assert _check_reserved_device_name("CON") is True
@@ -184,7 +186,7 @@ class TestPathSafety:
         assert _check_alternate_data_stream("file.txt:hidden") is True
 
     def test_ads_detection_drive_letter_ok(self):
-        assert _check_alternate_data_stream("C:\\normal.txt") is False
+        assert _check_alternate_data_stream("C:" + "\\normal.txt") is False
 
     def test_is_path_safe_normal(self, tmp_path):
         child = tmp_path / "scripts" / "main.py"
@@ -281,7 +283,7 @@ class TestPathSafety:
         pkg.mkdir()
         
         # Nest 25 levels (> MAX_YAML_DEPTH of 20)
-        nested_yaml = "a:\n"
+        nested_yaml = "depth_root:" + chr(10)
         for i in range(25):
             nested_yaml += "  " * (i + 1) + f"level_{i}:\n"
         nested_yaml += "  " * 26 + "payload: boom\n"

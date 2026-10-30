@@ -106,7 +106,7 @@ def test_stix_export_without_iocs_is_rejected():
 async def test_live_backend_validates_paths_instead_of_fabricating_verdicts(tmp_path):
     from skillsentry.core.cache import SQLiteStore
     from skillsentry.core.engine import ScanEngine
-    from tests.support.mock_gemma import MockGemma
+    from skillsentry.core.models.mock import MockGemma
 
     engine = ScanEngine(
         store=SQLiteStore(tmp_path / "live.sqlite"),
@@ -157,7 +157,7 @@ async def test_live_list_scans_does_not_paginate_the_store_twice():
 async def test_live_health_and_meta_use_the_injected_model(tmp_path, monkeypatch):
     from skillsentry.core.cache import SQLiteStore
     from skillsentry.core.engine import ScanEngine
-    from tests.support.mock_gemma import MockGemma
+    from skillsentry.core.models.mock import MockGemma
     from skillsentry.core.sandbox.runner import SandboxRunner
 
     # Make the health probe deterministic: this test is about model identity,

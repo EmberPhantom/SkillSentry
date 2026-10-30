@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 import pytest
-from tests.support.mock_decision import MockDecisionClient
+from skillsentry.core.decisions import MockDecisionClient
 from skillsentry.core.decisions.calibration import (
     CalibrationError,
     CorpusRecord,

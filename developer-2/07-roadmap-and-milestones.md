@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.4 · [docs/checklists/README.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/README.md) · [docs/checklists/dev2-skill-analysis.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev2-skill-analysis.md)
+> **Source-of-Truth References:** [docs/11-team-and-workload.md](docs/11-team-and-workload.md) §11.4 · [docs/checklists/README.md](docs/checklists/README.md) · [docs/checklists/dev2-skill-analysis.md](docs/checklists/dev2-skill-analysis.md)
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/01-project-overview.md](file:///d:/Skillsentry/SkillSentry/docs/01-project-overview.md) · [docs/02-architecture.md](file:///d:/Skillsentry/SkillSentry/docs/02-architecture.md) · [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md)
+> **Source-of-Truth References:** [docs/01-project-overview.md](docs/01-project-overview.md) · [docs/02-architecture.md](docs/02-architecture.md) · [docs/11-team-and-workload.md](docs/11-team-and-workload.md)
 
 ---
 
@@ -74,7 +74,7 @@ Developer 2 provides the **eyes, parsers, and static intelligence** of SkillSent
 
 ## 3. Module Ownership Breakdown
 
-Per [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.2, Developer 2 owns the following exact paths and responsibilities:
+Per [docs/11-team-and-workload.md](docs/11-team-and-workload.md) §11.2, Developer 2 owns the following exact paths and responsibilities:
 
 | Module / Component | File Path | Scope & Primary Function |
 |:---|:---|:---|
@@ -125,13 +125,13 @@ The team workload agreement established eight core architectural decisions that 
 - **ADR-D5 (Cache Store Ownership)**: The `core/cache/` implementation is transferred to Dev 2 to balance workload. Dev 2 implements `hash_utils.py`, `sqlite_store.py`, and database migration scripts; Dev 1 consumes them in Stage 0 and Stage 6.
 - **ADR-D6 (Dynamic Sandbox Instruction Contract & 5-Phase Boundary)**: Developer 2 analysis stages emit structured `SandboxActionInstruction` objects defining required check categories, target scripts, reasons, intent keywords, and constraints. Developer 2 **never** executes untrusted skills on the host machine or in the CLI process. All execution is strictly delegated to Developer 1's isolated Docker sandbox container.
 - **ADR-D7 (Performance Optimization & Fail-Safe Invariance)**: Scan and test performance is maximized via content hashing, sub-2s SQLite cache hits, cheap deterministic AST/regex pre-filtering (<100ms) before model calls, image contrast pre-filtering, and bounded concurrency. However, optimizations must never skip required security stages or omit sandbox checks under time pressure. Model or sandbox timeouts never default to `SAFE`; they yield explicit degraded findings (`degraded: true`).
-- **ADR-D8 (Windows PowerShell CLI Support)**: The scanning pipeline fully supports Windows PowerShell invocation (`skillsentry scan <path>` / `python -m skillsentry.cli scan <path>`). Developer 2's parsers and path utilities strictly normalize Windows path formats (`C:\`, backslashes, long paths, spaces) and handle console character encoding (UTF-8) cleanly.
+- **ADR-D8 (Windows PowerShell CLI Support)**: The scanning pipeline fully supports Windows PowerShell invocation (`skillsentry scan <path>` / `python -m skillsentry.cli scan <path>`). Developer 2's parsers and path utilities strictly normalize Windows path formats (`C:/`, backslashes, long paths, spaces) and handle console character encoding (UTF-8) cleanly.
 
 ---
 
 ## 6. Swing Task Protocol
 
-If Dev 1 encounters delivery delays on the critical path, the following tasks are pre-agreed to transfer to Developer 2 per [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.8:
+If Dev 1 encounters delivery delays on the critical path, the following tasks are pre-agreed to transfer to Developer 2 per [docs/11-team-and-workload.md](docs/11-team-and-workload.md) §11.8:
 
 1. **STIX 2.1 Bundle Serialization**: Writing `attacker_profile.py` STIX JSON serialization based on established schemas.
 2. **Markdown Report Renderer**: Rendering human-readable Markdown summaries from SARIF results.

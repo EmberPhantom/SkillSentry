@@ -1,0 +1,89 @@
+{
+  "skill": "pdf-summarizer",
+  "skillId": "0901b357-9705-5e9c-962e-6c16db3e5cee",
+  "scanId": "4c18236e-519f-41a4-b317-8dfa40a7459f",
+  "verdict": "SUSPICIOUS",
+  "riskScore": 30,
+  "confidence": 0.187,
+  "cached": false,
+  "scanDurationMs": 3156,
+  "findings": [
+    {
+      "stage": "spec",
+      "severity": "note",
+      "message": "Frontmatter valid - typosquat check clean",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 1,
+        "code": null,
+        "c2": null,
+        "marker": null,
+        "bbox": null,
+        "ocr": null,
+        "process": null,
+        "path": null,
+        "channel": null,
+        "url": null,
+        "domain": null,
+        "ip": null
+      },
+      "type": "spec-valid"
+    },
+    {
+      "stage": "sandbox",
+      "severity": "note",
+      "message": "Sandbox execution disabled for this scan (static-only mode).",
+      "evidence": {
+        "file": null,
+        "line": null,
+        "code": null,
+        "c2": null,
+        "marker": null,
+        "bbox": null,
+        "ocr": null,
+        "process": null,
+        "path": null,
+        "channel": null,
+        "url": null,
+        "domain": null,
+        "ip": null
+      },
+      "type": "sandbox-disabled"
+    },
+    {
+      "stage": "semantic",
+      "severity": "note",
+      "message": "semantic degraded: no decision backend available: laya is unavailable: ModuleNotFoundError: No module named 'laya'",
+      "evidence": {
+        "file": null,
+        "line": null,
+        "code": null,
+        "c2": null,
+        "marker": null,
+        "bbox": null,
+        "ocr": null,
+        "process": null,
+        "path": null,
+        "channel": null,
+        "url": null,
+        "domain": null,
+        "ip": null
+      },
+      "type": "stage-degraded"
+    }
+  ],
+  "activeDefense": {
+    "triggered": false,
+    "targetedAssets": [],
+    "exfilChannel": null,
+    "canaryMarker": null,
+    "secondaryCanary": null,
+    "c2Indicators": [],
+    "encoding": null,
+    "sandboxEvasionDetected": false,
+    "declaredIntent": "Summarize PDF documents locally without network access.",
+    "contextAwareCanary": "GENERIC",
+    "actualBehavior": null,
+    "iocExport": null
+  }
+}

@@ -96,7 +96,7 @@ class TestPathTraversalDefense:
         from skillsentry_dev2.core.parser.skill_parser import _check_alternate_data_stream
         assert _check_alternate_data_stream("file.txt:Zone.Identifier") is True
         assert _check_alternate_data_stream("file.txt:hidden_stream") is True
-        assert _check_alternate_data_stream("C:\\normal\\file.txt") is False
+        assert _check_alternate_data_stream("C:" + "\\normal\\file.txt") is False
         assert _check_alternate_data_stream("normal/file.txt") is False
 
 

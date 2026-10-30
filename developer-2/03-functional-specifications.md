@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/02-architecture.md](file:///d:/Skillsentry/SkillSentry/docs/02-architecture.md) §2.3 · [docs/03-database.md](file:///d:/Skillsentry/SkillSentry/docs/03-database.md) §3.2, §3.5 · [docs/04-security.md](file:///d:/Skillsentry/SkillSentry/docs/04-security.md) §4.6, §4.8 · [docs/checklists/dev2-skill-analysis.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev2-skill-analysis.md)
+> **Source-of-Truth References:** [docs/02-architecture.md](docs/02-architecture.md) §2.3 · [docs/03-database.md](docs/03-database.md) §3.2, §3.5 · [docs/04-security.md](docs/04-security.md) §4.6, §4.8 · [docs/checklists/dev2-skill-analysis.md](docs/checklists/dev2-skill-analysis.md)
 
 ---
 
@@ -13,7 +13,7 @@ The Package Parser (`skillsentry/core/parser/skill_parser.py`) is the entry poin
 
 ### 2. Inputs & Preconditions
 - **Input**: Path to a skill package directory or skill file (`skill_dir: Path | str`), provided via CLI argument, environment variable, or orchestrator call.
-- **Preconditions**: Path exists and is accessible with read permissions on the host system (supports Windows local paths `C:\...`, UNC paths, relative paths, and POSIX syntax).
+- **Preconditions**: Path exists and is accessible with read permissions on the host system (supports Windows local paths `C:/...`, UNC paths, relative paths, and POSIX syntax).
 
 ### 3. Expected Outputs & Data Contracts
 - Returns a structured `PackageManifest` containing:
@@ -31,7 +31,7 @@ The Package Parser (`skillsentry/core/parser/skill_parser.py`) is the entry poin
    - `name`: Required, non-empty, alphanumeric with dashes/underscores (`^[a-zA-Z0-9_-]+$`), max 64 chars.
    - `description`: Required, 1 to 1024 characters. Must contain declared trigger keywords.
 2. **Windows Path Normalization & Traversal Defense**:
-   - Ingestion sanitizes Windows-specific path variants: resolves drive letters (`C:\`, `D:\`), converts Windows backslashes `\` to normalized POSIX `/` internally, strips surrounding quotes added by PowerShell auto-completion, and strips Windows extended-length prefixes (`\\?\`).
+   - Ingestion sanitizes Windows-specific path variants: resolves drive letters (`C:/`, `<path>`), converts Windows backslashes `\` to normalized POSIX `/` internally, strips surrounding quotes added by PowerShell auto-completion, and strips Windows extended-length prefixes (`\\?\`).
    - Rejects Windows alternate data streams (e.g., `file.txt:hidden`) and reserved DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`).
    - All relative paths inside the package are strictly resolved against the normalized root. Any file path attempting directory traversal (`../`, absolute paths, symlinks pointing outside `skill_dir`) must immediately be rejected with a `critical` severity finding and halted from further processing.
 3. **Resource & Bomb Limits**:
@@ -231,7 +231,7 @@ Use the deterministic anchors as confirmed facts.
 The Cache Engine (`skillsentry/core/cache/hash_utils.py`, `sqlite_store.py`) provides sub-2-second re-scan latency for unchanged skills. It computes a canonical directory SHA-256 hash and manages the local SQLite `scan_cache` and `schema_meta` tables.
 
 ### 2. Directory Hashing Algorithm (`hash_utils.py`)
-Per [docs/03-database.md](file:///d:/Skillsentry/SkillSentry/docs/03-database.md) §3.2, hashing must be bit-level deterministic across all OS platforms:
+Per [docs/03-database.md](docs/03-database.md) §3.2, hashing must be bit-level deterministic across all OS platforms:
 1. Walk the directory recursively, filtering out: `.git/`, `__pycache__/`, `*.pyc`, `.DS_Store`, and patterns listed in `.skillsentryignore`.
 2. Sort all surviving entries by their relative POSIX path in lexicographical byte order.
 3. For each file, format an entry record:
@@ -549,9 +549,9 @@ Enables Windows users to audit agent skills directly from Windows PowerShell (5.
 ### 2. Supported Scan Targets & Input Validation
 The PowerShell interface supports multiple invocation targets:
 - **Single Skill Directory**: `skillsentry scan .\fixtures\malicious\cloud-sync-pro`
-- **Parent Directory of Skills**: `skillsentry scan C:\Users\Amandeep\Skills\` (scans all subdirectories containing `SKILL.md`)
-- **Relative, Absolute & UNC Paths**: `.\skill`, `D:\Skills\skill`, `\\fileserver\share\skill`
-- **Paths with Spaces & Quotes**: Handles tab-completed Windows paths (`"C:\My Agent Skills\skill"`) cleanly
+- **Parent Directory of Skills**: `skillsentry scan <path>` (scans all subdirectories containing `SKILL.md`)
+- **Relative, Absolute & UNC Paths**: `.\skill`, `<path>`, `\\fileserver\share\skill`
+- **Paths with Spaces & Quotes**: Handles tab-completed Windows paths (`"C:/My Agent Skills\skill"`) cleanly
 - **Input Validation Rules**:
   - Verifies existence of directory and `SKILL.md` file.
   - Normalizes Windows backslashes (`\`) to POSIX (`/`) internally.
@@ -570,8 +570,8 @@ python -m skillsentry.cli scan <path> [options]
 
 # Examples in Windows PowerShell
 skillsentry scan .\fixtures\malicious\cloud-sync-pro
-skillsentry scan "C:\Users\Amandeep\Skills\invoice-helper" --sarif-out report.sarif
-skillsentry scan D:\Skills\ --format text --fail-on malicious
+skillsentry scan "<path>" --sarif-out report.sarif
+skillsentry scan <path> --format text --fail-on malicious
 python -m skillsentry.cli scan .\fixtures\benign\pdf-summarizer --quiet
 ```
 

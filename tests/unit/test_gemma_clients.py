@@ -14,7 +14,7 @@ from skillsentry.core.config import ModelSettings
 from skillsentry.core.models.base import ModelUnavailable
 from skillsentry.core.models.gemma_cloud import GemmaCloud
 from skillsentry.core.models.gemma_local import GemmaLocal
-from tests.support.mock_gemma import MockGemma
+from skillsentry.core.models.mock import MockGemma
 from skillsentry.core.models.selector import select_model
 
 SEMANTIC_SCHEMA = {
@@ -251,8 +251,7 @@ class _FakeClient:
 
 
 def test_selector_demo_returns_mock():
-    with pytest.raises(ModelUnavailable):
-        select_model(backend="demo")
+    assert isinstance(select_model(backend="demo"), MockGemma)
 
 
 def test_selector_explicit_local_uses_injected_client():

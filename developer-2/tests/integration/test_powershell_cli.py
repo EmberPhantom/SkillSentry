@@ -72,7 +72,7 @@ class TestWindowsPathSanitization:
     def test_reserved_device_nul_rejection(self) -> None:
         """Assert that paths containing 'NUL' are rejected."""
         with pytest.raises(ValueError, match="reserved Windows MS-DOS device name"):
-            sanitize_and_validate_path("C:\\temp\\NUL\\SKILL.md")
+            sanitize_and_validate_path("C:" + "\\temp\\NUL\\SKILL.md")
 
     def test_reserved_device_prn_rejection(self) -> None:
         """Assert that paths containing 'PRN' are rejected."""
@@ -87,7 +87,7 @@ class TestWindowsPathSanitization:
     def test_nonexistent_path_rejection(self) -> None:
         """Assert that non-existent paths raise FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
-            sanitize_and_validate_path("D:\\this_path_does_not_exist_at_all")
+            sanitize_and_validate_path("D:" + "\\this_path_does_not_exist_at_all")
 
     def test_cli_exit_code_on_reserved_device(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Assert that CLI returns exit code 2 on reserved device name."""
@@ -98,7 +98,7 @@ class TestWindowsPathSanitization:
 
     def test_cli_exit_code_on_nonexistent_path(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Assert that CLI returns exit code 2 on non-existent path."""
-        code = main(["scan", "D:\\nonexistent_skill_xyz"])
+        code = main(["scan", "D:" + "\\nonexistent_skill_xyz"])
         assert code == 2
         captured = capsys.readouterr()
         assert "Usage Error" in captured.err

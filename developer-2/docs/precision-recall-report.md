@@ -120,7 +120,7 @@ Separation gap:     28 → 45  (17 points between nearest benign/malicious)
 
 1. **Sandbox stage not integrated:** Without Stage 4 (sandbox execution, Dev 1), the maximum achievable risk score for anchor+semantic-only fixtures is ~62. With sandbox integration, obfuscation-only, dns-tunneler, and credential-multi are expected to escalate from SUSPICIOUS to MALICIOUS.
 
-2. **Mock model client:** All semantic analysis uses MockGemma with deterministic canned responses. Real Gemma 4 results may differ in confidence and pattern detection.
+2. **Mock model client:** All semantic analysis uses MockGemma with deterministic canned responses. Gemma 4 results may differ in confidence and pattern detection.
 
 3. **Corpus size:** 20 fixtures is the M5 target. Production evaluation should expand to 50+ fixtures per docs/08-testing-and-evaluation.md §8.7.
 

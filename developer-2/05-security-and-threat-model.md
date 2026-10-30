@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/04-security.md](file:///d:/Skillsentry/SkillSentry/docs/04-security.md) §4.1, §4.6, §4.8 · [docs/02-architecture.md](file:///d:/Skillsentry/SkillSentry/docs/02-architecture.md)
+> **Source-of-Truth References:** [docs/04-security.md](docs/04-security.md) §4.1, §4.6, §4.8 · [docs/02-architecture.md](docs/02-architecture.md)
 
 ---
 

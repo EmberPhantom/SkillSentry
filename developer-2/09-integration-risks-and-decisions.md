@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/10-developer-guide.md](file:///d:/Skillsentry/SkillSentry/docs/10-developer-guide.md) §10.9 · [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.6, §11.8
+> **Source-of-Truth References:** [docs/10-developer-guide.md](docs/10-developer-guide.md) §10.9 · [docs/11-team-and-workload.md](docs/11-team-and-workload.md) §11.6, §11.8
 
 ---
 
@@ -15,10 +15,10 @@ The table below catalogs all architectural, operational, and cross-workstream ri
 | **RSK-D2-01** | **Model Client (I2) Delivery Delay**: Developer 1's local Ollama client is delayed due to sandbox work. | Med | High | **Decoupled Mock Architecture**: Developer 2 implements and codes against `MockGemma` implementing the frozen I2 Protocol. Semantic and vision analysis logic are 100% testable in CI without a live model. | Dev 2 / Dev 1 |
 | **RSK-D2-02** | **Adversarial Typography / OCR Evasion**: 4 px white-on-white text in `invoice-helper` fails recognition in Gemma 4 Vision due to quantization artifacts. | Med | Med | **Dual Mitigation**: (1) Deterministic luminance/contrast pre-filter flags suspicious low-contrast text regions prior to inference; (2) If rehearsed inference misses, tune fixture font size from 4 px to 6 px per plan risk mitigation rule (never weaken the detector). | Dev 2 |
 | **RSK-D2-03** | **LLM Semantic Non-Determinism**: Semantic analysis produces varying JSON or missed intent contradictions across re-runs. | Med | High | **Deterministic Anchoring Invariance**: Hard AST/regex anchors are injected into the prompt as immutable facts. If model output contradicts an anchor, the engine overrides the model and enforces the anchor's severity. | Dev 2 |
-| **RSK-D2-04** | **Citation Line Drift ($\pm 1$ line)**: Source code comments or multi-line statement differences cause reported finding lines to miss ground truth. | Med | Med | **$\pm 1$ Line Evaluation Metric**: The citation evaluation harness explicitly incorporates the $\pm 1$ line tolerance window per [docs/08-testing-and-evaluation.md](file:///d:/Skillsentry/SkillSentry/docs/08-testing-and-evaluation.md) §8.4. AST visitor maps Call nodes to `lineno` attribute. | Dev 2 |
+| **RSK-D2-04** | **Citation Line Drift ($\pm 1$ line)**: Source code comments or multi-line statement differences cause reported finding lines to miss ground truth. | Med | Med | **$\pm 1$ Line Evaluation Metric**: The citation evaluation harness explicitly incorporates the $\pm 1$ line tolerance window per [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.4. AST visitor maps Call nodes to `lineno` attribute. | Dev 2 |
 | **RSK-D2-05** | **Cache Invalidation Failure**: Skill is altered post-audit but returns cached SAFE verdict. | Low | Crit | **Canonical Directory SHA-256**: Key incorporates relative POSIX path, file mode bits, and content digest. Any byte change, rename, or permission modification forces a cache miss. | Dev 2 |
 | **RSK-D2-06** | **Parser Denial of Service**: Hostile package contains nested YAML bombs or recursive symlink loops. | Low | High | **Hardened Parsing Boundaries**: Safe YAML loader with max recursion depth of 10; 10 MB per-file cap; 50 MB package cap; strict root-boundary containment checks. | Dev 2 |
-| **RSK-D2-07** | **Workload Imbalance & Dev 1 Bottleneck**: Dev 1’s surface area (~20 modules) slips behind milestone exit gates. | Med | High | **Swing Task Execution**: Pre-agreed tasks (STIX bundle writer, Markdown renderer, Gemini cloud fallback client, CLI setup) immediately transfer to Dev 2 per [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.8. | Dev 2 / Dev 1 |
+| **RSK-D2-07** | **Workload Imbalance & Dev 1 Bottleneck**: Dev 1’s surface area (~20 modules) slips behind milestone exit gates. | Med | High | **Swing Task Execution**: Pre-agreed tasks (STIX bundle writer, Markdown renderer, Gemini cloud fallback client, CLI setup) immediately transfer to Dev 2 per [docs/11-team-and-workload.md](docs/11-team-and-workload.md) §11.8. | Dev 2 / Dev 1 |
 | **RSK-D2-08** | **Windows Path & Encoding Anomalies**: PowerShell passes backslashes, drive letters, spaces, or Unicode with BOM; scripts use CRLF. | Med | Med | **Path & Line Normalizer**: Safe path resolution with `pathlib.Path`, conversion to POSIX `/`, UTF-8 BOM handling (`utf-8-sig`), and universal newline normalization. | Dev 2 |
 | **RSK-D2-09** | **Sandbox Instruction Schema Drift**: Dev 1 sandbox runner expects different arguments or fails to map canary tokens. | Low | High | **Frozen Interface INT-4 & Contract Tests**: Dataclass schema frozen in M0; automated contract tests (`test_sandbox_handoff.py`) block merges on drift. | Dev 2 / Dev 1 |
 | **RSK-D2-10** | **Optimization vs. Thoroughness Conflict**: Aggressive latency optimization risks skipping required stages or treating timeouts as safe. | Med | Crit | **Architectural Axiom ADR-D7**: Optimize redundant parsing and caching only; never omit required detection stages; timeouts flagged `degraded: true`, never `SAFE`. | Dev 2 / Dev 1 |
@@ -30,7 +30,7 @@ The table below catalogs all architectural, operational, and cross-workstream ri
 The following specifications are currently provisional and require formal cross-developer agreement during Milestone M0/M1:
 
 ### 2.1 Decision Item 1: Bounding Box Coordinate Normalization
-- **Issue**: [docs/checklists/dev3-frontend.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev3-frontend.md) §98 states *"bbox normalized to displayed image size"*, while [docs/checklists/dev2-skill-analysis.md](file:///d:/Skillsentry/SkillSentry/docs/checklists/dev2-skill-analysis.md) §95 states `[x, y, w, h]`.
+- **Issue**: [docs/checklists/dev3-frontend.md](docs/checklists/dev3-frontend.md) §98 states *"bbox normalized to displayed image size"*, while [docs/checklists/dev2-skill-analysis.md](docs/checklists/dev2-skill-analysis.md) §95 states `[x, y, w, h]`.
 - **Proposed Resolution**: Developer 2 standardizes on **normalized floats in range $[0.0, 1.0]$** formatted as:
   $$\text{bbox} = [x_{\text{min\_norm}}, y_{\text{min\_norm}}, \text{width}_{\text{norm}}, \text{height}_{\text{norm}}]$$
   Developer 3’s canvas/SVG overlay calculates rendered pixel coordinates by multiplying normalized coordinates with the rendered DOM image dimensions. This maintains complete resolution independence across client viewport sizes.
@@ -91,7 +91,7 @@ The following specifications are currently provisional and require formal cross-
 Developer 2 proposes the following formal updates to shared documentation files outside `developer-2/`:
 
 ### Proposal 1: Update `docs/07-cli-reference.md`
-- Add Windows PowerShell documentation section describing invocation (`skillsentry scan <path>`), path normalization (`C:\...`), and execution in PowerShell 5.1 and 7.x.
+- Add Windows PowerShell documentation section describing invocation (`skillsentry scan <path>`), path normalization (`C:/...`), and execution in PowerShell 5.1 and 7.x.
 - Document exit codes: 0 = Safe, 1 = Threshold exceeded (Gate fail), 2 = Usage error, 3 = Operational error, 4 = Model unavailable.
 - Document supported flags: `--sarif-out`, `--format text|json|sarif|markdown`, `--no-cache`, `--no-sandbox`, `--backend auto|local|cloud|demo`, `--demo-mode`, `--timeout`, `--fail-on`, `--quiet`.
 

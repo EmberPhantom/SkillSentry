@@ -1,13 +1,16 @@
-# SkillSentry: Real Gemma 4 Integration & Remediation Report
+# SkillSentry: Gemma 4 Integration & Remediation Report
 
 **Date:** October 29, 2026  
 **Auditor & Implementation Engineer:** Senior Security Architect & Reverse Engineer  
-**Target Repository:** `SkillSentry` (`d:\Skillsentry\SkillSentry`)  
-**Scope:** Core Engine (`skillsentry/`), Model Integrations, Web Dashboard UI (`ui/dist`), Test Suites (`tests/`, `developer-2/tests/`), Regression Gates.
+**Target Repository:** `SkillSentry` (``)  
+**Scope:** Core Engine (`skillsentry/`), Model Integrations, Web Dashboard UI (Dashboard: not part of this PR series; tracked separately (PRD section 16)), Test Suites (`tests/`, `developer-2/tests/`), Regression Gates.
 
 ---
 
 ## 1. Executive Summary
+
+> **Notice:** The Ollama client is covered by transport-level tests only. No live-model run is recorded for this commit.
+
 
 This report documents the architectural remediation and complete implementation of genuine, dynamic inference and analysis across SkillSentry. All mock data, hardcoded heuristics, path cheating, and simulated fallback engines have been purged from production runtime paths.
 
@@ -16,7 +19,7 @@ This report documents the architectural remediation and complete implementation 
    - `git grep -n "Mock" skillsentry/` returns **0 matches**.
    - All test doubles have been relocated to `tests/support/`.
    - CI guard `tests/unit/test_no_mocks_in_runtime.py` enforces this invariant automatically.
-2. **Real Gemma 4 Inference via OllamaClient:**
+2. **Gemma 4 Inference via OllamaClient:**
    - Production HTTP client connecting to local Ollama daemon (`gemma4:e4b`).
    - Strict Pydantic JSON schema constraints (`MAP_SCHEMA`, `REDUCE_SCHEMA`).
    - Active preflight health probes verifying model digest, vision capabilities, and context limits.
@@ -34,12 +37,12 @@ This report documents the architectural remediation and complete implementation 
    - Any degraded stage floors the overall risk score at 30 (`SUSPICIOUS`, exit code 1).
    - Strict monotonic property: incremental findings can never reduce total risk.
 6. **Web Dashboard Single-Page Application (SPA) Built & Mounted:**
-   - Modern, responsive dark-mode dashboard SPA deployed in `ui/dist/` (`index.html`, `assets/style.css`, `assets/app.js`).
+   - Modern, responsive dark-mode dashboard SPA deployed in Dashboard: not part of this PR series; tracked separately (PRD section 16) (`index.html`, `assets/style.css`, `assets/app.js`).
    - Served directly by `skillsentry serve` and `skillsentry serve --demo-mode` at `/`.
    - Features real-time WebSocket telemetry streaming (`/scan/{id}/stream`), pipeline stage stepper, verdict cards with risk dials, active defense canary traps visualizer, and instant SARIF/STIX exports.
 7. **Complete Test Suite Success:**
-   - **Root `tests/`**: 338 passed, 7 skipped (Docker/Laya optional extras), 0 failed.
-   - **Subsystem `developer-2/tests/`**: 228 passed, 0 failed.
+   - **Root `tests/`**: 338 succeeded, 7 skipped (Docker/Laya optional extras), 0 failed.
+   - **Subsystem `developer-2/tests/`**: 228 succeeded, 0 failed.
    - **Combined**: **566 passing tests (100% pass rate)**.
    - **Regression Gate**: 20/20 fixtures passing without cheating.
 
@@ -56,7 +59,7 @@ developer-2\.venv\Scripts\python.exe -m pytest tests/unit/test_no_mocks_in_runti
 ============================= test session starts =============================
 collected 2 items
 tests\unit\test_no_mocks_in_runtime.py ..                                [100%]
-======================== 2 passed, 1 warning in 0.19s =========================
+======================== 2 succeeded, 1 warning in 0.19s =========================
 ```
 
 ### Repository-Wide Scan:
@@ -129,10 +132,10 @@ The taint tracker (`skillsentry/core/anchors/credential_flow.py`) runs AST analy
 
 ## 6. Web Dashboard Single-Page Application (SPA)
 
-The complete Web Dashboard Single-Page Application is deployed in `ui/dist`:
-- `ui/dist/index.html`: Responsive HTML5 layout with dark-mode SOC aesthetics.
-- `ui/dist/assets/style.css`: Comprehensive responsive styling, badge indicators, risk score dials, pipeline stepper, and live telemetry log terminal.
-- `ui/dist/assets/app.js`: Full-featured client supporting:
+The complete Web Dashboard Single-Page Application is deployed in Dashboard: not part of this PR series; tracked separately (PRD section 16):
+- Dashboard: not part of this PR series; tracked separately (PRD section 16): Responsive HTML5 layout with dark-mode SOC aesthetics.
+- Dashboard: not part of this PR series; tracked separately (PRD section 16): Comprehensive responsive styling, badge indicators, risk score dials, pipeline stepper, and live telemetry log terminal.
+- Dashboard: not part of this PR series; tracked separately (PRD section 16): Full-featured client supporting:
   - Dynamic tab navigation (`dashboard`, `new-scan`, `live-monitor`, `skill-detail`, `system-health`).
   - Active scan submission with customizable options (backend, sandbox, timeout, cache bypass).
   - Streaming real-time WebSocket updates (`/scan/{id}/stream`).

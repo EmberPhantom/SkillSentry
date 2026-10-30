@@ -1,6 +1,8 @@
 """Deterministic decision client for unit tests and local wiring checks.
 
-Never imported or executed by production runtime code under skillsentry/.
+``MockDecisionClient`` is never selected by the production decision selector.
+It exists so tests can exercise the semantic stage without downloading a Laya
+checkpoint.  A mock-only scan must never be presented as live-model evidence.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ _MALICIOUS_MARKERS = (
 
 
 class MockDecisionClient:
-    """Deterministic typed decisions with ``auto``/``benign``/``malicious`` profiles for tests."""
+    """Deterministic typed decisions with ``auto``/``benign``/``malicious`` profiles."""
 
     backend = "mock"
     model_version = "mock-laya-v1"
@@ -114,4 +116,3 @@ def _mock_answer(qid: str, question: DecisionQuestion, malicious: bool) -> Decis
 
 
 __all__ = ["MockDecisionClient"]
-

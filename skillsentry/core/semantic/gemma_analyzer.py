@@ -13,7 +13,7 @@ from skillsentry.core.contracts import (
     StageResult,
 )
 from skillsentry.core.models.base import ModelClient
-from skillsentry.core.models.errors import (
+from skillsentry.core.semantic.errors import (
     ModelBadResponse,
     ModelTimeout,
     ModelUnavailable,

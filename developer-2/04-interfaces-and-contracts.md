@@ -2,7 +2,7 @@
 
 > **Subsystem:** Backend — Skill Analysis  
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source-of-Truth References:** [docs/05-api-reference.md](file:///d:/Skillsentry/SkillSentry/docs/05-api-reference.md) §5.4–5.5 · [docs/11-team-and-workload.md](file:///d:/Skillsentry/SkillSentry/docs/11-team-and-workload.md) §11.6 · [docs/03-database.md](file:///d:/Skillsentry/SkillSentry/docs/03-database.md) §3.4
+> **Source-of-Truth References:** [docs/05-api-reference.md](docs/05-api-reference.md) §5.4–5.5 · [docs/11-team-and-workload.md](docs/11-team-and-workload.md) §11.6 · [docs/03-database.md](docs/03-database.md) §3.4
 
 ---
 
@@ -377,8 +377,8 @@ python -m skillsentry.cli scan <path> [options]
 
 ### 10.4 Windows Path Sanitization Contract
 1. Normalizes Windows backslashes (`\`) to POSIX (`/`) internally.
-2. Resolves local absolute paths (`C:\...`, `D:\...`), relative paths (`.\...`), and UNC paths (`\\server\share\...`).
-3. Handles PowerShell quotation strings (`"C:\Program Files\..."`) and trailing slashes cleanly.
+2. Resolves local absolute paths (`C:/...`, `<path>`), relative paths (`.\...`), and UNC paths (`\\server\share\...`).
+3. Handles PowerShell quotation strings (`"C:/Program Files\..."`) and trailing slashes cleanly.
 4. Enforces strict UTF-8 stdout encoding with BOM support for Windows PowerShell terminal redirections.
 5. Rejects Windows reserved MS-DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`) and NTFS Alternate Data Streams (`:`).
 
@@ -413,7 +413,7 @@ Because Developer 2 strictly observes directory ownership (`developer-2/` only),
 > skillsentry scan .\skills\ --fail-on malicious --sarif-out sarif-results.json
 > if ($LASTEXITCODE -ne 0) { Write-Error "Security audit failed!" }
 > ```
-> Windows path handling automatically normalizes drive letters (`C:\`), backslashes, and paths containing spaces.
+> Windows path handling automatically normalizes drive letters (`C:/`), backslashes, and paths containing spaces.
 > 
 > ### Windows CI Exit Codes
 > - 0: PASS (Scan risk <= threshold)

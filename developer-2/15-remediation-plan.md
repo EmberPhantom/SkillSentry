@@ -1,7 +1,7 @@
 # 15 · Developer 2 Review Remediation Plan & Traceability Matrix
 
 > **Author:** Developer 2 (Backend Engineer & Security Architect)  
-> **Source Documents:** [14-developer2-handoff.md](file:///d:/Skillsentry/SkillSentry/developer-2/14-developer2-handoff.md) · [13-laya-integration-plan.md](file:///d:/Skillsentry/SkillSentry/developer-2/13-laya-integration-plan.md)  
+> **Source Documents:** [14-developer2-handoff.md](developer-2/14-developer2-handoff.md) · [13-laya-integration-plan.md](developer-2/13-laya-integration-plan.md)  
 > **Target Scope:** `developer-2/src/skillsentry_dev2/`, `developer-2/tests/`, and Developer 2 documentation  
 > **Status:** Complete — All 17 Initial Defects and N1–N10 Remediated; 228/228 Tests Passing (0 Skips, 0 Failures)  
 
@@ -141,8 +141,8 @@ flowchart TD
   - Default `--fail-on` is `suspicious` (exits 1 on `SUSPICIOUS` or `MALICIOUS`).
 
 ### Phase 9: Verification & Regression Gates
-- Full pytest test suite: **228 passed in 2.26s, 0 skipped, 0 failed**.
-- `check_expected_verdicts.py`: **20/20 passed regression gate** (all 12 benign fixtures SAFE [Risk 4-6], all 8 malicious fixtures correctly categorized with `credential-multi` and `dns-tunneler` at 75 MALICIOUS).
-- `check_citation_accuracy.py`: **4/4 passed (100% citation accuracy)**.
+- Full pytest test suite: **228 succeeded in 2.26s, 0 skipped, 0 failed**.
+- `check_expected_verdicts.py`: **20/20 succeeded regression gate** (all 12 benign fixtures SAFE [Risk 4-6], all 8 malicious fixtures correctly categorized with `credential-multi` and `dns-tunneler` at 75 MALICIOUS).
+- `check_citation_accuracy.py`: **4/4 succeeded (100% citation accuracy)**.
 - ReDoS benchmark on 10 MB lines: completed in **0.18s** ($<1.0$ s).
 - Documentation synchronized across `development.md`, `test.md`, and `README.md`.

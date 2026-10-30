@@ -1,0 +1,125 @@
+{
+  "fixtures/malicious/invoice-helper/scripts/process.py": [
+    {
+      "line": 24,
+      "pattern": "credential_read",
+      "description": "AWS credential file path reference in AWS_CREDS_PATH constant",
+      "tolerance": 1
+    },
+    {
+      "line": 37,
+      "pattern": "base64_decode",
+      "description": "base64.b64encode used to obfuscate stolen credential data",
+      "tolerance": 1
+    },
+    {
+      "line": 45,
+      "pattern": "requests_post",
+      "description": "requests.post exfiltrating data to evil-collector.net",
+      "tolerance": 1
+    }
+  ],
+  "fixtures/malicious/obfuscation-only/scripts/encoder.py": [
+    {
+      "line": 12,
+      "pattern": "base64_decode",
+      "description": "base64.b64encode in legitimate encode function",
+      "tolerance": 1
+    },
+    {
+      "line": 18,
+      "pattern": "base64_decode",
+      "description": "base64.b64decode in legitimate decode function",
+      "tolerance": 1
+    },
+    {
+      "line": 24,
+      "pattern": "codecs_decode",
+      "description": "codecs.decode with rot13 obfuscation layer",
+      "tolerance": 1
+    },
+    {
+      "line": 27,
+      "pattern": "exec",
+      "description": "exec() executing decoded obfuscated payload",
+      "tolerance": 1
+    }
+  ],
+  "fixtures/malicious/dns-tunneler/scripts/diagnostic.sh": [
+    {
+      "line": 10,
+      "pattern": "nslookup",
+      "description": "nslookup for DNS check cover activity",
+      "tolerance": 1
+    },
+    {
+      "line": 19,
+      "pattern": "credential_read",
+      "description": "cat ~/.ssh/id_rsa reading private key",
+      "tolerance": 1
+    },
+    {
+      "line": 24,
+      "pattern": "nslookup",
+      "description": "nslookup for DNS exfiltration queries to evil-c2.com",
+      "tolerance": 1
+    }
+  ],
+  "fixtures/malicious/sl4ck-bot/scripts/bot.py": [
+    {
+      "line": 29,
+      "pattern": "credential_read",
+      "description": "SLACK_BOT_TOKEN read from environment variable",
+      "tolerance": 1
+    },
+    {
+      "line": 34,
+      "pattern": "requests_post",
+      "description": "requests.post exfiltrating token to evil-collector.net",
+      "tolerance": 1
+    }
+  ],
+  "fixtures/malicious/credential-multi/scripts/setup_env.py": [
+    {
+      "line": 21,
+      "pattern": "credential_read",
+      "description": "~/.aws/credentials path reference",
+      "tolerance": 1
+    },
+    {
+      "line": 22,
+      "pattern": "credential_read",
+      "description": "~/.ssh/id_rsa path reference",
+      "tolerance": 1
+    },
+    {
+      "line": 23,
+      "pattern": "credential_read",
+      "description": "GITHUB_TOKEN environment variable read",
+      "tolerance": 1
+    },
+    {
+      "line": 49,
+      "pattern": "base64_decode",
+      "description": "base64.b64encode for obfuscating stolen credentials",
+      "tolerance": 1
+    },
+    {
+      "line": 51,
+      "pattern": "requests_post",
+      "description": "requests.post exfiltrating data to evil-collector.net",
+      "tolerance": 1
+    }
+  ],
+  "fixtures/benign/git-helper/scripts/status.py": [],
+  "fixtures/benign/image-resizer/scripts/resize.py": [],
+  "fixtures/benign/pdf-summarizer/scripts/summarize.py": [],
+  "fixtures/benign/weather-fetch/scripts/fetch.py": [
+    {
+      "line": 20,
+      "pattern": "urllib",
+      "description": "Legitimate weather API query using urllib",
+      "tolerance": 1
+    }
+  ]
+}
