@@ -163,13 +163,13 @@ def test_semantic_questions_are_fresh_copies():
 
 def test_decision_settings_defaults():
     config = default_config()
-    assert config.decision.backend == "auto"
+    assert config.decision.backend == "legacy"
     assert config.decision.checkpoint == "auto"
     assert config.decision.device == "auto"
     assert config.decision.max_len == 1024
     assert config.decision.head_max_len == 256
     assert config.decision.required is False
-    assert config.decision.cache_identity == "auto:auto:uncalibrated:1024:256"
+    assert config.decision.cache_identity == "legacy:auto:uncalibrated:1024:256"
 
 
 def test_decision_settings_identity_tracks_model_and_calibration():
@@ -214,8 +214,8 @@ def test_decision_environment_overrides(tmp_path: Path, monkeypatch: pytest.Monk
 def test_default_config_roundtrip_includes_decision(tmp_path: Path):
     path = write_default_config(tmp_path / "skillsentry.toml")
     config = load_config(path)
-    assert config.decision.backend == "auto"
-    assert config.decision.cache_identity == "auto:auto:uncalibrated:1024:256"
+    assert config.decision.backend == "legacy"
+    assert config.decision.cache_identity == "legacy:auto:uncalibrated:1024:256"
 
 
 class _FakeDecisionClient:

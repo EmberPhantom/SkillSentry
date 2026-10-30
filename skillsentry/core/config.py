@@ -43,7 +43,8 @@ class DecisionSettings(_ConfigModel):
     section controls the Laya-style decision layer independently.
     """
 
-    backend: str = "auto"  # auto | laya | legacy | none
+    # Opt-in: Laya stays off until its calibration gates pass (docs/13 §13.20).
+    backend: str = "legacy"  # auto | laya | legacy | none
     checkpoint: str = "auto"  # auto | english | multilingual | typed-decisions
     device: str = "auto"  # auto | cpu | cuda | mps
     model_path: str = ""
@@ -166,7 +167,7 @@ image_max_px = 1024
 request_timeout_s = 180
 
 [decision]
-backend = "auto"                 # auto | laya | legacy | none
+backend = "legacy"               # auto | laya | legacy | none (laya is opt-in until calibrated)
 checkpoint = "auto"              # auto | english | multilingual | typed-decisions
 device = "auto"                  # auto | cpu | cuda | mps
 model_path = ""                  # optional offline checkpoint directory
