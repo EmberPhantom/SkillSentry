@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Added
+- **Web dashboard** (`ui/`, React 18 and TypeScript): triage table with verdict filter, search and sort; new-scan form with a live console over the scan WebSocket; skill detail with overview, static findings, vision evidence, sandbox trace, Poisoned Well and export tabs; cache stats and clear. It ships inside the wheel and is served at `/` by `skillsentry serve`.
+- **CLI:** `cache stats|list|clear`, `export <scan_id>` (re-renders a stored report), and `sandbox build` (builds the sandbox image from the packaged sources).
+- **Dockerfile** for the server image (multi-stage: dashboard build, then a non-root Python runtime). The Docker socket is not mounted by default.
+- **Release script** `scripts/build_release.sh` and local check `scripts/check.sh` (lint, tests, schema drift, demo smoke) while CI is blocked.
 - **Dev 1 M0 backend**: frozen Verdict v1 Pydantic contracts with generated `schemas/verdict.v1.json` + `schemas/api.v1.json`, deterministic `MockGemma`, SARIF 2.1.0 / Markdown / STIX 2.1 writers, and a 7-skill demo server covering REST, WebSocket replay, cache, batch scans, tab payloads, and error envelopes. Adds `skillsentry serve`, `skillsentry init`, and `skillsentry scan --demo-mode`; GitHub Actions lint/schema/demo-smoke gates. Live analysis still fails honestly with `503 engine_not_ready` until CL-D1-2…5 land.
 - **Dev 1 sandbox/deception bundle**: Docker runner with an internal no-NAT network, non-root read-only container, 512 MB / 1 CPU / 128 pids / 60 s limits, canary seeding via tar, exec watchdog with timeout teardown, and fail-closed masquerade verification. Adds the `LD_PRELOAD` shim source + multi-stage sandbox image, canary-filesystem builder, context honeypot, tolerant monitor parser, loopback DNS sinkhole, inert HTTP responder with secondary canary, Poisoned Well correlation (raw/base64/hex/split DNS labels), attacker profile + IOC export, and evasion probe detection. Covered by mocked Docker lifecycle tests, real-loopback DNS/HTTP tests, and a real Docker Desktop 29.9.2 full-fixture pass with `MockGemma` (`cloud-sync-pro` 95, `slack-notif-mal` 100); real-model/vision E2E remains pending.
 - **Dev 1 model + fusion source**: `GemmaLocal` (Ollama JSON-schema mode, image base64, health/digest probe) and opt-in `GemmaCloud` (Gemini, key in a request header only) implement I2 with retry-after-malformed-JSON and explicit `ModelUnavailable` failures; the `auto/local/cloud/demo` selector fails closed when no real backend is reachable. Adds the weighted fusion engine with missing-signal renormalisation, typosquat bonus, tier boundaries, stage-degradation notes, and hard overrides. No live Ollama/Gemini integration was possible in this environment.
@@ -15,7 +19,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **Team & workload assignment** (`docs/11-team-and-workload.md`): revised 3-developer split — Dev 1 (Backend + AI Integration: sandbox, Poisoned Well, models, verdict/reports, server), Dev 2 (Backend — Skill Analysis: parser, anchors, semantic, vision, cache), Dev 3 (Frontend only) — with work packages, milestone plan M0–M5, stage RACI, interface contracts I1–I5, and swing-task rebalancing. Supersedes the original plan §8 division; docs 02/08/10, CONTRIBUTING, and README updated for consistency.
 - **Task-level work checklists** (`docs/checklists/`): 27 checklists (CL-D1-0…8, CL-D2-0…8, CL-D3-0…8) elaborating every work package into concrete tasks with dependencies, spec references, and "Done means" acceptance criteria; index includes milestone → checklist matrix and cross-developer dependency map.
 
+### Changed
+- Local model client: configurable context size, prediction cap, seed and keep-alive. Health requires the configured model to be pulled, so a server without it no longer answers with another model. Cache identity uses `name@digest`.
+- Legacy semantic analysis splits skills into line-aligned chunks within a call budget. Anything not analysed is reported as a coverage gap and sets the stage to degraded.
+- Raster images sent to the model are capped at three per scan, downscaled to 768 px. The rest are reported as partial coverage.
+- `--fail-on` defaults to `suspicious` for `scan` and `self-audit`.
+- The Laya decision backend is opt-in (`decision.backend = "legacy"` by default) until its calibration gates pass.
+- The version is read from `skillsentry/core/version.py`.
+
 ### Fixed
+- Fusion applies the strongest malicious override floor, so an evasion probe reports 100 even when a Poisoned Well override is listed first.
+- Parser: YAML aliases and nesting deeper than 10 levels are refused before expansion. Reserved device names and alternate data stream notation are reported and the file stays in analysis.
+- Typosquat: a case-only variant of a known name, and Cyrillic or Greek homographs, are flagged.
+- SVG: UTF-16 documents are decoded and scanned, the whole document is scanned rather than the first 20,000 characters, and external `<use>`, `data:` URIs, DTD entities, remote stylesheets and hidden text are detected.
 - **Docker 29 sandbox execution**: removed `/proc` bind mounts and serve sanitised cgroup/mountinfo views through the shim; added `stat64`, `fstatat`, `statx`, and versioned glibc stat interception so `/.dockerenv` stays hidden from shell and coreutils probes; seed `/tmp/skillsentry` via exec on the tmpfs; use an anonymous canary-home volume; serialize all runners process-wide; and reset a RUNNING scan row when a post-history `ScanError` occurs. Full Docker fixture acceptance now passes with `MockGemma`.
 
 ### Planned — Phase 1: Stabilization

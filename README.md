@@ -79,27 +79,47 @@ Deep-dives: [Architecture](docs/02-architecture.md) · [Database](docs/03-databa
 
 ## 🚀 How to Run
 
-**Prereqs:** Python 3.11+ · Docker · [Ollama](https://ollama.com) with `ollama pull gemma4:e4b-q4` (pre-pull the night before demos).
+**Prereqs:** Python 3.11+ · Node 20+ (to build the dashboard) · Docker (for the sandbox) · [Ollama](https://ollama.com) with the Gemma 4 E4B model.
 
 ```bash
-pip install skillsentry              # or: git clone … && pip install -e .
-skillsentry init                     # writes skillsentry.toml
+# From a checkout (a PyPI release is planned, not yet published)
+pip install -e .
+cd ui && npm ci && npm run build && cd ..   # builds the dashboard into the package
+skillsentry init                             # writes skillsentry.toml
+skillsentry sandbox build                    # builds the sandbox image (needs Docker)
+
+ollama pull gemma4:e4b-it-qat                # local model used for semantic and vision analysis
 
 skillsentry scan ./fixtures/benign/pdf-summarizer        # ✅ SAFE
 skillsentry scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠️ C2 mapped
-skillsentry scan ./fixtures/benign/pdf-summarizer        # ⚡ cached, <2s
+skillsentry scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
 
-skillsentry serve                    # Triage Dashboard → http://127.0.0.1:8000
-skillsentry scan ./skills --demo-mode  # offline canned demo (venue Wi-Fi insurance)
+skillsentry serve                    # Dashboard → http://127.0.0.1:8000
+skillsentry scan ./skills --demo-mode  # offline canned demo, no Docker or model needed
+skillsentry export <scan_id> --format sarif   # re-render a stored report
+skillsentry cache stats              # inspect the verdict cache
 ```
 
-**CI / PR gate:**
+**Server image:** `docker build -t skillsentry/server:2.0.0 .` then
+`docker run -p 127.0.0.1:8000:8000 skillsentry/server:2.0.0`. The container does not
+mount the Docker socket, so the sandbox is unavailable inside it by default. Mounting
+`/var/run/docker.sock` gives the container root-equivalent control of the host, so only do
+that deliberately.
+
+**Release build and local checks** (CI is blocked while the GitHub account has a billing issue):
+
+```bash
+scripts/check.sh          # lint, format, tests, schema drift, demo smoke
+scripts/build_release.sh  # dashboard, wheel, and a fresh-venv install check
+```
+
+**CI / PR gate (planned):** a `skillsentry/scan` GitHub Action is planned and is not yet published. The intended interface is:
 
 ```yaml
-- uses: skillsentry/scan@v1
+- uses: skillsentry/scan@v1   # planned
   with:
     path: ./skills/
-    fail-on: malicious      # blocks PR merge
+    fail-on: suspicious     # the CLI default is suspicious
     upload-sarif: true      # GitHub Security tab
     cache: true             # incremental re-scans
 ```
