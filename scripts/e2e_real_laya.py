@@ -65,20 +65,39 @@ def main() -> int:
                     "semantic_backend": (semantic.telemetry or {}).get("decision_backend")
                     if semantic
                     else None,
-                    "checkpoint": (semantic.telemetry or {}).get("checkpoint") if semantic else None,
+                    "checkpoint": (semantic.telemetry or {}).get("checkpoint")
+                    if semantic
+                    else None,
                     "calibration": (semantic.telemetry or {}).get("calibration_version")
                     if semantic
                     else None,
                     "sandbox_ran": bool(sandbox and not sandbox.degraded and sandbox.telemetry),
-                    "active_defense": bool(outcome.verdict.active_defense and outcome.verdict.active_defense.triggered),
-                    "exfil_channel": (outcome.verdict.active_defense.exfil_channel if outcome.verdict.active_defense else None),
-                    "evasion_detected": bool(outcome.verdict.active_defense and getattr(outcome.verdict.active_defense, "sandbox_evasion_detected", False)),
+                    "active_defense": bool(
+                        outcome.verdict.active_defense and outcome.verdict.active_defense.triggered
+                    ),
+                    "exfil_channel": (
+                        outcome.verdict.active_defense.exfil_channel
+                        if outcome.verdict.active_defense
+                        else None
+                    ),
+                    "evasion_detected": bool(
+                        outcome.verdict.active_defense
+                        and getattr(
+                            outcome.verdict.active_defense, "sandbox_evasion_detected", False
+                        )
+                    ),
                 }
                 row["pass"] = (
                     row["verdict"] == expected
                     and row["risk"] >= min_risk
-                    and (name != "cloud-sync-pro" or (row["active_defense"] and row["exfil_channel"] == "DNS_TUNNELING"))
-                    and (name != "slack-notif-mal" or (row["active_defense"] and row["evasion_detected"]))
+                    and (
+                        name != "cloud-sync-pro"
+                        or (row["active_defense"] and row["exfil_channel"] == "DNS_TUNNELING")
+                    )
+                    and (
+                        name != "slack-notif-mal"
+                        or (row["active_defense"] and row["evasion_detected"])
+                    )
                     and not row["sandbox_degraded"]
                     and not row["semantic_degraded"]
                 )
