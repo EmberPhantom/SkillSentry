@@ -142,11 +142,10 @@ def fuse(
     tier = score_to_verdict(score, safe_max=safe_max, malicious_min=malicious_min)
     if override is not None:
         if override.verdict == VerdictTier.MALICIOUS:
-            # Evasion is direct proof of adversarial behaviour; Poisoned Well is
-            # proof of exfiltration.  Both are malicious, but the documented
-            # slack fixture requires the evasion score to reach 100.
-            override_floor = 100 if override.source == Stage.EVASION else 95
-            score = max(score, override_floor)
+            # Every malicious override applies its own floor, so a Poisoned Well
+            # hit cannot hide an evasion probe that reports a higher floor.
+            malicious_floor = max(_override_floor(item) for item in _malicious_overrides(results))
+            score = max(score, malicious_floor)
             tier = VerdictTier.MALICIOUS
         else:
             tier = _max_tier(tier, override.verdict)
@@ -279,13 +278,32 @@ def _typosquat_detected(results: tuple[StageResult, ...], typo_signal: float) ->
     return False
 
 
+def _override_floor(item: OverrideSignal) -> int:
+    """Score floor for a malicious override.
+
+    Evasion is direct proof of adversarial behaviour; Poisoned Well is proof of
+    exfiltration.  Both are malicious, but the documented slack fixture requires
+    the evasion score to reach 100.
+    """
+    return 100 if item.source == Stage.EVASION else 95
+
+
+def _malicious_overrides(results: tuple[StageResult, ...]) -> list[OverrideSignal]:
+    return [
+        result.override
+        for result in results
+        if result.override is not None and result.override.verdict == VerdictTier.MALICIOUS
+    ]
+
+
 def _select_override(results: tuple[StageResult, ...]) -> OverrideSignal | None:
     overrides = [result.override for result in results if result.override is not None]
     if not overrides:
         return None
     malicious = [item for item in overrides if item.verdict == VerdictTier.MALICIOUS]
     if malicious:
-        return max(malicious, key=lambda item: item.confidence)
+        # Confidence first; on a tie, the stronger floor (evasion) is reported.
+        return max(malicious, key=lambda item: (item.confidence, _override_floor(item)))
     return max(overrides, key=lambda item: item.confidence)
 
 

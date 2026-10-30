@@ -283,3 +283,58 @@ def test_benign_signals_without_high_findings_remain_safe():
     assert fused.verdict == VerdictTier.SAFE
     assert fused.risk_score < 30
     assert fused.evidence_floor == 0
+
+
+def test_evasion_floor_wins_when_poisoned_well_is_listed_first():
+    # Both overrides carry confidence 1.0. The stronger evasion floor must not be
+    # hidden by stage order: the documented slack-notif-mal fixture needs 100.
+    results = [
+        _result(
+            Stage.POISONED_WELL,
+            override=OverrideSignal(
+                verdict=VerdictTier.MALICIOUS,
+                confidence=1.0,
+                reason="canary marker in outbound DNS",
+                source=Stage.POISONED_WELL,
+            ),
+        ),
+        _result(
+            Stage.EVASION,
+            override=OverrideSignal(
+                verdict=VerdictTier.MALICIOUS,
+                confidence=1.0,
+                reason="dockerenv probe",
+                source=Stage.EVASION,
+            ),
+        ),
+    ]
+    fused = fuse(results)
+    assert fused.risk_score == 100
+    assert fused.override is not None
+    assert fused.override.source == Stage.EVASION
+
+
+def test_evasion_floor_wins_when_listed_second_regardless_of_order():
+    results = [
+        _result(
+            Stage.EVASION,
+            override=OverrideSignal(
+                verdict=VerdictTier.MALICIOUS,
+                confidence=1.0,
+                reason="dockerenv probe",
+                source=Stage.EVASION,
+            ),
+        ),
+        _result(
+            Stage.POISONED_WELL,
+            override=OverrideSignal(
+                verdict=VerdictTier.MALICIOUS,
+                confidence=1.0,
+                reason="canary marker in outbound DNS",
+                source=Stage.POISONED_WELL,
+            ),
+        ),
+    ]
+    fused = fuse(results)
+    assert fused.risk_score == 100
+    assert fused.override.source == Stage.EVASION
