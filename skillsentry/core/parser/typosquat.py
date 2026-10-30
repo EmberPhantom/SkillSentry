@@ -8,6 +8,7 @@ and exact names are never flagged.
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 
 KNOWN_SKILL_NAMES: tuple[str, ...] = (
@@ -64,8 +65,39 @@ class TyposquatMatch:
         )
 
 
+# Cyrillic and Greek letters that render like Latin ones: a common homograph trick.
+_CONFUSABLES = str.maketrans(
+    {
+        "а": "a",
+        "е": "e",
+        "о": "o",
+        "р": "p",
+        "с": "c",
+        "у": "y",
+        "х": "x",
+        "і": "i",
+        "ј": "j",
+        "ѕ": "s",
+        "һ": "h",
+        "ԁ": "d",
+        "ɡ": "g",
+        "α": "a",
+        "ο": "o",
+        "ν": "v",
+        "ρ": "p",
+        "ι": "i",
+        "κ": "k",
+        "τ": "t",
+        "ε": "e",
+        "υ": "u",
+        "χ": "x",
+    }
+)
+
+
 def _fold(value: str) -> str:
-    folded = value.lower().translate(_TRANSLATION)
+    folded = unicodedata.normalize("NFKC", value).lower().translate(_CONFUSABLES)
+    folded = folded.translate(_TRANSLATION)
     folded = folded.replace("rn", "m").replace("vv", "w")
     folded = folded.replace("_", "-")
     return folded
@@ -101,12 +133,18 @@ def check_typosquat(
 ) -> TyposquatMatch | None:
     """Return the nearest known name when ``name`` is a likely imitation."""
 
-    lowered = name.strip().lower()
+    stripped = unicodedata.normalize("NFKC", name.strip())
+    lowered = stripped.lower()
     if len(lowered) < 4:
         return None
     folded = _fold(lowered)
-    if lowered in {item.lower() for item in known} or folded in {_fold(item) for item in known}:
+    # Only the exact spelling of a known name is the original.  A case variant or
+    # a homograph that folds onto a known name is an imitation, not the original.
+    if stripped in known:
         return None
+    for item in known:
+        if folded == _fold(item.lower()) and stripped != item:
+            return TyposquatMatch(name=name, candidate=item, distance=0, normalised=folded)
     best: TyposquatMatch | None = None
     for candidate in known:
         candidate_lower = candidate.lower()

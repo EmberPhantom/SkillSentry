@@ -36,7 +36,18 @@ _SEVERITY_SCORE = {
 
 _SVG_ACTIVE = re.compile(
     r"<\s*(?:script|foreignObject|iframe|object|embed)\b|on[a-z]+\s*=|"
-    r"javascript\s*:|xlink:href\s*=\s*[\"'](?:https?:|data:text/html)",
+    r"javascript\s*:|xlink:href\s*=\s*[\"'](?:https?:|data:text/html)|"
+    # Entity and DTD declarations are how XML entity-expansion attacks arrive.
+    r"<!\s*(?:ENTITY|DOCTYPE)\b|"
+    # A <use> that points outside the file pulls in remote or inline content.
+    r"<\s*use\b[^>]*\bhref\s*=\s*[\"'](?!#)|"
+    # Any data: URI can carry an active document, whatever its media type.
+    r"\bhref\s*=\s*[\"']\s*data:|"
+    # Remote stylesheets and url() fetches run during rendering.
+    r"<\s*style\b[^>]*>[^<]*(?:@import|url\(\s*[\"']?https?:)|"
+    # Text the reader cannot see is a common carrier for injected instructions.
+    r"<\s*text\b[^>]*(?:opacity\s*[:=]\s*[\"']?0(?:\.0*)?[\"';\s>]|"
+    r"font-size\s*[:=]\s*[\"']?0?\.\d+|fill\s*[:=]\s*[\"']?none)",
     re.IGNORECASE,
 )
 _INSTRUCTION = re.compile(
@@ -58,10 +69,24 @@ def _normalise_bbox(raw: Any) -> list[float]:
     return values
 
 
+def _decode_svg(data: bytes) -> str:
+    """Decode an SVG the way an XML reader would, so UTF-16 cannot hide markup."""
+
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return data.decode("utf-16", "replace")
+    if data.count(b"\x00") > len(data) // 4:
+        order = "utf-16-be" if data[:1] == b"\x00" else "utf-16-le"
+        return data.decode(order, "replace")
+    return data.decode("utf-8", "replace")
+
+
 def _svg_scan(asset: ImageAsset) -> tuple[list[Finding], str]:
-    text = asset.data.decode("utf-8", "replace")[:MAX_OCR_CHARS]
+    # The whole document is scanned; only the stored excerpt is truncated.
+    full = _decode_svg(asset.data)
+    text = full[:MAX_OCR_CHARS]
     findings: list[Finding] = []
-    if _SVG_ACTIVE.search(text):
+    active = _SVG_ACTIVE.search(full)
+    if active:
         findings.append(
             Finding(
                 stage=Stage.VISION,
@@ -71,12 +96,12 @@ def _svg_scan(asset: ImageAsset) -> tuple[list[Finding], str]:
                 evidence=FindingEvidence(
                     file=asset.relative,
                     line=1,
-                    code=_SVG_ACTIVE.search(text).group(0)[:200],  # type: ignore[union-attr]
+                    code=active.group(0)[:200],
                 ),
             )
         )
-    if _INSTRUCTION.search(text):
-        match = _INSTRUCTION.search(text)
+    if _INSTRUCTION.search(full):
+        match = _INSTRUCTION.search(full)
         findings.append(
             Finding(
                 stage=Stage.VISION,
