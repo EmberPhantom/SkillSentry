@@ -94,6 +94,10 @@ ignore = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-ra"
+markers = [
+  "fake_transport: tests using httpx.MockTransport rather than a live service",
+  "live_ollama: end-to-end test against a live Ollama server (skips when none is reachable)",
+]
 filterwarnings = [
   "error::DeprecationWarning:skillsentry.*",
 ]
