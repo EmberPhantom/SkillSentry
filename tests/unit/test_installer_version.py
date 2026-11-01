@@ -14,3 +14,20 @@ def test_install_script_pins_the_package_version():
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     pinned = re.search(r'^VERSION="([^"]+)"', installer, re.M).group(1)
     assert pinned == package_version
+
+
+def test_powershell_installer_pins_the_package_version():
+    version_py = (ROOT / "skill_sentry_cli" / "core" / "version.py").read_text(encoding="utf-8")
+    package_version = re.search(r'__version__ = "([^"]+)"', version_py).group(1)
+    installer = (ROOT / "install.ps1").read_text(encoding="utf-8")
+    pinned = re.search(r'\[string\]\$Version = "([^"]+)"', installer).group(1)
+    assert pinned == package_version
+
+
+def test_installers_share_the_documented_flags():
+    shell = (ROOT / "install.sh").read_text(encoding="utf-8")
+    powershell = (ROOT / "install.ps1").read_text(encoding="utf-8")
+    for flag in ("--no-setup", "--uninstall", "--dry-run", "--version"):
+        assert flag in shell
+    for switch in ("-NoSetup", "-Uninstall", "-DryRun", "-Version"):
+        assert switch in powershell

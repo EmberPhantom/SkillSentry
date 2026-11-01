@@ -31,16 +31,37 @@ SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any script
 
 ## 3. Install
 
-Pick one. All three put the `skill-sentry-cli` command on your PATH.
+Pick the option for your system. Each puts the `skill-sentry-cli` command on your PATH.
 
-**A. The install script** (Linux and macOS; the release files are checksum-verified):
+**A. The install script** (Linux, macOS, and WSL; the release files are checksum-verified):
 
 ```bash
 curl -fsSLO https://github.com/EmberPhantom/SkillSentry/releases/latest/download/install.sh
 sh install.sh                 # installs, then runs `skill-sentry-cli setup`
 ```
 
-Read `install.sh` before running it, as you would any script you download. To install without the guided setup, add `--no-setup`. The script never uses sudo and installs only under your home folder.
+Read `install.sh` before running it, as you would any script you download. Useful options:
+
+| Option | What it does |
+|:---|:---|
+| `--no-setup` | Install only; run `skill-sentry-cli setup` yourself later |
+| `--dry-run` | Print the download URL and steps; change nothing |
+| `--version 2.1.0rc1` | Install a specific published version |
+| `--upgrade` | Reinstall over an existing install |
+| `--uninstall` | Remove the command; your scan history is kept |
+
+The script never uses sudo and installs only under your home folder. If the command is not found afterwards, the script prints the exact line to add to your shell's startup file (for example `~/.bashrc` or `~/.zshrc`).
+
+**D. Windows (PowerShell)** (native Windows; no administrator rights needed):
+
+```powershell
+Invoke-WebRequest -Uri https://github.com/EmberPhantom/SkillSentry/releases/latest/download/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+It needs Python 3.11 to 3.13 (`winget install Python.Python.3.12`). It checks the download against `SHA256SUMS`, installs under `%LOCALAPPDATA%\skill-sentry-cli`, adds that folder to your user PATH, and runs setup. Add `-DryRun`, `-NoSetup`, or `-Uninstall` as needed. Open a new PowerShell window after installing.
+
+**Windows and WSL:** the sandbox needs Docker Desktop. On WSL, turn on WSL integration for your distribution in Docker Desktop settings. Keep your skills inside the Linux filesystem (for example `~/skills`), not under `/mnt/c/...`: scans of Windows-drive folders are much slower. `doctor` warns when the working folder is on a Windows drive.
 
 **B. pipx** (any platform with Python 3.11 to 3.13):
 
@@ -69,7 +90,7 @@ npm run build
 cd ..
 ```
 
-> **Windows (not verified here):** use option B with `pipx`. The activation line for a checkout is `.venv\Scripts\activate`.
+> **Windows and macOS status:** the installers and Windows support are new in 2.1 and are being verified on real machines. Until then, treat a failed sandbox step on these systems as expected and run `skill-sentry-cli doctor` to see what is missing.
 
 **Upgrade:** `pipx upgrade skill-sentry-cli`, or run the install script again. **Uninstall:** `sh install.sh --uninstall`, or `pipx uninstall skill-sentry-cli`. Both keep your scan history and any `skillsentry.toml` you wrote.
 
@@ -202,6 +223,7 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 | `SUSPICIOUS` | Something needs a human look | Read every cited finding; ask the author if unclear |
 | `MALICIOUS` | Hard evidence of hostile behaviour | Do not install |
 | `UNSCANNED` | The scan is incomplete (model, sandbox, or a file was not read) | Fix the reason shown, then scan again; do not install meanwhile |
+| `INVALID SKILL` | The SKILL.md is malformed (for example a missing `name:`). No behaviour was judged; the verdict is about the package format | Fix the frontmatter named in the line, then scan again. It still fails the CI gate |
 
 Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. See section 11.
 
@@ -255,6 +277,13 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 ---
 
 ## 9. Reports and stored scans
+
+**Where the report is.** Every text scan ends with the command that writes its report. A plain `scan` prints the verdict in the terminal and stores the scan; it does not write a file. To write files in one run:
+
+```bash
+skill-sentry-cli scan path/to/skills --report-dir reports   # one .md per skill, plus summary.md
+skill-sentry-cli scan path/to/skills --recursive            # also scan skills nested in a skill folder
+```
 
 Choose a format with `--format` (`text`, `json`, `markdown`, `sarif`), and save it with `--output`:
 
@@ -394,6 +423,8 @@ Each message below was produced on purpose and quoted exactly. The first line of
 
 | What you see | Cause | Fix |
 |:---|:---|:---|
+| `INVALID SKILL - frontmatter is missing required field: name (SKILL.md:1)` | The SKILL.md has no `name:` (or `description:`) in its frontmatter | Add the field between the `---` lines at the top of SKILL.md, then scan again |
+| `Warning: … is a skill itself; its N nested skill(s) were not scanned` | The folder has its own SKILL.md, so only that skill was scanned | Pass `--recursive` to scan the nested skills too, or point at a subfolder |
 | `UNSCANNED … sandbox degraded: Docker unavailable … Permission denied` | Your shell is not in the `docker` group | Section 4: join the group and open a new terminal |
 | `FAIL model: cannot reach the model server at …` | Ollama is not running, or `ollama_url` is wrong | Start Ollama; check `ollama_url` |
 | `UNSCANNED … semantic degraded: model unavailable: local model is not reachable at …` | The model server could not be reached | Start Ollama; run `doctor` |

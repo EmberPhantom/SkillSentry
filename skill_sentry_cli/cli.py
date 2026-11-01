@@ -32,7 +32,14 @@ from skill_sentry_cli.core.exit_codes import ExitCode
 from skill_sentry_cli.core.models.gemma_local import ProbeResult
 from skill_sentry_cli.core.models.mock import MockGemma
 from skill_sentry_cli.core.reports import render_report
-from skill_sentry_cli.core.verdict.status import degraded_reason, is_unscanned, shown_status
+from skill_sentry_cli.core.verdict.status import (
+    INVALID,
+    degraded_reason,
+    invalid_reason,
+    is_invalid,
+    is_unscanned,
+    shown_status,
+)
 from skill_sentry_cli.core.version import GEMMA_BADGE, __version__
 from skill_sentry_cli.server.demo_data import build_demo_store
 
@@ -149,6 +156,16 @@ def scan(
     sarif_out: Path | None = typer.Option(
         None, "--sarif-out", help="Write a SARIF 2.1.0 report to a file."
     ),
+    report_dir: Path | None = typer.Option(
+        None,
+        "--report-dir",
+        help="Write one Markdown report per skill, plus summary.md for folders.",
+    ),
+    recursive: bool = typer.Option(
+        False,
+        "--recursive",
+        help="Scan skills nested inside a skill folder too (default: only the folder itself).",
+    ),
 ) -> None:
     """Audit one skill directory or a folder of skills."""
 
@@ -192,10 +209,20 @@ def scan(
 
     engine = _make_engine(config, backend)
     try:
-        roots = engine.discover(path)
+        roots = engine.discover(path, recursive=recursive)
+        nested = 0 if recursive else len(engine.discover(path, recursive=True)) - len(roots)
     except ScanError as exc:
         typer.echo(f"error: {exc}", err=True)
+        typer.echo(f"hint: {_scan_error_hint(exc)}", err=True)
         raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
+    if output_format == "text" and not quiet:
+        typer.echo(_scope_line(path, roots))
+        if nested > 0:
+            typer.echo(
+                f"   Warning: {path} is a skill itself; its {nested} nested skill(s) were not "
+                "scanned. Pass --recursive to scan them, or scan a subfolder.",
+                err=True,
+            )
 
     options = ScanOptions(
         no_cache=no_cache,
@@ -205,12 +232,16 @@ def scan(
     )
     outcomes: list[ScanOutcome] = []
     failed = False
-    for root in roots:
+    show_progress = len(roots) > 1 and output_format == "text" and not quiet and sys.stderr.isatty()
+    for index, root in enumerate(roots, start=1):
+        if show_progress:
+            typer.echo(f"[{index}/{len(roots)}] {root.name} ...", err=True)
         try:
             outcome = engine.scan(root, options=options)
         except ScanError as exc:
             failed = True
             typer.echo(f"error: {root}: {exc}", err=True)
+            typer.echo(f"hint: {_scan_error_hint(exc)}", err=True)
             continue
         outcomes.append(outcome)
     engine.close()
@@ -218,6 +249,9 @@ def scan(
     if not outcomes:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
 
+    footer = None
+    if output is None and report_dir is None:
+        footer = _report_footer(path, outcomes)
     _emit_outcomes(
         outcomes,
         output_format=output_format,
@@ -226,7 +260,12 @@ def scan(
         output=output,
         sarif_out=sarif_out,
         skipped=len(roots) - len(outcomes),
+        footer=footer,
     )
+    if report_dir is not None:
+        _write_report_dir(report_dir, outcomes, skipped=len(roots) - len(outcomes))
+        if output_format == "text" and not quiet:
+            typer.echo(f"wrote {len(outcomes)} report(s) to {report_dir}")
     if failed:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
     if any(_should_fail(outcome.verdict, fail_on) for outcome in outcomes):
@@ -334,6 +373,9 @@ def _outcome_status(outcome: ScanOutcome) -> str:
 def _folder_summary(outcomes: list[ScanOutcome], skipped: int) -> str:
     counts = Counter(_outcome_status(outcome) for outcome in outcomes)
     tiers = [tier.value for tier in VerdictTier] + ["UNSCANNED"]
+    if counts.get(INVALID):
+        # Shown only when present, so the usual summary line does not change.
+        tiers.insert(len(VerdictTier), INVALID)
     parts = ", ".join(f"{counts.get(tier, 0)} {tier}" for tier in tiers)
     line = f"Summary: {len(outcomes)} scanned - {parts}"
     return f"{line}, {skipped} failed" if skipped else line
@@ -376,6 +418,7 @@ def _emit_outcomes(
     output: Path | None,
     sarif_out: Path | None,
     skipped: int = 0,
+    footer: str | None = None,
 ) -> None:
     if sarif_out is not None:
         _write_file(sarif_out, _combined_sarif(outcomes))
@@ -404,7 +447,12 @@ def _emit_outcomes(
             reports.insert(0, _folder_summary_table(outcomes, skipped))
         rendered = "\n\n---\n\n".join(reports)
     else:
-        lines = [_verdict_text(outcome, quiet=quiet, backend=backend) for outcome in outcomes]
+        # One banner for the whole run, not one per skill.
+        lines = [_verdict_text(outcome, quiet=True, backend=backend) for outcome in outcomes]
+        if not quiet:
+            lines.insert(0, _banner(backend))
+            if footer is not None:
+                lines.append(footer)
         if len(outcomes) > 1 and not quiet:
             lines.append(_folder_summary(outcomes, skipped))
         rendered = "\n".join(lines)
@@ -415,6 +463,42 @@ def _emit_outcomes(
             typer.echo(rendered.rstrip())
         return
     typer.echo(rendered.rstrip())
+
+
+def _scope_line(path: Path, roots: list[Path]) -> str:
+    if len(roots) == 1 and roots[0] == path.expanduser():
+        return f"Scanning 1 skill: {path}"
+    return f"Scanning {len(roots)} skill(s) under {path}"
+
+
+def _report_footer(path: Path, outcomes: list[ScanOutcome]) -> str:
+    """Say where the report is, with the command that writes it to a file."""
+    if len(outcomes) == 1:
+        scan_id = outcomes[0].scan_id
+        return f"Report: skill-sentry-cli export {scan_id} --format markdown -o report.md"
+    return (
+        f"Reports: skill-sentry-cli scan {path} --report-dir reports\n"
+        "Scan IDs are listed by: skill-sentry-cli cache list"
+    )
+
+
+def _write_report_dir(directory: Path, outcomes: list[ScanOutcome], *, skipped: int) -> None:
+    for outcome in outcomes:
+        name = f"{outcome.verdict.skill}-{outcome.scan_id}.md"
+        rendered = render_report(
+            outcome.verdict, ExportFormat.MARKDOWN, stage_results=outcome.stage_results
+        ).content.decode("utf-8")
+        _write_file(directory / name, rendered)
+    if len(outcomes) > 1:
+        _write_file(directory / "summary.md", _folder_summary_table(outcomes, skipped))
+
+
+def _scan_error_hint(exc: ScanError) -> str:
+    hints = {
+        "no_skill_manifest": "point at a folder that contains SKILL.md, or a folder of skills.",
+        "too_many_skills": "scan a smaller folder, or scan the skill folders one at a time.",
+    }
+    return hints.get(exc.code, "run `skill-sentry-cli doctor` to check the setup.")
 
 
 def _combined_sarif(outcomes: list[ScanOutcome]) -> str:
@@ -441,14 +525,21 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
     verdict = outcome.verdict
     lines: list[str] = []
     if not quiet:
-        lines.append(
-            f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}"
-        )
+        lines.append(_banner(backend))
     cache = " (cached)" if verdict.cached else ""
+    invalid = not is_unscanned(verdict.verdict, outcome.stage_results) and is_invalid(
+        verdict.verdict, outcome.stage_results
+    )
     if is_unscanned(verdict.verdict, outcome.stage_results):
         lines.append(
             f"[?] {verdict.skill} - UNSCANNED (verdict {verdict.verdict.value}, "
             f"risk {verdict.risk_score}) - {degraded_reason(outcome.stage_results)}{cache}"
+        )
+    elif invalid:
+        reason = invalid_reason(outcome.stage_results)
+        lines.append(f"[?] {verdict.skill} - {INVALID} - {reason}{cache}")
+        lines.append(
+            "   Fix the SKILL.md frontmatter, then scan again. This is not a malware finding."
         )
     else:
         icon = {"SAFE": "[OK]", "SUSPICIOUS": "[!]", "MALICIOUS": "[X]"}[verdict.verdict.value]
@@ -457,7 +548,7 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
             f"risk {verdict.risk_score} - confidence {verdict.confidence:.2f}{cache}"
         )
     finding = verdict.key_finding
-    if finding is not None and finding.severity.value not in {"note"}:
+    if not invalid and finding is not None and finding.severity.value not in {"note"}:
         location = ""
         if finding.evidence.file:
             location = f" ({finding.evidence.file}"
@@ -473,6 +564,10 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
             f"{', '.join(active.c2_indicators) or 'unknown'} (marker {active.canary_marker})"
         )
     return "\n".join(lines)
+
+
+def _banner(backend: str) -> str:
+    return f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}"
 
 
 def _backend_label(backend: str) -> str:
@@ -683,7 +778,50 @@ def readiness_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
     checks.append(ReadinessCheck("database", db_ok, True, db_detail))
 
     checks.extend(_docker_checks(cfg))
+    checks.append(_platform_check())
     return checks
+
+
+def detect_platform() -> str:
+    """Windows, macOS, WSL, or Linux.  WSL is Linux running under Windows."""
+    if sys.platform == "win32":
+        return "Windows"
+    if sys.platform == "darwin":
+        return "macOS"
+    try:
+        kernel = Path("/proc/version").read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        kernel = ""
+    if "microsoft" in kernel or os.environ.get("WSL_DISTRO_NAME"):
+        return "WSL"
+    return "Linux"
+
+
+def _platform_check() -> ReadinessCheck:
+    """Advice that depends on the platform.  Never a required failure."""
+    platform = detect_platform()
+    if platform == "WSL":
+        on_windows_drive = Path.cwd().as_posix().startswith("/mnt/")
+        detail = "WSL: Docker Desktop must have WSL integration enabled for this distro"
+        if on_windows_drive:
+            detail += (
+                "; this folder is on a Windows drive (/mnt/...), so scans are slower. "
+                "Copy the skills into the Linux filesystem (~) to speed them up"
+            )
+            return ReadinessCheck("platform", False, False, detail)
+        return ReadinessCheck("platform", True, False, detail)
+    if platform == "Windows":
+        return ReadinessCheck(
+            "platform",
+            False,
+            False,
+            "native Windows: the sandbox needs Docker Desktop; this platform is not yet verified",
+        )
+    if platform == "macOS":
+        return ReadinessCheck(
+            "platform", True, False, "macOS: the sandbox needs Docker Desktop; Ollama via Homebrew"
+        )
+    return ReadinessCheck("platform", True, False, "Linux")
 
 
 _DOCKER_DOWN = "engine not reachable; sandbox scans are unavailable (use --no-sandbox)"
