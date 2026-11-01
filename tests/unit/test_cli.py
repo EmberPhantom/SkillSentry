@@ -14,7 +14,7 @@ runner = CliRunner()
 def test_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert "SkillSentry 2.0.0" in result.output
+    assert "SkillSentry 2.0.0rc1" in result.output
     assert "Fully local analysis" in result.output
 
 
