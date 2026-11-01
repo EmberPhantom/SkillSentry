@@ -21,6 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
+COPY packaging ./packaging
 COPY skill_sentry_cli ./skill_sentry_cli
 COPY --from=ui /src/skill_sentry_cli/ui/dist ./skill_sentry_cli/ui/dist
 RUN pip install . \
