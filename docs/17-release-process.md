@@ -59,6 +59,8 @@ The sandbox digest is written into `skill_sentry_cli/data/sandbox_image.json` be
 
 ## 5. Checks before tagging
 
+Build the dashboard before the sdist: the sdist carries the built dashboard, and a build without it fails. `scripts/build_release.sh` does this in order.
+
 ```bash
 python -m pip install -e ".[dev]"
 ruff check skill_sentry_cli tests scripts && ruff format --check skill_sentry_cli tests scripts

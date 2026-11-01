@@ -83,6 +83,10 @@ include = [
   "CONTRIBUTING.md",
 ]
 
+# The dashboard build is git-ignored; the sdist must carry it so a wheel built from the sdist serves the dashboard.
+[tool.hatch.build.targets.sdist.force-include]
+"skill_sentry_cli/ui/dist" = "skill_sentry_cli/ui/dist"
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100

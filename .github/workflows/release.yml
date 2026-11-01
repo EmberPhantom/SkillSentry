@@ -137,8 +137,13 @@ jobs:
           python -m twine check dist/*
 
       - name: Installer and checksums
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          cp install.sh dist/install.sh
+          # The attached installer must fetch this release, not the one it was copied from.
+          sed -E "s/^VERSION=\"[^\"]*\"/VERSION=\"${VERSION}\"/" install.sh > dist/install.sh
+          chmod +x dist/install.sh
+          grep -q "^VERSION=\"${VERSION}\"" dist/install.sh
           cd dist && sha256sum *.whl *.tar.gz install.sh > SHA256SUMS && cat SHA256SUMS
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -146,7 +151,9 @@ jobs:
           name: dist
           path: dist/
 
-      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+      - name: Build provenance (public repositories only)
+        if: github.event.repository.private == false
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: dist/*
 
