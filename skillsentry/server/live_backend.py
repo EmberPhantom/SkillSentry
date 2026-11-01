@@ -18,8 +18,6 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-import httpx
-
 from skillsentry.core.config import SkillsEntryConfig, load_config
 from skillsentry.core.contracts import (
     CacheStatsResponse,
@@ -66,6 +64,15 @@ class _LiveScan:
     error: str | None = None
     task: asyncio.Task[None] | None = None
     elapsed_ms: int = 0
+
+
+def _ollama_ready(config: SkillsEntryConfig) -> bool:
+    """True only when the local server answers and the configured model is pulled."""
+
+    from skillsentry.core.models.gemma_local import GemmaLocal
+
+    with GemmaLocal(base_url=config.model.ollama_url, model=config.model.ollama_model) as model:
+        return model.health()
 
 
 class LiveBackend:
@@ -453,13 +460,11 @@ class LiveBackend:
         ollama_ok = False
         if backend in {"mock", "demo"}:
             ollama_ok = True
-        elif backend == "local":
+        elif backend in {"ollama", "local"}:
+            # Same readiness test as the model layer: the server answers and the
+            # configured model is pulled.  "ready" is the only state reported as ok.
             with contextlib.suppress(Exception):
-                async with httpx.AsyncClient(timeout=0.75) as client:
-                    response = await client.get(
-                        f"{self.config.model.ollama_url.rstrip('/')}/api/tags"
-                    )
-                    ollama_ok = response.status_code == 200
+                ollama_ok = await asyncio.to_thread(_ollama_ready, self.config)
         elif backend == "cloud":
             with contextlib.suppress(Exception):
                 from skillsentry.core.models.selector import select_model
@@ -472,7 +477,10 @@ class LiveBackend:
             from skillsentry.core.sandbox.runner import SandboxConfig, SandboxRunner
 
             runner = SandboxRunner(config=SandboxConfig(image=self.config.sandbox.base_image))
-            docker_ok = await asyncio.to_thread(runner.available)
+            try:
+                docker_ok = await asyncio.to_thread(runner.available)
+            finally:
+                runner.close()
         return HealthResponse(
             ollama="ok" if ollama_ok else "down",
             docker="ok" if docker_ok else "down",

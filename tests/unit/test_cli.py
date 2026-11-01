@@ -15,7 +15,7 @@ def test_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "SkillSentry 2.0.0" in result.output
-    assert "Powered by Gemma 4" in result.output
+    assert "Fully local analysis" in result.output
 
 
 def test_init_writes_config(tmp_path: Path):
@@ -163,6 +163,63 @@ def test_live_scan_clean_folder_recurses_and_exits_zero(tmp_path: Path):
     assert all(item["verdict"] == "SAFE" for item in payload)
 
 
+def test_mock_backend_is_refused_for_real_scans(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("SKILLSENTRY_DEV", raising=False)
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "benign" / "git-helper"),
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "refuse.sqlite")},
+    )
+    assert result.exit_code == 2, result.output
+    assert "refused for real scans" in result.output
+
+
+def test_folder_scan_text_ends_with_a_verdict_count(tmp_path: Path):
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "benign"),
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "summary.sqlite")},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output.rstrip().splitlines()[-1] == (
+        "Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED"
+    )
+
+
+def test_folder_scan_markdown_starts_with_a_summary_table(tmp_path: Path):
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(ROOT / "fixtures" / "benign"),
+            "--format",
+            "markdown",
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "summary-md.sqlite")},
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("# SkillSentry folder summary")
+    assert "| git-helper | SAFE |" in result.output
+
+
 def test_live_scan_writes_json_output_file(tmp_path: Path):
     target = tmp_path / "reports" / "verdict.json"
     result = runner.invoke(
@@ -217,3 +274,30 @@ def test_live_scan_invalid_format_is_usage_error():
     result = runner.invoke(app, ["scan", "fixtures", "--format", "xml"])
     assert result.exit_code == 2
     assert "unsupported --format" in result.output
+
+
+def test_unwritable_output_is_an_operational_error_not_a_traceback(tmp_path: Path):
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "git-helper",
+            "--demo-mode",
+            "--output",
+            str(blocker / "report.md"),
+        ],
+    )
+    assert result.exit_code == 3, result.output
+    assert "could not write" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_init_into_an_unwritable_path_is_reported(tmp_path: Path):
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x", encoding="utf-8")
+    result = runner.invoke(app, ["init", "--path", str(blocker / "skillsentry.toml")])
+    assert result.exit_code == 3, result.output
+    assert "could not write" in result.output
+    assert "Traceback" not in result.output

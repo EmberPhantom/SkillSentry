@@ -5,6 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 PY=".venv/Scripts/python.exe"
+[ -x "$PY" ] || PY=".venv/bin/python"
 [ -x "$PY" ] || PY="python"
 
 step() { printf '\n== %s\n' "$1"; }

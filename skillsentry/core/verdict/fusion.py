@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 
 from skillsentry.core.contracts import (
     Finding,
+    FindingEvidence,
     OverrideSignal,
     Severity,
     Stage,
@@ -131,7 +132,21 @@ def fuse(
     bonus = int(typosquat_bonus) if detected else 0
     score = _clamp_score(round(weighted) + bonus)
     findings = _collect_findings(results)
-    evidence_floor = _evidence_floor(findings, detected=detected, typosquat_floor=typosquat_floor)
+    evidence_floor = _evidence_floor(
+        [finding for finding in findings if finding.stage != Stage.SEMANTIC],
+        detected=detected,
+        typosquat_floor=typosquat_floor,
+    )
+    # Model-reported findings can raise a verdict to SUSPICIOUS, never to MALICIOUS.
+    model_floor = min(
+        _evidence_floor(
+            [finding for finding in findings if finding.stage == Stage.SEMANTIC],
+            detected=False,
+            typosquat_floor=0,
+        ),
+        malicious_min,
+    )
+    evidence_floor = max(evidence_floor, model_floor)
     score = max(score, evidence_floor)
     coverage = (
         sum(normalised_weights[key] for key in present) / sum(normalised_weights.values())
@@ -158,6 +173,18 @@ def fuse(
     if degraded and tier == VerdictTier.SAFE:
         score = max(score, safe_max)
         tier = VerdictTier.SUSPICIOUS
+
+    # A MALICIOUS tier needs evidence that is not model output alone: a malicious
+    # override, or a non-semantic finding of HIGH or above.  Otherwise the model's
+    # verdict is capped at the SUSPICIOUS boundary and the cap is stated.
+    if (
+        tier == VerdictTier.MALICIOUS
+        and override is None
+        and not _has_strong_non_semantic_evidence(findings, signals, detected=detected)
+    ):
+        tier = VerdictTier.SUSPICIOUS
+        score = min(score, malicious_min)
+        findings = (*findings, _semantic_cap_note())
 
     malicious_override = override is not None and override.verdict == VerdictTier.MALICIOUS
     if malicious_override:
@@ -223,6 +250,38 @@ def degradation_findings(stage_results: Iterable[StageResult]) -> list[Finding]:
             )
         )
     return findings
+
+
+def _has_strong_non_semantic_evidence(
+    findings: Iterable[Finding],
+    signals: Mapping[str, float],
+    *,
+    detected: bool,
+) -> bool:
+    if detected:
+        return True
+    strong_signal = any(
+        key != "semantic" and value >= SEVERITY_FLOORS[Severity.HIGH]
+        for key, value in signals.items()
+    )
+    strong_finding = any(
+        finding.stage != Stage.SEMANTIC and finding.severity.rank >= Severity.HIGH.rank
+        for finding in findings
+    )
+    return strong_signal or strong_finding
+
+
+def _semantic_cap_note() -> Finding:
+    return Finding(
+        stage=Stage.VERDICT,
+        severity=Severity.NOTE,
+        message=(
+            "Verdict capped at SUSPICIOUS: the only malicious evidence is model-reported. "
+            "A MALICIOUS verdict needs a deterministic, sandbox, or vision finding."
+        ),
+        type="semantic-only-capped",
+        evidence=FindingEvidence(file="SKILL.md", line=1),
+    )
 
 
 def _evidence_floor(findings: Iterable[Finding], *, detected: bool, typosquat_floor: int) -> int:

@@ -27,6 +27,10 @@ _DEV_ORIGINS = [
 ]
 
 
+# First path segments that belong to the JSON API (see server/routes.py).
+_API_PREFIXES = frozenset({"scan", "scans", "skills", "cache", "health", "meta"})
+
+
 def _default_ui_dist() -> Path:
     """Dashboard build: shipped inside the package, with the repo build as a dev fallback."""
 
@@ -101,6 +105,19 @@ def create_app(
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def spa(full_path: str):
+            # An API-shaped path that matched no route is an error, not a page.
+            if full_path.split("/", 1)[0] in _API_PREFIXES:
+                response = ErrorResponse(
+                    error=ErrorDetail(
+                        code="not_found",
+                        message=f"no API route at /{full_path}",
+                        degraded=False,
+                    )
+                )
+                return JSONResponse(
+                    status_code=404,
+                    content=response.model_dump(by_alias=True, mode="json"),
+                )
             candidate = (ui_dist / full_path).resolve()
             if candidate.is_file() and candidate.is_relative_to(ui_dist.resolve()):
                 return FileResponse(candidate)

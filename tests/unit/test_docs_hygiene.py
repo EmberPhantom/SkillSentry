@@ -5,6 +5,12 @@ import re
 import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+if not (ROOT / ".git").exists():
+    # These gates read the git-tracked files of a source checkout; an installed copy has none.
+    import pytest
+
+    pytest.skip("docs hygiene gates need a source checkout", allow_module_level=True)
 DRIVE = re.compile(r"\b[A-Za-z]:\\")
 FILE_URL = re.compile(r"file:///")
 PASS_COUNT = re.compile(r"\b\d+\s+passed\b")

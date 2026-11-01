@@ -26,6 +26,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **Credential service bindings**: declared and bound is informational; undeclared but bound is MEDIUM; an unbound destination and DNS exfiltration stay CRITICAL. Plain HTTP, disabled verification and a custom proxy never count as a binding.
 
 ### Changed
+- **UNSCANNED status.** When a stage is degraded, the CLI and folder summary show `UNSCANNED` with the verdict and the reason, instead of presenting the SUSPICIOUS score as a normal result. The JSON verdict contract is unchanged, and exit codes still follow the verdict.
+- **`--backend demo` is refused** for `scan` and `self-audit` unless `SKILLSENTRY_DEV=1` is set. Use `--demo-mode` for the canned store.
+- The report and CLI badge no longer name a model.
 - Local model client: configurable context size, prediction cap, seed and keep-alive. Health requires the configured model to be pulled, so a server without it no longer answers with another model. Cache identity uses `name@digest`.
 - Legacy semantic analysis splits skills into line-aligned chunks within a call budget. Anything not analysed is reported as a coverage gap and sets the stage to degraded.
 - Raster images sent to the model are capped at three per scan, downscaled to 768 px. The rest are reported as partial coverage.
@@ -36,6 +39,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - Documentation: `docs/07` matches `--help` (fail-on default, `init`, `serve`, `self-audit`, cache and export flags, environment variables). `docs/02`, `04` and `08` now state the 768 px vision cap, the three-image budget, the fail-closed model path and the cloud backend name.
 
 ### Fixed
+- **Model evidence alone cannot make a verdict MALICIOUS.** A MALICIOUS tier needs a malicious override, or a non-model finding or signal of HIGH or above. Otherwise the verdict is capped at SUSPICIOUS and a NOTE says so. Model findings can still raise a verdict to SUSPICIOUS.
+- **Model citations are verified.** A quote the model cites must appear in the skill; the reported line is the one that contains it. Unverifiable quotes are dropped and counted in a NOTE.
+- **Ordinary network code is not a reverse shell.** A plain socket is MEDIUM. CRITICAL is reserved for reverse-shell primitives (`/dev/tcp`, `pty.spawn`, `os.dup2`). The DNS rule matches only commands, not the word "host" in prose.
+- **Cache identity includes generation options** (context size and prediction limit). Changing them no longer serves a cached result.
+- **CLI writes report an unwritable path** as an operational error (exit 3) instead of a traceback.
+- **Unknown API paths return a JSON 404**, not the dashboard page.
+- **Model probe** distinguishes an unreachable server from a missing model; `doctor` says which.
+- **Model errors keep their own message** (HTTP status, truncated, empty, transport). Only malformed output is called "no schema-valid JSON".
+- **Sandbox timeout message** states the configured limit and the elapsed time.
+- **Docker clients are closed** (runner, engine, doctor, sandbox build, health probe).
+- **Dashboard dev-server dependencies** upgraded (Vite 8); the audit reports no vulnerabilities.
+- **Lower dependency bounds** raised to versions that install and pass the suite: typer 0.16, PyYAML 6.0.1.
+- Python 3.13 added to the classifiers and the CI matrix; the suite passes on 3.11, 3.12, and 3.13.
+- Sandbox base image pinned by digest; Pillow pinned.
+- The test suite is portable to an installed package: source-checkout gates skip cleanly when run outside a checkout.
+
+- **Stable verdicts.** The prompt fence nonce is derived from the excerpt, so an identical skill produces an identical model prompt. Model replies are bounded (at most 8 patterns, short evidence), so a reply no longer fails by running past the token cap depending on the run.
+- **No silent skips.** A text file that is oversize, over the text budget, or unreadable is reported as a HIGH "text file not analysed" finding, which degrades the spec stage. Extensionless scripts at the root are read.
+- **Symlinks and bad encodings are findings.** A symlink is hashed as a link and reported (HIGH), and the rest of the skill is still scanned. A non-UTF-8 `SKILL.md` is reported (HIGH) and analysed with replacement characters.
+- **PowerShell download-and-run** (`Invoke-WebRequest | Invoke-Expression`, `iex (…DownloadString…)`) is detected as a HIGH `shell-exec` anchor.
+- **Health** reports Ollama as `ok` when the configured model is pulled, using the same readiness check as the model layer.
+- **Tests are isolated** from the user's cache and scan history: the test database is a temporary file.
+
 - Cache identity now includes a fingerprint of the credential rules file, so editing the rules cannot serve cached verdicts from before the edit.
 - Fusion applies the strongest malicious override floor, so an evasion probe reports 100 even when a Poisoned Well override is listed first.
 - Parser: YAML aliases and nesting deeper than 10 levels are refused before expansion. Reserved device names and alternate data stream notation are reported and the file stays in analysis.

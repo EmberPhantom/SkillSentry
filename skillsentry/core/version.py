@@ -14,7 +14,7 @@ from collections.abc import Mapping
 __version__ = "2.0.0"
 ENGINE_VERSION = __version__
 CONTRACT_VERSION = "1"
-GEMMA_BADGE = "Powered by Gemma 4 · open weights"
+GEMMA_BADGE = "Fully local analysis · open weights"
 
 DEFAULT_WEIGHTS: dict[str, float] = {
     "anchors": 0.15,

@@ -10,6 +10,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 PY=".venv/Scripts/python.exe"
+[ -x "$PY" ] || PY=".venv/bin/python"
 [ -x "$PY" ] || PY="python"
 
 run_e2e=0

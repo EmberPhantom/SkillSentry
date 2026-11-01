@@ -94,8 +94,13 @@ class GemmaCloud:
                 return parsed
             except (ModelError, ValueError) as exc:
                 last_error = exc
+        # A failure to reach the model, or an HTTP, truncated or empty reply, keeps its
+        # own message.  Only output that is not valid JSON for the schema is called
+        # malformed.
+        if isinstance(last_error, ModelUnavailable):
+            raise last_error
         raise ModelUnavailable(
-            f"gemini returned no schema-valid JSON for {self.model}"
+            f"gemini returned no schema-valid JSON for {self.model}: {last_error}"
         ) from last_error
 
     def analyze_image(self, path: str | Path, prompt: str) -> ImageAnalysis:

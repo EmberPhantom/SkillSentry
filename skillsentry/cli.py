@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import sys
+from collections import Counter
 from pathlib import Path
 from uuid import UUID
 
@@ -25,8 +27,10 @@ from skillsentry.core.config import (
 from skillsentry.core.contracts import ExportFormat, ScanOptions, Verdict, VerdictTier
 from skillsentry.core.engine import ScanEngine, ScanError, ScanOutcome
 from skillsentry.core.exit_codes import ExitCode
+from skillsentry.core.models.gemma_local import ProbeResult
 from skillsentry.core.models.mock import MockGemma
 from skillsentry.core.reports import render_report
+from skillsentry.core.verdict.status import degraded_reason, is_unscanned, shown_status
 from skillsentry.core.version import GEMMA_BADGE, __version__
 from skillsentry.server.demo_data import build_demo_store
 
@@ -114,6 +118,9 @@ def init(
     except ConfigError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    except OSError as exc:
+        typer.echo(f"error: could not write {path}: {exc.strerror or exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
     typer.echo(f"wrote {written}")
 
 
@@ -152,14 +159,13 @@ def scan(
     if backend not in _BACKENDS:
         typer.echo(f"error: unsupported --backend {backend!r}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE))
+    _refuse_mock_backend(backend)
 
     if demo_mode:
         verdict = _demo_verdict_for(path)
         if sarif_out is not None:
-            sarif_out.parent.mkdir(parents=True, exist_ok=True)
-            sarif_out.write_text(
-                render_report(verdict, ExportFormat.SARIF).content.decode("utf-8"),
-                encoding="utf-8",
+            _write_file(
+                sarif_out, render_report(verdict, ExportFormat.SARIF).content.decode("utf-8")
             )
             if not quiet and output_format == "text":
                 typer.echo(f"wrote {sarif_out}")
@@ -167,8 +173,7 @@ def scan(
             verdict, output_format=output_format, quiet=quiet, backend="demo"
         )
         if output is not None:
-            output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(rendered, encoding="utf-8")
+            _write_file(output, rendered)
             if output_format == "text":
                 typer.echo(rendered.rstrip())
         else:
@@ -218,6 +223,7 @@ def scan(
         backend=backend,
         output=output,
         sarif_out=sarif_out,
+        skipped=len(roots) - len(outcomes),
     )
     if failed:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
@@ -241,6 +247,7 @@ def self_audit(
     if output_format not in _FORMATS or fail_on not in _FAIL_ON or backend not in _BACKENDS:
         typer.echo("error: invalid self-audit option", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE))
+    _refuse_mock_backend(backend)
     skill_dir = Path(__file__).parent / "skill"
     if output_format == "text" and not quiet:
         typer.echo(f"Scanning {skill_dir}...")
@@ -269,6 +276,18 @@ def self_audit(
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+def _refuse_mock_backend(backend: str) -> None:
+    """``--backend demo`` runs the deterministic mock model; it never produces a real verdict."""
+
+    if backend == "demo" and os.getenv("SKILLSENTRY_DEV") != "1":
+        typer.echo(
+            "error: --backend demo runs the mock model and is refused for real scans. "
+            "Use --demo-mode for the canned store, or set SKILLSENTRY_DEV=1 for development.",
+            err=True,
+        )
+        raise typer.Exit(code=int(ExitCode.USAGE))
+
+
 def _config_for_backend(backend: str) -> SkillsEntryConfig:
     config = load_config()
     if backend == "auto":
@@ -296,6 +315,46 @@ def _demo_verdict_for(path: Path) -> Verdict:
     raise typer.Exit(code=int(ExitCode.USAGE))
 
 
+def _outcome_status(outcome: ScanOutcome) -> str:
+    return shown_status(outcome.verdict.verdict, outcome.stage_results)
+
+
+def _folder_summary(outcomes: list[ScanOutcome], skipped: int) -> str:
+    counts = Counter(_outcome_status(outcome) for outcome in outcomes)
+    tiers = [tier.value for tier in VerdictTier] + ["UNSCANNED"]
+    parts = ", ".join(f"{counts.get(tier, 0)} {tier}" for tier in tiers)
+    line = f"Summary: {len(outcomes)} scanned - {parts}"
+    return f"{line}, {skipped} failed" if skipped else line
+
+
+def _folder_summary_table(outcomes: list[ScanOutcome], skipped: int) -> str:
+    rows = [
+        f"| {outcome.verdict.skill} | {_outcome_status(outcome)} | {outcome.verdict.risk_score} |"
+        for outcome in outcomes
+    ]
+    lines = [
+        "# SkillSentry folder summary",
+        "",
+        _folder_summary(outcomes, skipped),
+        "",
+        "| Skill | Verdict | Risk |",
+        "|:---|:---|---:|",
+        *rows,
+    ]
+    return "\n".join(lines)
+
+
+def _write_file(path: Path, text: str) -> None:
+    """Write a UTF-8 report or config; an unwritable path is an operational error, not a crash."""
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        typer.echo(f"error: could not write {path}: {exc.strerror or exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
+
+
 def _emit_outcomes(
     outcomes: list[ScanOutcome],
     *,
@@ -304,10 +363,10 @@ def _emit_outcomes(
     backend: str,
     output: Path | None,
     sarif_out: Path | None,
+    skipped: int = 0,
 ) -> None:
     if sarif_out is not None:
-        sarif_out.parent.mkdir(parents=True, exist_ok=True)
-        sarif_out.write_text(_combined_sarif(outcomes), encoding="utf-8")
+        _write_file(sarif_out, _combined_sarif(outcomes))
         if not quiet and output_format == "text":
             typer.echo(f"wrote {sarif_out}")
 
@@ -321,22 +380,25 @@ def _emit_outcomes(
     elif output_format == "sarif":
         rendered = _combined_sarif(outcomes)
     elif output_format == "markdown":
-        rendered = "\n\n---\n\n".join(
+        reports = [
             render_report(
                 outcome.verdict,
                 ExportFormat.MARKDOWN,
                 stage_results=outcome.stage_results,
             ).content.decode("utf-8")
             for outcome in outcomes
-        )
+        ]
+        if len(outcomes) > 1:
+            reports.insert(0, _folder_summary_table(outcomes, skipped))
+        rendered = "\n\n---\n\n".join(reports)
     else:
-        rendered = "\n".join(
-            _verdict_text(outcome, quiet=quiet, backend=backend) for outcome in outcomes
-        )
+        lines = [_verdict_text(outcome, quiet=quiet, backend=backend) for outcome in outcomes]
+        if len(outcomes) > 1 and not quiet:
+            lines.append(_folder_summary(outcomes, skipped))
+        rendered = "\n".join(lines)
 
     if output is not None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered, encoding="utf-8")
+        _write_file(output, rendered)
         if output_format == "text":
             typer.echo(rendered.rstrip())
         return
@@ -370,12 +432,18 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
         lines.append(
             f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}"
         )
-    icon = {"SAFE": "[OK]", "SUSPICIOUS": "[!]", "MALICIOUS": "[X]"}[verdict.verdict.value]
     cache = " (cached)" if verdict.cached else ""
-    lines.append(
-        f"{icon} {verdict.skill} - {verdict.verdict.value} - "
-        f"risk {verdict.risk_score} - confidence {verdict.confidence:.2f}{cache}"
-    )
+    if is_unscanned(verdict.verdict, outcome.stage_results):
+        lines.append(
+            f"[?] {verdict.skill} - UNSCANNED (verdict {verdict.verdict.value}, "
+            f"risk {verdict.risk_score}) - {degraded_reason(outcome.stage_results)}{cache}"
+        )
+    else:
+        icon = {"SAFE": "[OK]", "SUSPICIOUS": "[!]", "MALICIOUS": "[X]"}[verdict.verdict.value]
+        lines.append(
+            f"{icon} {verdict.skill} - {verdict.verdict.value} - "
+            f"risk {verdict.risk_score} - confidence {verdict.confidence:.2f}{cache}"
+        )
     finding = verdict.key_finding
     if finding is not None and finding.severity.value not in {"note"}:
         location = ""
@@ -536,8 +604,7 @@ def export_report(
     if output is None:
         typer.echo(rendered.rstrip())
     else:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered, encoding="utf-8")
+        _write_file(output, rendered)
         typer.echo(f"wrote {output}")
 
 
@@ -570,18 +637,24 @@ def doctor() -> None:
     try:
         model = GemmaLocal(base_url=cfg.model.ollama_url, model=cfg.model.ollama_model)
         try:
-            pulled = model.preflight()
+            probe = model.probe()
         finally:
             model.close()
     except Exception as exc:  # any probe failure is a finding, not a crash
-        pulled = False
-        model_detail = f"could not reach {cfg.model.ollama_url} ({type(exc).__name__})"
+        probe = ProbeResult.UNREACHABLE
+        probe_error = type(exc).__name__
     else:
+        probe_error = None
+    pulled = probe == ProbeResult.READY
+    if probe == ProbeResult.READY:
+        model_detail = f"{cfg.model.ollama_model} is pulled"
+    elif probe == ProbeResult.NO_MODEL:
         model_detail = (
-            f"{cfg.model.ollama_model} is pulled"
-            if pulled
-            else f"{cfg.model.ollama_model} is not pulled; run: ollama pull {cfg.model.ollama_model}"
+            f"{cfg.model.ollama_model} is not pulled; run: ollama pull {cfg.model.ollama_model}"
         )
+    else:
+        cause = f" ({probe_error})" if probe_error else ""
+        model_detail = f"cannot reach the model server at {cfg.model.ollama_url}{cause}"
     report(pulled, "model", model_detail)
 
     ui_index = _default_ui_dist() / "index.html"
@@ -609,6 +682,9 @@ def doctor() -> None:
         docker_detail = "engine reachable"
     except Exception:
         client = None
+    finally:
+        if client is not None:
+            client.close()
         docker_ok = False
         docker_detail = "engine not reachable; sandbox scans are unavailable (use --no-sandbox)"
     report(docker_ok, "docker", docker_detail, required=False)
@@ -640,6 +716,7 @@ def sandbox_build() -> None:
 
     cfg = load_config()
     assets = Path(__file__).resolve().parent / "core" / "sandbox" / "assets"
+    client = None
     try:
         client = docker.from_env()
         client.images.build(
@@ -651,6 +728,10 @@ def sandbox_build() -> None:
     except docker.errors.DockerException as exc:
         typer.echo(f"error: could not build the sandbox image: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
+    finally:
+        close = getattr(client, "close", None)
+        if callable(close):
+            close()
     typer.echo(f"built {cfg.sandbox.base_image}")
 
 

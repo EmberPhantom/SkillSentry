@@ -6,12 +6,21 @@ instantly.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 from skillsentry.server.app import create_app
 from skillsentry.server.demo_backend import DemoBackend
+
+# The mock model is only reachable from tests and development (see cli._refuse_mock_backend).
+os.environ.setdefault("SKILLSENTRY_DEV", "1")
+# Tests never touch the user's cache and scan history: the database is a temporary file.
+os.environ.setdefault(
+    "SKILLSENTRY_DB", os.path.join(tempfile.mkdtemp(prefix="sks-test-"), "test.db")
+)
 
 
 @pytest.fixture()

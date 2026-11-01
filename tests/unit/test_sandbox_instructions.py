@@ -84,6 +84,7 @@ def test_missing_entrypoint_makes_the_plan_invalid(tmp_path: Path) -> None:
 
     assert plan.validation_status == "invalid"
     assert any("entrypoint" in problem for problem in plan.problems)
+    assert any("declare 'entrypoint:'" in problem for problem in plan.problems)
 
 
 def test_a_plan_missing_a_baseline_check_is_rejected(tmp_path: Path) -> None:

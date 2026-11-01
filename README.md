@@ -95,7 +95,7 @@ skillsentry scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠�
 skillsentry scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
 
 skillsentry serve                    # Dashboard → http://127.0.0.1:8000
-skillsentry scan ./skills --demo-mode  # offline canned demo, no Docker or model needed
+skillsentry scan cloud-sync-pro --demo-mode  # offline canned demo (skill names), no Docker or model needed
 skillsentry export <scan_id> --format sarif   # re-render a stored report
 skillsentry cache stats              # inspect the verdict cache
 ```

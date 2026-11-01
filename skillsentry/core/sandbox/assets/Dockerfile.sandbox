@@ -1,7 +1,9 @@
 # SkillSentry sandbox image.  Build from the repository root:
 #   docker build -f skillsentry/core/sandbox/assets/Dockerfile.sandbox \
 #       -t skillsentry-sandbox:local skillsentry/core/sandbox/assets
-FROM python:3.11-slim AS build
+# Pinned by digest so a rebuild uses the same base image.  To refresh: pull the tag,
+# read its digest with `docker image inspect`, and replace the digest here.
+FROM python:3.11-slim@sha256:673719e071ecf27434fd2635bbd8d00f49f4fdd81f243143438a42ced8bedf60 AS build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libc6-dev \
@@ -10,14 +12,16 @@ RUN apt-get update \
 COPY masquerade.c /src/masquerade.c
 RUN gcc -shared -fPIC -O2 -Wall -Wextra -o /src/masquerade.so /src/masquerade.c -ldl
 
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:673719e071ecf27434fd2635bbd8d00f49f4fdd81f243143438a42ced8bedf60
 
-# Fixtures and real skills commonly use curl/dig for declared network access.
-# Installing them makes the sandbox representative; the internal sinkhole
-# network still prevents any upstream connection.
+# Fixtures and real skills commonly use curl/dig for declared network access,
+# git for local repository helpers, and Pillow for image tools.  Installing them makes the sandbox
+# representative; the internal sinkhole network still prevents any upstream
+# connection.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl dnsutils ca-certificates \
+    && apt-get install -y --no-install-recommends curl dnsutils git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir pillow==13.0.0 \
     && mkdir -p /opt/skillsentry /home/sandbox \
     && chown -R 65534:65534 /home/sandbox
 COPY --from=build /src/masquerade.so /opt/skillsentry/masquerade.so

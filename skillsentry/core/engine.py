@@ -195,6 +195,9 @@ class ScanEngine:
         self._progress = progress
 
     def close(self) -> None:
+        runner_close = getattr(self._sandbox_runner, "close", None)
+        if callable(runner_close):
+            runner_close()
         if self._decision is not None and self._decision.client is not None:
             # Releases resident checkpoints; a no-op for clients without close().
             close = getattr(self._decision.client, "close", None)

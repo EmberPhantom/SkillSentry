@@ -25,6 +25,9 @@ from skillsentry.core.decisions.calibration import (
 from skillsentry.core.decisions.questions import CAPABILITY_QUESTIONS
 
 REPO = Path(__file__).resolve().parents[2]
+REPO_SCRIPT = REPO / "scripts" / "calibrate_laya.py"
+if not REPO_SCRIPT.exists():
+    pytest.skip("calibration corpus needs a source checkout", allow_module_level=True)
 LABELS = REPO / "tests" / "fixtures" / "decisions" / "labels.json"
 
 

@@ -24,7 +24,7 @@ def test_markdown_contains_citations_and_money_shot():
     assert "evil-collector.net" in text
     assert "SKS-7f3a9c21" in text
     assert "Do not install this skill" in text
-    assert "Powered by Gemma 4 · open weights" in text
+    assert "Fully local analysis · open weights" in text
 
 
 def test_markdown_benign_is_affirmative():
@@ -83,3 +83,30 @@ def test_write_report_files_writes_expected_bundle(tmp_path):
     assert benign_links.stix is None
     assert (tmp_path / "benign" / "report.sarif").is_file()
     assert not (tmp_path / "benign" / "stix-bundle.json").exists()
+
+
+def test_markdown_shows_unscanned_when_a_stage_degraded():
+    from skillsentry.core.contracts import Stage, StageResult
+
+    degraded = [StageResult(stage=Stage.SEMANTIC, degraded=True, error="model unavailable")]
+    text = build_markdown(_verdict("git-helper"), stage_results=degraded)
+    assert "| Verdict | **UNSCANNED** |" in text
+    assert "Do not install until the scan completes" in text
+    assert "model unavailable" in text
+
+
+def test_malicious_verdict_is_not_downgraded_by_a_degraded_stage():
+    from skillsentry.core.contracts import Stage, StageResult
+
+    degraded = [StageResult(stage=Stage.VISION, degraded=True, error="vision unavailable")]
+    text = build_markdown(_verdict("cloud-sync-pro"), stage_results=degraded)
+    assert "| Verdict | **MALICIOUS** |" in text
+    assert "UNSCANNED" not in text
+
+
+def test_complete_scan_is_not_marked_unscanned():
+    from skillsentry.core.contracts import Stage, StageResult
+
+    complete = [StageResult(stage=Stage.SEMANTIC)]
+    text = build_markdown(_verdict("git-helper"), stage_results=complete)
+    assert "UNSCANNED" not in text

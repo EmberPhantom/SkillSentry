@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,12 @@ from skillsentry.core.models.image_utils import (
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "gemma4:e4b-it-qat"
+
+
+class ProbeResult(str, Enum):
+    READY = "ready"
+    NO_MODEL = "no-model"
+    UNREACHABLE = "unreachable"
 
 
 class GemmaLocal:
@@ -62,7 +69,12 @@ class GemmaLocal:
 
     @property
     def model_version(self) -> str:
-        return self._model_version
+        """Cache identity: the model digest plus every option that changes its output."""
+
+        return (
+            f"{self._model_version}|ctx={self.num_ctx}|predict={self.num_predict}"
+            "|temperature=0|seed=0"
+        )
 
     def close(self) -> None:
         if self._owns_client:
@@ -93,8 +105,15 @@ class GemmaLocal:
                 return parsed
             except (ModelError, ValueError) as exc:
                 last_error = exc
+        # Carry the last cause (for example an HTTP status) into the message, so
+        # a failing server is not reported as malformed output.
+        # A failure to reach the model, or an HTTP, truncated or empty reply, keeps its
+        # own message.  Only output that is not valid JSON for the schema is called
+        # malformed.
+        if isinstance(last_error, ModelUnavailable):
+            raise last_error
         raise ModelUnavailable(
-            f"ollama returned no schema-valid JSON for {self.model}"
+            f"ollama returned no schema-valid JSON for {self.model}: {last_error}"
         ) from last_error
 
     def analyze_image(self, path: str | Path, prompt: str) -> ImageAnalysis:
@@ -132,33 +151,38 @@ class GemmaLocal:
     def preflight(self) -> bool:
         """Check the server and model presence, and record ``name@digest``."""
 
+        return self.probe() == ProbeResult.READY
+
+    def probe(self) -> ProbeResult:
+        """Say why the local model is or is not usable: ready, not pulled, or unreachable."""
+
         try:
             response = self._client.get(
                 f"{self.base_url}/api/tags",
                 timeout=min(self.timeout_s, 2.0),
             )
             if response.status_code != 200:
-                return False
+                return ProbeResult.UNREACHABLE
             data = response.json()
         except (httpx.HTTPError, OSError, ValueError):
-            return False
+            return ProbeResult.UNREACHABLE
         models = data.get("models") if isinstance(data, dict) else None
         if not isinstance(models, list):
-            return False
+            return ProbeResult.UNREACHABLE
         for entry in models:
             if not isinstance(entry, dict) or entry.get("name") != self.model:
                 continue
             digest = entry.get("digest")
             if isinstance(digest, str) and digest:
                 self._model_version = f"{self.model}@{digest}"
-            return True
-        return False
+            return ProbeResult.READY
+        return ProbeResult.NO_MODEL
 
     def refresh_model_version(self) -> str:
         """Refresh the cache-identity version; keeps the tag if the digest is unknown."""
 
         self.preflight()
-        return self._model_version
+        return self.model_version
 
     # -- internals ----------------------------------------------------------
     def _generate(

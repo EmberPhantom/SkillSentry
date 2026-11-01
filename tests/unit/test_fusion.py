@@ -338,3 +338,89 @@ def test_evasion_floor_wins_when_listed_second_regardless_of_order():
     fused = fuse(results)
     assert fused.risk_score == 100
     assert fused.override.source == Stage.EVASION
+
+
+# ---------------------------------------------------------------------------
+# Model-reported evidence can raise a verdict to SUSPICIOUS, never to MALICIOUS
+# on its own.
+# ---------------------------------------------------------------------------
+
+
+def test_lone_model_critical_is_capped_at_suspicious():
+    fused = fuse(
+        [
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 95.0},
+                findings=[_finding(Stage.SEMANTIC, Severity.CRITICAL)],
+            ),
+            _result(Stage.SPEC, signals={}),
+        ],
+        weights={"semantic": 1.0},
+        typosquat_bonus=0,
+    )
+    assert fused.verdict == VerdictTier.SUSPICIOUS
+    assert fused.risk_score <= 70
+    assert any(f.finding_type == "semantic-only-capped" for f in fused.findings)
+
+
+def test_model_high_finding_still_raises_to_suspicious():
+    fused = fuse(
+        [
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 5.0},
+                findings=[_finding(Stage.SEMANTIC, Severity.HIGH)],
+            )
+        ],
+        weights={"semantic": 1.0},
+        typosquat_bonus=0,
+    )
+    assert fused.verdict == VerdictTier.SUSPICIOUS
+    assert fused.risk_score >= 30
+
+
+def test_model_critical_with_an_anchor_finding_can_be_malicious():
+    fused = fuse(
+        [
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 95.0},
+                findings=[_finding(Stage.SEMANTIC, Severity.CRITICAL)],
+            ),
+            _result(
+                Stage.DETERMINISTIC_ANCHOR,
+                signals={"anchors": 10.0},
+                findings=[_finding(Stage.DETERMINISTIC_ANCHOR, Severity.CRITICAL)],
+            ),
+        ],
+        typosquat_bonus=0,
+    )
+    assert fused.verdict == VerdictTier.MALICIOUS
+    assert not any(f.finding_type == "semantic-only-capped" for f in fused.findings)
+
+
+def test_model_critical_with_a_strong_anchor_signal_can_be_malicious():
+    fused = fuse(
+        [
+            _result(Stage.SEMANTIC, signals={"semantic": 95.0}),
+            _result(Stage.DETERMINISTIC_ANCHOR, signals={"anchors": 100.0}),
+        ],
+        typosquat_bonus=0,
+    )
+    assert fused.verdict == VerdictTier.MALICIOUS
+
+
+def test_vision_finding_keeps_its_floor():
+    fused = fuse(
+        [
+            _result(
+                Stage.VISION,
+                signals={"vision": 5.0},
+                findings=[_finding(Stage.VISION, Severity.CRITICAL)],
+            ),
+        ],
+        weights={"vision": 1.0},
+        typosquat_bonus=0,
+    )
+    assert fused.verdict == VerdictTier.MALICIOUS

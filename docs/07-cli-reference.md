@@ -66,7 +66,7 @@ Report: ~/.skillsentry/reports/3f9c…/report.sarif
 | `--sarif-out <file>` | — | Write a SARIF 2.1.0 sidecar in addition to the selected `--format`. |
 | `--no-cache` | off | Bypass Stage 0 read **and** write for this scan. |
 | `--sandbox / --no-sandbox` | sandbox on | `--no-sandbox` is an explicitly labelled static-only scan; it never reads or writes the reusable verdict cache. |
-| `--backend auto\|local\|cloud\|demo` | `auto` | Model backend selection. `demo` runs the real engine with the deterministic `MockGemma`; it is not the canned `--demo-mode` store. |
+| `--backend auto\|local\|cloud` | `auto` | Model backend selection. `--backend demo` (the deterministic mock model) is refused for real scans; it is only for development, with `SKILLSENTRY_DEV=1`. The canned store is `--demo-mode`. |
 | `--timeout <s>` | `60` | Sandbox execution window, 5–600 seconds. Non-default timeouts bypass the cache. |
 | `-q, --quiet` | off | Verdict line only (suppresses the banner and progress chatter). |
 | `--demo-mode` | off | Serve the canned 7-skill demo verdict. Kept separate from live scans; no fabricated live evidence. |
@@ -88,6 +88,10 @@ Writes a documented `skillsentry.toml`. `--path` chooses the file (default `./sk
 ### `skillsentry export <scan_id> [--format sarif|markdown|stix] [-o FILE]`
 
 Re-render the report of a stored scan without re-running it. `--format` defaults to `markdown`; `-o`/`--output` writes to a file instead of stdout. STIX output needs a triggered Poisoned Well.
+
+**Verdict status.** A result is `UNSCANNED` when a stage did not complete (for example the model was unreachable, a file was not read, or the sandbox could not run). The verdict is still shown, with the reason. `UNSCANNED` is never shown for a `MALICIOUS` verdict, and it is never a clean result. In JSON, the verdict is unchanged; exit codes follow the verdict.
+
+**Skills without an entrypoint.** A skill that ships scripts but does not declare `entrypoint:` in its frontmatter cannot be run in the sandbox, so its scripts are read but not executed. The result is `UNSCANNED` until the author declares the entrypoint.
 
 ### `skillsentry serve [--host 127.0.0.1] [--port 8000] [--demo-mode] [--speed 1.0]`
 

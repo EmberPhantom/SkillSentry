@@ -13,23 +13,27 @@ SEMANTIC_SCHEMA: dict[str, object] = {
         "confidence",
     ],
     "properties": {
-        "declared_intent": {"type": "string", "maxLength": 4096},
+        # The output is bounded on purpose: a reply that runs past the model's
+        # token cap is truncated, and a truncated reply is a failed call.  Short
+        # bounds keep every reply within that cap, so a call does not succeed or
+        # fail depending on how long the model happens to write.
+        "declared_intent": {"type": "string", "maxLength": 300},
         "actual_capabilities": {
             "type": "array",
-            "items": {"type": "string", "maxLength": 1000},
-            "maxItems": 50,
+            "items": {"type": "string", "maxLength": 120},
+            "maxItems": 10,
         },
         "is_deceptive": {"type": "boolean"},
         "suspicious_patterns": {
             "type": "array",
-            "maxItems": 50,
+            "maxItems": 8,
             "items": {
                 "type": "object",
                 "additionalProperties": False,
                 "required": ["type", "evidence", "severity"],
                 "properties": {
                     "type": {"type": "string", "maxLength": 80},
-                    "evidence": {"type": "string", "maxLength": 4000},
+                    "evidence": {"type": "string", "maxLength": 300},
                     "file": {"type": "string", "maxLength": 500},
                     "line": {"type": "integer", "minimum": 1},
                     "severity": {

@@ -38,7 +38,10 @@ _RULES: tuple[AnchorRule, ...] = (
     AnchorRule(
         "dns-lookup",
         Severity.HIGH,
-        re.compile(r"\b(?:nslookup|dig|host)\b", re.IGNORECASE),
+        # Only a command in command position: prose such as "external host" is not one.
+        re.compile(
+            r"(?:^|[;&|`(]|\$\()\s*(?:sudo\s+)?(?:nslookup|dig|host)\s+[\w\"'$@.-]", re.IGNORECASE
+        ),
         "DNS lookup command detected - potential DNS tunnelling",
     ),
     AnchorRule(
@@ -101,9 +104,16 @@ _RULES: tuple[AnchorRule, ...] = (
     ),
     AnchorRule(
         "raw-socket",
+        Severity.MEDIUM,
+        # Ordinary network code uses sockets; the reverse-shell primitives are below.
+        re.compile(r"\bsocket\.socket\s*\(|SOCK_STREAM", re.IGNORECASE),
+        "Raw socket use detected",
+    ),
+    AnchorRule(
+        "reverse-shell",
         Severity.CRITICAL,
-        re.compile(r"/dev/tcp/|\bsocket\.socket\s*\(|SOCK_STREAM", re.IGNORECASE),
-        "Raw socket / reverse-shell primitive detected",
+        re.compile(r"/dev/tcp/|\bpty\.spawn\s*\(|\bos\.dup2\s*\(", re.IGNORECASE),
+        "Reverse-shell primitive detected (shell redirected to a network connection)",
     ),
     AnchorRule(
         "dynamic-code",
@@ -241,6 +251,26 @@ _SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
         # No leading \b: inside code the command often follows a literal "\n" escape.
         re.compile(r"(?:curl|wget)\s[^\n|]*\|\s*(?:sudo\s+)?(?:sh|bash|zsh)\b"),
         "download piped straight into a shell interpreter",
+    ),
+    AnchorRule(
+        "shell-exec",
+        Severity.HIGH,
+        re.compile(
+            r"(?:Invoke-WebRequest|Invoke-RestMethod|\biwr\b|\birm\b|\bcurl\b|\bwget\b)"
+            r"[^\n|]*\|\s*(?:Invoke-Expression|\biex\b|powershell|pwsh)\b",
+            re.IGNORECASE,
+        ),
+        "download piped straight into PowerShell execution",
+    ),
+    AnchorRule(
+        "shell-exec",
+        Severity.HIGH,
+        re.compile(
+            r"\b(?:Invoke-Expression|iex)\b[^\n]*"
+            r"(?:DownloadString|DownloadFile|Invoke-WebRequest|\biwr\b|\birm\b)",
+            re.IGNORECASE,
+        ),
+        "download passed to PowerShell Invoke-Expression",
     ),
     AnchorRule(
         "log-tampering",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -10,10 +11,12 @@ from skillsentry.core.contracts import (
     ActiveDefense,
     Finding,
     Severity,
+    StageResult,
     Verdict,
     format_utc,
     utc_now,
 )
+from skillsentry.core.verdict.status import degraded_reason, is_unscanned, shown_status
 from skillsentry.core.version import ENGINE_VERSION, GEMMA_BADGE
 
 _SEVERITY_ORDER = [
@@ -118,6 +121,7 @@ def build_markdown(
     *,
     generated_at: datetime | None = None,
     decision: dict[str, Any] | None = None,
+    stage_results: Sequence[StageResult] | None = None,
 ) -> str:
     """Render a human triage report with line-accurate citations.
 
@@ -131,7 +135,7 @@ def build_markdown(
         "",
         "| Field | Value |",
         "|:---|:---|",
-        f"| Verdict | **{verdict.verdict.value}** |",
+        f"| Verdict | **{shown_status(verdict.verdict, stage_results)}** |",
         f"| Risk score | {verdict.risk_score} / 100 |",
         f"| Confidence | {verdict.confidence:.2f} |",
         f"| Cached | {'⚡ yes' if verdict.cached else 'no'} |",
@@ -166,7 +170,17 @@ def build_markdown(
     lines.append("")
     lines += _active_defense_section(verdict.active_defense)
 
-    if verdict.verdict.value == "MALICIOUS":
+    unscanned = is_unscanned(verdict.verdict, stage_results)
+    if unscanned:
+        lines += [
+            "",
+            "## Recommended action",
+            "",
+            "**Do not install until the scan completes.** The verdict "
+            f"({verdict.verdict.value}) is based on an incomplete scan: "
+            f"{degraded_reason(stage_results)}. Resolve the cause and scan again.",
+        ]
+    elif verdict.verdict.value == "MALICIOUS":
         lines += [
             "",
             "## Recommended action",

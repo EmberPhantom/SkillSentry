@@ -24,7 +24,7 @@ class ConfigError(RuntimeError):
 
 
 class _ConfigModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
 
 class ModelSettings(_ConfigModel):

@@ -143,8 +143,8 @@ def test_local_health_and_model_digest():
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     assert gemma.health() is True
-    assert gemma.refresh_model_version() == "gemma4:e4b-it-qat@abc123"
-    assert gemma.model_version == "gemma4:e4b-it-qat@abc123"
+    assert gemma.refresh_model_version().startswith("gemma4:e4b-it-qat@abc123")
+    assert gemma.model_version.startswith("gemma4:e4b-it-qat@abc123")
 
 
 def test_health_is_false_when_the_model_is_not_pulled():
@@ -159,6 +159,18 @@ def test_health_is_false_when_the_model_is_not_pulled():
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     assert gemma.health() is False
+
+
+def test_http_failure_keeps_its_status_in_the_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="model failed to load")
+
+    gemma = GemmaLocal(
+        base_url="http://ollama.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(ModelUnavailable, match="HTTP 500"):
+        gemma.generate_json("system", "analyse this", SEMANTIC_SCHEMA)
 
 
 def test_truncated_output_is_a_failure_not_a_result():
@@ -336,3 +348,48 @@ def test_selector_accepts_model_settings_and_backend_aliases():
     assert select_model(settings, local_client=local) is local
     assert select_model(backend="ollama", local_client=local) is local
     assert select_model(backend="gemini-api", probe=False, cloud_client=_FakeClient(healthy=False))
+
+
+def test_malformed_output_is_called_malformed_not_unreachable():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"response": "not json at all"})
+
+    gemma = GemmaLocal(
+        base_url="http://ollama.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(ModelUnavailable, match="no schema-valid JSON"):
+        gemma.generate_json("system", "analyse this", SEMANTIC_SCHEMA)
+
+
+def test_unreachable_server_keeps_its_own_message():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    gemma = GemmaLocal(
+        base_url="http://ollama.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(ModelUnavailable) as caught:
+        gemma.generate_json("system", "analyse this", SEMANTIC_SCHEMA)
+    assert "request failed" in str(caught.value)
+    assert "schema-valid" not in str(caught.value)
+
+
+def test_generation_options_are_part_of_the_cache_identity():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"models": [{"name": "gemma3:1b", "digest": "abc"}]})
+
+    def client_with(num_ctx: int) -> GemmaLocal:
+        return GemmaLocal(
+            base_url="http://ollama.test",
+            model="gemma3:1b",
+            num_ctx=num_ctx,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+    small, large = client_with(2048), client_with(8192)
+    small.preflight()
+    large.preflight()
+    assert small.model_version != large.model_version
+    assert small.model_version.startswith("gemma3:1b@abc")

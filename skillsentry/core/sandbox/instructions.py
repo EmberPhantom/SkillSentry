@@ -48,6 +48,7 @@ _ANCHOR_WATCHES: dict[str, InstructionCategory] = {
     "dns-lookup": InstructionCategory.DNS_SINKHOLE_WATCH,
     "exfil-http-post": InstructionCategory.HTTP_EXFIL_MONITOR,
     "raw-socket": InstructionCategory.HTTP_EXFIL_MONITOR,
+    "reverse-shell": InstructionCategory.HTTP_EXFIL_MONITOR,
     "sandbox-artifact": InstructionCategory.EVASION_PROBE_WATCH,
 }
 
@@ -144,7 +145,10 @@ def validate_plan(plan: SandboxExecutionPlan) -> list[str]:
 
     problems: list[str] = []
     if not plan.declared_entrypoint:
-        problems.append("no declared entrypoint; refusing to run a fallback command")
+        problems.append(
+            "no declared entrypoint, so the scripts were not executed; declare 'entrypoint:' "
+            "in SKILL.md so they can be tested. A fallback command is never guessed"
+        )
     present = {instruction.category for instruction in plan.baseline_instructions}
     missing = [category.value for category in BASELINE_CATEGORIES if category not in present]
     if missing:

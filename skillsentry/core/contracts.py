@@ -153,6 +153,8 @@ class APIModel(BaseModel):
         populate_by_name=True,
         extra="forbid",
         use_enum_values=False,
+        # Fields such as model_version describe the model; that is not a protected namespace here.
+        protected_namespaces=(),
     )
 
 

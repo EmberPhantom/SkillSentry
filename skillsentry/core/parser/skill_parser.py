@@ -226,6 +226,20 @@ def _safe_yaml(yaml_text: str) -> dict[str, Any]:
     return loaded
 
 
+def _unread_reason(path: Path, remaining: int) -> str:
+    """Why a text candidate was not read, for the finding that reports it."""
+
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return "unreadable"
+    if size > MAX_TEXT_FILE_BYTES:
+        return f"larger than {MAX_TEXT_FILE_BYTES // (1024 * 1024)} MiB"
+    if remaining <= 0:
+        return "skill text budget exhausted"
+    return "binary or unreadable content"
+
+
 def _read_text(path: Path, relative: str, remaining: int) -> TextFile | None:
     try:
         size = path.stat().st_size
@@ -255,8 +269,10 @@ def _is_text(relative: str) -> bool:
     suffix = Path(relative).suffix.lower()
     if suffix in _TEXT_SUFFIXES:
         return True
-    # Extensionless scripts are common in skills (run, install, setup).
-    return suffix == "" and "/" in relative
+    # Extensionless scripts are common in skills (run, install, setup), at the
+    # root as well as in subdirectories.  Binary content is excluded later by
+    # the NUL-byte check in _read_text.
+    return suffix == ""
 
 
 def _resolve_entrypoint(
@@ -370,12 +386,14 @@ def parse_skill(path: str | Path) -> SkillPackage:
         raise SkillParseError(f"could not read SKILL.md: {exc}") from exc
     if len(raw_skill_md) > MAX_SKILL_MD_BYTES:
         raise SkillParseError("SKILL.md exceeds 1 MiB")
+    issues: list[PackageIssue] = []
     try:
         skill_md = raw_skill_md.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise SkillParseError("SKILL.md is not valid UTF-8") from exc
-
-    issues: list[PackageIssue] = []
+    except UnicodeDecodeError:
+        # Analysed with replacement characters rather than refused: an invalid
+        # byte must not hide the rest of the file from the scan.
+        skill_md = raw_skill_md.decode("utf-8", "replace")
+        issues.append(PackageIssue("high", "SKILL.md is not valid UTF-8"))
     yaml_text, body, present = _split_frontmatter(skill_md)
     manifest: dict[str, Any] = {}
     if not present:
@@ -458,6 +476,16 @@ def parse_skill(path: str | Path) -> SkillPackage:
             if parsed is not None:
                 text_files.append(parsed)
                 text_budget -= len(parsed.text.encode("utf-8", "replace"))
+            else:
+                # A script the scan did not read is a gap, not a clean file.
+                # The HIGH issue degrades the spec stage, so the verdict cannot be SAFE.
+                issues.append(
+                    PackageIssue(
+                        "high",
+                        f"text file not analysed: {relative} ({_unread_reason(candidate, text_budget)})",
+                        file=relative,
+                    )
+                )
 
     try:
         package_hash = hash_skill_dir(root)

@@ -13,7 +13,7 @@ always produce a degraded stage, never a clean result.
 
 from __future__ import annotations
 
-import secrets
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -71,33 +71,43 @@ def _file_lookup(package: SkillPackage) -> dict[str, TextFile]:
     return {text_file.relative.replace("\\", "/"): text_file for text_file in package.text_files}
 
 
+def _normal(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
 def _find_location(
     evidence: str,
     *,
     supplied_file: str | None,
     supplied_line: int | None,
     files: dict[str, TextFile],
-) -> tuple[str, int, str]:
-    fallback = ("SKILL.md", 1, evidence[:500])
-    needle = evidence.strip().splitlines()[0][:200] if evidence.strip() else ""
-    if supplied_file:
-        relative = supplied_file.replace("\\", "/").lstrip("./")
-        text_file = files.get(relative)
-        if text_file is not None:
-            if supplied_line and 1 <= supplied_line <= text_file.line_count:
-                line = text_file.line(supplied_line) or ""
-                return relative, supplied_line, line.strip()[:500]
-            if needle:
-                for number, line in enumerate(text_file.text.splitlines(), start=1):
-                    if needle.lower() in line.lower():
-                        return relative, number, line.strip()[:500]
-            return relative, 1, needle[:500]
-    if needle:
-        for relative, text_file in files.items():
-            for number, line in enumerate(text_file.text.splitlines(), start=1):
-                if needle.lower() in line.lower():
-                    return relative, number, line.strip()[:500]
-    return fallback
+) -> tuple[str, int, str] | None:
+    """Locate a model-quoted excerpt in the skill's own text, or return None.
+
+    The line the model reports is never trusted on its own: the quote must appear
+    on that line, or failing that, somewhere in the skill.  The reported location
+    is the one that was actually found.  A quote that cannot be located is None.
+    """
+
+    first = evidence.strip().splitlines()[0] if evidence.strip() else ""
+    needle = _normal(first)[:200]
+    if len(needle) < 4:
+        return None
+    supplied = supplied_file.replace("\\", "/").lstrip("./") if supplied_file else None
+    matches: list[tuple[str, int, str]] = []
+    for relative, text_file in files.items():
+        for number, line in enumerate(text_file.text.splitlines(), start=1):
+            if needle in _normal(line):
+                matches.append((relative, number, line.strip()[:500]))
+    if not matches:
+        return None
+    for relative, number, code in matches:
+        if relative == supplied and number == supplied_line:
+            return relative, number, code
+    for relative, number, code in matches:
+        if relative == supplied:
+            return relative, number, code
+    return matches[0]
 
 
 def _anchor_lines(anchors: StageResult) -> dict[str, set[int]]:
@@ -158,9 +168,15 @@ def _make_chunk(
 
 
 def _chunk_prompt(package: SkillPackage, chunk: _Chunk, anchors: StageResult) -> str:
-    """One call's user prompt.  All untrusted text sits inside a per-call random fence."""
+    """One call's user prompt.  All untrusted text sits inside a fence keyed to its content.
 
-    nonce = secrets.token_hex(8)
+    The fence nonce is a hash of the excerpt itself, so the same excerpt always
+    produces the same prompt (a random nonce made every run differ, and the
+    model's verdict with it).  An excerpt cannot close its own fence: that would
+    need a copy of the closing marker whose nonce is the hash of that same copy.
+    """
+
+    nonce = hashlib.sha256(f"{chunk.file}\n{chunk.text}".encode()).hexdigest()[:16]
     begin = f"<<<UNTRUSTED-{nonce}>>>"
     end = f"<<<END-UNTRUSTED-{nonce}>>>"
     relative = chunk.file
@@ -208,11 +224,14 @@ def _findings_from(
     response: dict[str, Any],
     files: dict[str, TextFile],
     default_file: str,
-) -> list[Finding]:
+) -> tuple[list[Finding], int]:
+    """Findings whose quoted evidence is in the skill, and how many were dropped."""
+
     findings: list[Finding] = []
+    dropped = 0
     patterns_raw = response.get("suspicious_patterns")
     if not isinstance(patterns_raw, list):
-        return findings
+        return findings, dropped
     for item in patterns_raw[:50]:
         if not isinstance(item, dict):
             continue
@@ -225,12 +244,17 @@ def _findings_from(
             if isinstance(item.get("line"), int) and not isinstance(item.get("line"), bool)
             else None
         )
-        relative, line, code = _find_location(
+        located = _find_location(
             evidence,
             supplied_file=supplied_file,
             supplied_line=supplied_line,
             files=files,
         )
+        if located is None:
+            # The model quoted text that is not in the skill: an unverifiable claim.
+            dropped += 1
+            continue
+        relative, line, code = located
         severity = _SEVERITY.get(str(item.get("severity", "medium")).lower(), Severity.MEDIUM)
         findings.append(
             Finding(
@@ -241,7 +265,7 @@ def _findings_from(
                 evidence=FindingEvidence(file=relative, line=line, code=code or None),
             )
         )
-    return findings
+    return findings, dropped
 
 
 def _gap_text(gaps: list[_Gap]) -> str:
@@ -315,9 +339,25 @@ def analyze_semantics(
         )
 
     findings: list[Finding] = []
+    unverified = 0
     for chunk, response in responses:
-        findings.extend(_findings_from(response, files, chunk.file))
+        found, dropped = _findings_from(response, files, chunk.file)
+        findings.extend(found)
+        unverified += dropped
     all_gaps = gaps + failed
+    if unverified:
+        findings.append(
+            Finding(
+                stage=Stage.SEMANTIC,
+                severity=Severity.NOTE,
+                message=(
+                    f"{unverified} model-reported finding(s) quoted text that is not in the "
+                    "skill and were dropped"
+                ),
+                type="semantic-unverified-claims",
+                evidence=FindingEvidence(file="SKILL.md", line=1),
+            )
+        )
     if all_gaps:
         findings.append(
             Finding(
@@ -395,6 +435,7 @@ def analyze_semantics(
             "chunks_analysed": len(responses),
             "chunks_failed": len(failed),
             "gap_ranges": [f"{gap.file}:{gap.first_line}-{gap.last_line}" for gap in all_gaps],
+            "unverified_model_findings": unverified,
         },
     )
 

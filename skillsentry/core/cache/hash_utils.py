@@ -113,8 +113,9 @@ def _mode(path: Path) -> int:
 def hash_skill_dir(path: str | Path) -> SkillHash:
     """Hash a skill directory without following symlinks.
 
-    Raises :class:`HashError` for a missing directory, a symlink anywhere in
-    the package, unreadable files, or packages over the file/size caps.
+    Symlinks are hashed as links (name and target), never followed.  Raises
+    :class:`HashError` for a missing directory, unreadable files, or packages
+    over the file/size caps.
     """
 
     root = Path(path).expanduser()
@@ -143,7 +144,15 @@ def hash_skill_dir(path: str | Path) -> SkillHash:
                 continue
             entry_path = Path(entry.path)
             if entry.is_symlink():
-                raise HashError(f"symlink not allowed in skill package: {rel}")
+                # Never followed.  The link and its target text are part of the
+                # key, and the parser reports the link as a HIGH finding, so a
+                # skill with a link is still scanned and reported.
+                digest.update(b"link\0")
+                digest.update(rel.encode("utf-8", "surrogateescape"))
+                digest.update(b"\0")
+                digest.update(os.readlink(entry_path).encode("utf-8", "surrogateescape"))
+                digest.update(b"\n")
+                continue
             try:
                 if entry.is_dir(follow_symlinks=False):
                     digest.update(b"dir\0")

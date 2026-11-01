@@ -1,3 +1,10 @@
 # Fixtures are executed inside Linux containers.  Keep shell scripts and
 # manifests LF even when the repository is checked out on Windows.
 fixtures/** text eol=lf
+# Images are bytes, not text: never let the eol rule rewrite them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.svg -text

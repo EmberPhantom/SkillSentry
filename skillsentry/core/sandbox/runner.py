@@ -16,6 +16,7 @@ Security invariants:
 from __future__ import annotations
 
 import base64
+import contextlib
 import ipaddress
 import threading
 import time
@@ -168,6 +169,7 @@ class SandboxResult:
     masquerade: MasqueradeCheck | None = None
     cleanup_ok: bool = True
     error: str | None = None
+    timeout_s: float | None = None
 
     @property
     def canary_reads(self) -> list[MonitorEvent]:
@@ -224,7 +226,13 @@ class SandboxResult:
                 Finding(
                     stage=Stage.SANDBOX,
                     severity=Severity.MEDIUM,
-                    message=f"Sandbox execution exceeded {self.duration_ms} ms and was killed.",
+                    message=(
+                        f"Sandbox execution exceeded its {self.timeout_s:g} s limit and was "
+                        f"killed after {self.duration_ms} ms (including container startup)."
+                        if self.timeout_s is not None
+                        else f"Sandbox execution exceeded its limit and was killed after "
+                        f"{self.duration_ms} ms."
+                    ),
                     finding_type="sandbox-timeout",
                 )
             )
@@ -311,6 +319,14 @@ class SandboxRunner:
             return bool(ping())
         except Exception:
             return False
+
+    def close(self) -> None:
+        """Release the Docker client.  Safe to call more than once."""
+
+        client, self._client = self._client, None
+        if client is not None:
+            with contextlib.suppress(Exception):
+                client.close()
 
     def cleanup_stale(self) -> int:
         """Remove labelled containers left by a crashed previous run."""
@@ -415,6 +431,7 @@ class SandboxRunner:
                 exit_code=exec_result["exit_code"],
                 timed_out=exec_result["timed_out"],
                 duration_ms=duration_ms,
+                timeout_s=timeout_s,
                 stdout=_truncate(stdout),
                 stderr=_truncate(stderr),
                 started_at=started_at,

@@ -61,7 +61,7 @@ def render_report(
     if fmt is ExportFormat.SARIF:
         content = json.dumps(build_sarif(verdict, decision=decision), indent=2) + "\n"
     elif fmt is ExportFormat.MARKDOWN:
-        content = build_markdown(verdict, decision=decision)
+        content = build_markdown(verdict, decision=decision, stage_results=stage_results)
     elif fmt is ExportFormat.STIX:
         content = json.dumps(build_stix(verdict), indent=2) + "\n"
     else:  # pragma: no cover - enum exhaustiveness
