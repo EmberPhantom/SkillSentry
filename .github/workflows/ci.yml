@@ -85,3 +85,79 @@ jobs:
           assert {row["verdict"] for row in scans} == {"SAFE", "MALICIOUS"}
           print("demo smoke OK:", len(scans), "skills")
           PY
+
+  # Native platform jobs.  Non-blocking for now: the first runs show which tests assume
+  # POSIX paths.  Make them required checks once they have been green for a few runs.
+  windows:
+    name: Windows (unit tests + install.ps1)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit + contract tests
+        run: pytest tests/unit tests/contract -q
+
+      - name: Build the wheel and check install.ps1 parses
+        shell: pwsh
+        run: |
+          python -m pip wheel . --no-deps -w dist
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
+
+      - name: install.ps1 installs the wheel and uninstalls it
+        shell: powershell
+        run: |
+          $wheel = (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
+          powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun -Wheel $wheel
+          powershell -ExecutionPolicy Bypass -File install.ps1 -Wheel $wheel -NoSetup
+          & "$env:LOCALAPPDATA\skill-sentry-cli\venv\Scripts\skill-sentry-cli.exe" --version
+          powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
+          if (Test-Path "$env:LOCALAPPDATA\skill-sentry-cli\venv") { exit 1 }
+
+  macos:
+    name: macOS (unit tests + install.sh)
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit + contract tests
+        run: pytest tests/unit tests/contract -q
+
+      - name: install.sh installs the wheel and uninstalls it
+        run: |
+          python -m pip wheel . --no-deps -w dist
+          sh install.sh --dry-run --wheel dist/*.whl
+          sh install.sh --wheel dist/*.whl --no-setup
+          "$HOME/.local/share/skill-sentry-cli/venv/bin/skill-sentry-cli" --version
+          sh install.sh --uninstall
+
+  installers:
+    name: Installer scripts (shellcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck install.sh
+        run: shellcheck --shell=sh install.sh

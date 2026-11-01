@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+- `install.ps1`: a native Windows installer (no administrator rights, checksum-verified, PATH set, `-DryRun`, `-NoSetup`, `-Uninstall`).
+- `install.sh`: `--version`, `--dry-run`, and a PATH line for your shell.
+- `scan --report-dir DIR` (one Markdown report per skill plus `summary.md`) and `scan --recursive`.
+- Every text scan ends with where the report is and the command that writes it.
+- `INVALID SKILL` status for a malformed SKILL.md. It is shown as a package problem, not as malware. The stored verdict and the CI gate are unchanged.
+- A platform line in `doctor` (WSL, native Windows, and macOS advice; a warning for skills on a Windows drive under WSL).
+- Windows and macOS CI jobs (non-blocking until they are stable).
+
+### Changed
+- A folder scan prints the banner once, and the summary lists the INVALID count only when it is non-zero.
+
 ## [2.0.0] — first public release
 
 ### Renamed

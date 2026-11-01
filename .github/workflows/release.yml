@@ -146,6 +146,8 @@ jobs:
           sed -E "s/^VERSION=\"[^\"]*\"/VERSION=\"${VERSION}\"/" install.sh > release/install.sh
           chmod +x release/install.sh
           grep -q "^VERSION=\"${VERSION}\"" release/install.sh
+          sed -E 's/\[string\]\$Version = "[^"]*"/[string]$Version = "'"${VERSION}"'"/' install.ps1 > release/install.ps1
+          grep -qF "[string]\$Version = \"${VERSION}\"" release/install.ps1
           (cd dist && sha256sum *.whl *.tar.gz) > release/SHA256SUMS
           cat release/SHA256SUMS
 
@@ -228,4 +230,5 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             release/install.sh
+            release/install.ps1
             release/SHA256SUMS

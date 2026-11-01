@@ -208,13 +208,13 @@ class ScanEngine:
             self.store.close()
 
     # -- discovery ---------------------------------------------------------
-    def discover(self, path: str | Path) -> list[Path]:
-        """Return every skill package beneath ``path``, in deterministic order.
+    def discover(self, path: str | Path, *, recursive: bool = False) -> list[Path]:
+        """Return the skill packages to scan beneath ``path``, in deterministic order.
 
         The root itself wins: if it contains ``SKILL.md`` it is the only result,
-        even when it also contains nested packages.  Symlinked directories are
-        never followed, and the result count is bounded so a hostile corpus
-        cannot make the CLI walk forever.
+        even when it also contains nested packages, unless ``recursive`` is set.
+        Symlinked directories are never followed, and the result count is bounded
+        so a hostile corpus cannot make the CLI walk forever.
         """
 
         root = Path(path).expanduser()
@@ -226,7 +226,7 @@ class ScanEngine:
                 status_code=404,
             )
         manifest = root / "SKILL.md"
-        if manifest.is_file() and not manifest.is_symlink():
+        if not recursive and manifest.is_file() and not manifest.is_symlink():
             return [root]
         found: list[Path] = []
         ignored = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__"}
