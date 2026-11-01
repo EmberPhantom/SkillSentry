@@ -1,6 +1,6 @@
 """Calibrate Laya's capability threshold and temperature against the labelled corpus.
 
-Needs a working Laya install (``pip install "skillsentry[laya]"``) and a
+Needs a working Laya install (``pip install "skill-sentry[laya]"``) and a
 checkpoint.  Any case that cannot be scored aborts the run, so a partial corpus
 never produces a calibration file.  ``review`` cases are reported but excluded
 from fitting.  The report separates the held-out result from the final fit.
@@ -20,18 +20,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from skillsentry.core.config import DecisionSettings
-from skillsentry.core.decisions import DecisionResult, LayaDecisionClient, semantic_questions
-from skillsentry.core.decisions.calibration import (
+from skill_sentry.core.config import DecisionSettings
+from skill_sentry.core.decisions import DecisionResult, LayaDecisionClient, semantic_questions
+from skill_sentry.core.decisions.calibration import (
     CalibrationError,
     CorpusRecord,
     fit_calibration,
     write_calibration,
 )
-from skillsentry.core.decisions.questions import CAPABILITY_QUESTIONS
-from skillsentry.core.parser import parse_skill
-from skillsentry.core.semantic import scan_anchors
-from skillsentry.core.semantic.laya_analyzer import build_decision_state
+from skill_sentry.core.decisions.questions import CAPABILITY_QUESTIONS
+from skill_sentry.core.parser import parse_skill
+from skill_sentry.core.semantic import scan_anchors
+from skill_sentry.core.semantic.laya_analyzer import build_decision_state
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_LABELS = REPO / "tests" / "fixtures" / "decisions" / "labels.json"

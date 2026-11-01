@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from skillsentry.core.contracts import ExfilChannel, Severity, Stage, VerdictTier
-from skillsentry.core.evasion.detector import (
+from skill_sentry.core.contracts import ExfilChannel, Severity, Stage, VerdictTier
+from skill_sentry.core.evasion.detector import (
     PROBE_COMMANDS,
     EvasionResult,
     classify_probe,
@@ -16,10 +16,10 @@ from skillsentry.core.evasion.detector import (
     probe_kind_for_path,
     probe_summary_pattern,
 )
-from skillsentry.core.poisoned_well.attacker_profile import build_attacker_profile
-from skillsentry.core.poisoned_well.canary_gen import generate_canary_set
-from skillsentry.core.poisoned_well.exfil_tracker import ExfilTracker
-from skillsentry.core.sandbox.monitor import MonitorEvent
+from skill_sentry.core.poisoned_well.attacker_profile import build_attacker_profile
+from skill_sentry.core.poisoned_well.canary_gen import generate_canary_set
+from skill_sentry.core.poisoned_well.exfil_tracker import ExfilTracker
+from skill_sentry.core.sandbox.monitor import MonitorEvent
 
 SCAN_ID = UUID("44444444-4444-4444-8444-444444444444")
 MARKER = "SKS-8b2c4d19"

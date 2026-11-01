@@ -94,7 +94,7 @@ Evaluation procedure and fixture corpus: [08-testing-and-evaluation.md](08-testi
 
 ## 1.7 Distribution Surfaces
 
-- `pip install skillsentry` — CLI + library
+- `pip install skill-sentry` — CLI + library
 - Published Docker image — server/CI usage
 - `skillsentry/scan@v1` GitHub Action — PR gates, SARIF upload to GitHub Code Scanning, scheduled registry re-scans
 - Phase 2: **MCP runtime proxy** for post-install behavioral enforcement

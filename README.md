@@ -87,19 +87,19 @@ Step-by-step install, first scans, reports, dashboard, and troubleshooting: **[d
 # From a checkout (a PyPI release is planned, not yet published)
 pip install -e .
 cd ui && npm ci && npm run build && cd ..   # builds the dashboard into the package
-skillsentry init                             # writes skillsentry.toml
-skillsentry sandbox build                    # builds the sandbox image (needs Docker)
+skill-sentry init                             # writes skillsentry.toml
+skill-sentry sandbox build                    # builds the sandbox image (needs Docker)
 
 ollama pull gemma4:e4b-it-qat                # local model used for semantic and vision analysis
 
-skillsentry scan ./fixtures/benign/pdf-summarizer        # ✅ SAFE
-skillsentry scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠️ C2 mapped
-skillsentry scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
+skill-sentry scan ./fixtures/benign/pdf-summarizer        # ✅ SAFE
+skill-sentry scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠️ C2 mapped
+skill-sentry scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
 
-skillsentry serve                    # Dashboard → http://127.0.0.1:8000
-skillsentry scan cloud-sync-pro --demo-mode  # offline canned demo (skill names), no Docker or model needed
-skillsentry export <scan_id> --format sarif   # re-render a stored report
-skillsentry cache stats              # inspect the verdict cache
+skill-sentry serve                    # Dashboard → http://127.0.0.1:8000
+skill-sentry scan cloud-sync-pro --demo-mode  # offline canned demo (skill names), no Docker or model needed
+skill-sentry export <scan_id> --format sarif   # re-render a stored report
+skill-sentry cache stats              # inspect the verdict cache
 ```
 
 **Server image:** `docker build -t skillsentry/server:2.0.0 .` then

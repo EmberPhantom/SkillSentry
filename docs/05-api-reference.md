@@ -236,7 +236,7 @@ Bundle metadata: `created_by_identity = "SkillSentry 2.0"`, `confidence` from ca
 
 Dev 3 ships a mock Ollama endpoint + canned Verdict JSON fixtures so Dev 1 never blocks on the real API:
 
-- `python -m skillsentry.server.demo_mode --port 8000` serves every endpoint above from recorded fixture responses (the 7-fixture store, pre-baked Poisoned Well timeline, `invoice-helper` vision payload with bbox).
+- `python -m skill_sentry.server.demo_mode --port 8000` serves every endpoint above from recorded fixture responses (the 7-fixture store, pre-baked Poisoned Well timeline, `invoice-helper` vision payload with bbox).
 - Canned data is **schema-identical** to production — the frontend switches by base URL only.
 - WS streams replay recorded events with realistic timing (including the heartbeat rule).
 

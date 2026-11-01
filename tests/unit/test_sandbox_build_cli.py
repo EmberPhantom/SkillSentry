@@ -1,10 +1,10 @@
-"""`skillsentry sandbox build`: builds from packaged sources and fails with exit 3."""
+"""`skill-sentry sandbox build`: builds from packaged sources and fails with exit 3."""
 
 from __future__ import annotations
 
 import docker
 import pytest
-from skillsentry import cli
+from skill_sentry import cli
 from typer.testing import CliRunner
 
 runner = CliRunner()

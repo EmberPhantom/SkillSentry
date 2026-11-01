@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skillsentry.core.contracts import export_json_schemas
+from skill_sentry.core.contracts import export_json_schemas
 
 
 def main() -> None:

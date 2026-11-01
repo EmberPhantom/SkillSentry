@@ -22,7 +22,15 @@ def _get(path: str) -> object:
 
 def main() -> int:
     proc = subprocess.Popen(
-        [sys.executable, "-m", "skillsentry.server.demo_mode", "--port", str(PORT), "--speed", "0"],
+        [
+            sys.executable,
+            "-m",
+            "skill_sentry.server.demo_mode",
+            "--port",
+            str(PORT),
+            "--speed",
+            "0",
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

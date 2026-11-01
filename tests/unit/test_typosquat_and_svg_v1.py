@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skillsentry.core.parser.typosquat import check_typosquat
-from skillsentry.core.vision import vision_scanner as scanner
-from skillsentry.core.vision.image_extractor import ImageAsset
+from skill_sentry.core.parser.typosquat import check_typosquat
+from skill_sentry.core.vision import vision_scanner as scanner
+from skill_sentry.core.vision.image_extractor import ImageAsset
 
 
 def test_exact_known_name_is_not_flagged() -> None:

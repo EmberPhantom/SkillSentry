@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-from skillsentry.core.contracts import WSMessage
-from skillsentry.server.app import create_app
-from skillsentry.server.demo_backend import DemoBackend
+from skill_sentry.core.contracts import WSMessage
+from skill_sentry.server.app import create_app
+from skill_sentry.server.demo_backend import DemoBackend
 from starlette.websockets import WebSocketDisconnect
 
 

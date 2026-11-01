@@ -6,11 +6,11 @@ import json
 from pathlib import Path
 
 import pytest
-from skillsentry.core.cache import SQLiteStore
-from skillsentry.core.config import SkillsEntryConfig
-from skillsentry.core.contracts import ScanOptions
-from skillsentry.core.decisions import DecisionAnswer, MockDecisionClient
-from skillsentry.core.decisions.calibration import (
+from skill_sentry.core.cache import SQLiteStore
+from skill_sentry.core.config import SkillsEntryConfig
+from skill_sentry.core.contracts import ScanOptions
+from skill_sentry.core.decisions import DecisionAnswer, MockDecisionClient
+from skill_sentry.core.decisions.calibration import (
     SCHEMA,
     Calibration,
     CalibrationError,
@@ -18,10 +18,10 @@ from skillsentry.core.decisions.calibration import (
     load_calibration,
     write_calibration,
 )
-from skillsentry.core.engine import ScanEngine
-from skillsentry.core.models.mock import MockGemma
-from skillsentry.core.poisoned_well.canary_gen import generate_canary_set
-from skillsentry.core.sandbox.runner import SandboxRequest, SandboxResult
+from skill_sentry.core.engine import ScanEngine
+from skill_sentry.core.models.mock import MockGemma
+from skill_sentry.core.poisoned_well.canary_gen import generate_canary_set
+from skill_sentry.core.sandbox.runner import SandboxRequest, SandboxResult
 from tests.unit.test_engine_live import _write_skill
 
 

@@ -1,6 +1,6 @@
 """The user guide only documents commands and flags the CLI really has.
 
-Every ``skillsentry`` command and ``--flag`` in the guide's shell examples must
+Every ``skill-sentry`` command and ``--flag`` in the guide's shell examples must
 appear in ``--help``.  The guide also follows the documentation gates: no model
 names, no machine-specific paths, and no hand-typed pass counts.
 """
@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
-from skillsentry import cli
+from skill_sentry import cli
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,9 +19,11 @@ GUIDE = ROOT / "docs" / "16-user-guide.md"
 runner = CliRunner()
 
 SUBCOMMAND_GROUPS = {"cache", "sandbox"}
-FORBIDDEN_MODEL_NAMES = re.compile(r"\b(?:gemma|gemini|qwen|llama|mistral)\w*|\bphi-\d", re.IGNORECASE)
+FORBIDDEN_MODEL_NAMES = re.compile(
+    r"\b(?:gemma|gemini|qwen|llama|mistral)\w*|\bphi-\d", re.IGNORECASE
+)
 DRIVE_PATH = re.compile(r"\b[A-Za-z]:\\")
-FILE_URL = re.compile(r"file:///")
+FILE_URL = re.compile("file:" + "/" * 3)  # built at runtime: this file must not contain it
 PASS_COUNT = re.compile(r"\b\d+\s+passed\b")
 
 
@@ -38,7 +40,7 @@ def _skillsentry_commands(text: str) -> list[list[str]]:
     for block in _bash_blocks(text):
         for raw in block.splitlines():
             line = raw.strip()
-            if not line.startswith("skillsentry "):
+            if not line.startswith("skill-sentry "):
                 continue
             line = line.split("#", 1)[0].strip()
             commands.append(line.split()[1:])
@@ -96,7 +98,7 @@ def test_version_flag_is_documented_and_works():
     [
         (FORBIDDEN_MODEL_NAMES, "model name"),
         (DRIVE_PATH, "drive-letter path"),
-        (FILE_URL, "file:/// URL"),
+        (FILE_URL, "file URL"),
         (PASS_COUNT, "hand-typed pass count"),
     ],
 )

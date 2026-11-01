@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skillsentry import cli
-from skillsentry.core.cache import SQLiteStore
+from skill_sentry import cli
+from skill_sentry.core.cache import SQLiteStore
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -84,7 +84,7 @@ def test_fail_on_defaults_to_suspicious_for_scan_and_self_audit() -> None:
 def test_cache_list_prints_id_skill_status_and_verdict(
     temp_store: SQLiteStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from skillsentry.core.contracts import ScanStatus, VerdictTier
+    from skill_sentry.core.contracts import ScanStatus, VerdictTier
 
     row = {
         "scan_id": "3f9c0000-0000-4000-8000-000000000001",

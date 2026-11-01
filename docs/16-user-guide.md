@@ -21,7 +21,7 @@ SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any script
 | Everything | Python 3.11, 3.12 or 3.13 | `python3.12 --version` |
 | Everything | git | `git --version` |
 | Full scans | Docker, and permission to use it without sudo | `docker ps` works |
-| Full scans | Ollama, running, with the model that `skillsentry doctor` names | `ollama list` |
+| Full scans | Ollama, running, with the model that `skill-sentry doctor` names | `ollama list` |
 | Dashboard only | Node.js 20 or newer | `node --version` |
 | Model | About 8 GB of free RAM while a scan runs | Close heavy apps first |
 
@@ -40,7 +40,7 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-skillsentry --version
+skill-sentry --version
 ```
 
 Expected: `SkillSentry 2.0.0 - Fully local analysis · open weights`.
@@ -85,7 +85,7 @@ docker ps                                # should print a table, even if empty
 **Build the sandbox image** (once; it takes a few minutes the first time):
 
 ```bash
-skillsentry sandbox build
+skill-sentry sandbox build
 ```
 
 Expected: `built skillsentry-sandbox:local`.
@@ -100,7 +100,7 @@ SkillSentry uses a language model that runs on your machine through Ollama.
 2. Ask SkillSentry which model it needs and what to run:
 
 ```bash
-skillsentry doctor
+skill-sentry doctor
 ```
 
 If the last line says `FAIL model: … is not pulled; run: ollama pull …`, run the command it prints. Pulling a model downloads several gigabytes; do this once.
@@ -112,7 +112,7 @@ If you want a different model, set `ollama_model` in the `[model]` section of `s
 ## 6. Check that you are ready
 
 ```bash
-skillsentry doctor
+skill-sentry doctor
 ```
 
 Each line is one check:
@@ -141,7 +141,7 @@ The repository includes two sample skills under `fixtures/`. One is harmless. Th
 **Scan the harmless sample:**
 
 ```bash
-skillsentry scan fixtures/benign/pdf-summarizer
+skill-sentry scan fixtures/benign/pdf-summarizer
 ```
 
 Expected (the first time; a repeat is marked `(cached)`):
@@ -154,7 +154,7 @@ SkillSentry 2.0.0 - Fully local analysis · open weights - backend: auto (local 
 **Scan the malicious sample:**
 
 ```bash
-skillsentry scan fixtures/malicious/cloud-sync-pro
+skill-sentry scan fixtures/malicious/cloud-sync-pro
 ```
 
 Expected:
@@ -195,7 +195,7 @@ Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage erro
 **One skill:**
 
 ```bash
-skillsentry scan path/to/my-skill
+skill-sentry scan path/to/my-skill
 ```
 
 A skill folder must contain a `SKILL.md`. If it has scripts, its `SKILL.md` must declare the entrypoint:
@@ -213,7 +213,7 @@ Without an `entrypoint:`, SkillSentry reads the scripts but does not run them. T
 **A folder of skills** (each child folder that has a `SKILL.md` is scanned):
 
 ```bash
-skillsentry scan path/to/skills-folder
+skill-sentry scan path/to/skills-folder
 ```
 
 The last line is a summary:
@@ -242,9 +242,9 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 Choose a format with `--format` (`text`, `json`, `markdown`, `sarif`), and save it with `--output`:
 
 ```bash
-skillsentry scan fixtures/malicious/cloud-sync-pro --format markdown --output reports/cloud-sync-pro.md
-skillsentry scan fixtures/malicious/cloud-sync-pro --format json --output reports/cloud-sync-pro.json
-skillsentry scan fixtures/malicious/cloud-sync-pro --format sarif --output reports/cloud-sync-pro.sarif
+skill-sentry scan fixtures/malicious/cloud-sync-pro --format markdown --output reports/cloud-sync-pro.md
+skill-sentry scan fixtures/malicious/cloud-sync-pro --format json --output reports/cloud-sync-pro.json
+skill-sentry scan fixtures/malicious/cloud-sync-pro --format sarif --output reports/cloud-sync-pro.sarif
 ```
 
 SARIF 2.1.0 files open in editors and in code-scanning tools.
@@ -252,8 +252,8 @@ SARIF 2.1.0 files open in editors and in code-scanning tools.
 **Find a stored scan and export it again without re-running it:**
 
 ```bash
-skillsentry cache list                  # newest first: scan ID, skill, status, verdict
-skillsentry export <scan-id> --format markdown -o reports/again.md
+skill-sentry cache list                  # newest first: scan ID, skill, status, verdict
+skill-sentry export <scan-id> --format markdown -o reports/again.md
 ```
 
 Each `cache list` line starts with the scan ID. Copy it into `export`.
@@ -261,18 +261,18 @@ Each `cache list` line starts with the scan ID. Copy it into `export`.
 **Cache and history:**
 
 ```bash
-skillsentry cache stats                 # entries, database size, hit rate
-skillsentry cache clear --older-than 7d # remove old saved results
+skill-sentry cache stats                 # entries, database size, hit rate
+skill-sentry cache clear --older-than 7d # remove old saved results
 ```
 
-**Where the history lives:** `~/.skillsentry/skillsentry.db`. Change it with the `SKILLSENTRY_DB` environment variable, for example `SKILLSENTRY_DB=/tmp/test.db skillsentry scan …`.
+**Where the history lives:** `~/.skillsentry/skillsentry.db`. Change it with the `SKILLSENTRY_DB` environment variable, for example `SKILLSENTRY_DB=/tmp/test.db skill-sentry scan …`.
 
 ---
 
 ## 10. The dashboard
 
 ```bash
-skillsentry serve
+skill-sentry serve
 ```
 
 Open <http://127.0.0.1:8000> in a browser. The server listens only on your own machine.
@@ -281,7 +281,7 @@ Open <http://127.0.0.1:8000> in a browser. The server listens only on your own m
 - `/health` reports whether Ollama, Docker and the database are ready (`"ok"` or `"down"`).
 - `/scans` lists stored scans as JSON.
 
-Use another port with `skillsentry serve --port 8080`. Stop the server with `Ctrl+C`.
+Use another port with `skill-sentry serve --port 8080`. Stop the server with `Ctrl+C`.
 
 If the port is taken, you see `address already in use`. Pick another port.
 
@@ -307,8 +307,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e .
-      - run: skillsentry sandbox build
-      - run: skillsentry scan skills/ --format sarif --sarif-out results.sarif
+      - run: skill-sentry sandbox build
+      - run: skill-sentry scan skills/ --format sarif --sarif-out results.sarif
       - uses: github/codeql-action/upload-sarif@v3   # not verified here
         if: always()
         with:
@@ -331,7 +331,7 @@ jobs:
 To see the output without Docker or a model:
 
 ```bash
-skillsentry scan cloud-sync-pro --demo-mode
+skill-sentry scan cloud-sync-pro --demo-mode
 ```
 
 `--demo-mode` takes a skill **name** from the built-in demo set (`pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`, `cloud-sync-pro`, `invoice-helper`, `slack-notif-mal`). It does not scan a folder, and its results are canned, not real analysis. The banner says `demo`.
@@ -341,8 +341,8 @@ skillsentry scan cloud-sync-pro --demo-mode
 ## 13. Configuration
 
 ```bash
-skillsentry init            # writes skillsentry.toml in the current folder
-skillsentry init --force    # overwrite it
+skill-sentry init            # writes skillsentry.toml in the current folder
+skill-sentry init --force    # overwrite it
 ```
 
 The file has sections for the model, the sandbox, the Poisoned Well deception, scoring, and the decision layer. The keys you are most likely to change:
@@ -358,7 +358,7 @@ ollama_model = "…"                      # the model you pulled (doctor names i
 **Choosing the file:** SkillSentry reads `./skillsentry.toml`, or the file named by `SKILLSENTRY_CONFIG`. A path that does not exist is an error, not a silent fallback:
 
 ```bash
-SKILLSENTRY_CONFIG=/path/to/other.toml skillsentry doctor
+SKILLSENTRY_CONFIG=/path/to/other.toml skill-sentry doctor
 ```
 
 Useful environment variables:
@@ -383,7 +383,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 | `FAIL model: … is not pulled; run: ollama pull …` | The configured model is not downloaded | Run the command it prints |
 | `error: config file not found: …` (exit 2) | `SKILLSENTRY_CONFIG` names a missing file | Fix the path |
 | `error: no SKILL.md found under …` (exit 3) | The folder has no `SKILL.md` | Point at the skill folder, or add the file |
-| `ERROR: … address already in use` | The port is taken | `skillsentry serve --port 8080` |
+| `ERROR: … address already in use` | The port is taken | `skill-sentry serve --port 8080` |
 | `UNSCANNED … spec degraded: manifest validation failed`, then `symlink is not allowed in a skill package: …` | The skill contains a symbolic link | Replace it with a real file, or remove it |
 | `UNSCANNED … SKILL.md is not valid UTF-8` | The file is not plain UTF-8 text | Re-save it as UTF-8 |
 | `UNSCANNED … text file not analysed: scripts/x.py (larger than 1 MiB)` | A file is too large to read | Split or shrink the file; SkillSentry will not call it clean |
@@ -395,16 +395,16 @@ Each message below was produced on purpose and quoted exactly. The first line of
 
 **Where to look when something is still wrong**
 
-- The verdict's full reason: `skillsentry scan <path> --format json` (every stage and finding).
+- The verdict's full reason: `skill-sentry scan <path> --format json` (every stage and finding).
 - Ollama: `curl http://localhost:11434/api/tags` should list the model.
 - Docker: `docker ps` should print a table.
-- The history database: `skillsentry cache list`.
+- The history database: `skill-sentry cache list`.
 
 ---
 
 ## 15. Safety notes
 
-- The malicious sample is test material. It only runs inside the sandbox through `skillsentry scan`. Do not copy its scripts out and run them.
+- The malicious sample is test material. It only runs inside the sandbox through `skill-sentry scan`. Do not copy its scripts out and run them.
 - The sandbox has no route to the internet. A skill that tries to reach an outside host fails inside the sandbox and is reported as a finding.
 - `--no-sandbox` never runs the entrypoint. Use it only when Docker is not available, and read the verdict as weaker evidence.
 - Canary credentials planted in the sandbox are fake. They are never real secrets.
@@ -415,19 +415,19 @@ Each message below was produced on purpose and quoted exactly. The first line of
 ## 16. Command cheat sheet
 
 ```bash
-skillsentry --version
-skillsentry doctor
-skillsentry init [--force]
-skillsentry sandbox build
-skillsentry scan <skill-or-folder> [--format text|json|markdown|sarif] [--output FILE] [--sarif-out FILE]
-skillsentry scan <skill-or-folder> [--fail-on suspicious|malicious] [--no-cache] [--timeout N] [--no-sandbox] [-q]
-skillsentry scan <skill-name> --demo-mode
-skillsentry self-audit
-skillsentry cache list [--limit N]
-skillsentry cache stats
-skillsentry cache clear [--older-than 7d]
-skillsentry export <scan-id> [--format markdown|sarif|stix] [-o FILE]
-skillsentry serve [--host 127.0.0.1] [--port 8000]
+skill-sentry --version
+skill-sentry doctor
+skill-sentry init [--force]
+skill-sentry sandbox build
+skill-sentry scan <skill-or-folder> [--format text|json|markdown|sarif] [--output FILE] [--sarif-out FILE]
+skill-sentry scan <skill-or-folder> [--fail-on suspicious|malicious] [--no-cache] [--timeout N] [--no-sandbox] [-q]
+skill-sentry scan <skill-name> --demo-mode
+skill-sentry self-audit
+skill-sentry cache list [--limit N]
+skill-sentry cache stats
+skill-sentry cache clear [--older-than 7d]
+skill-sentry export <scan-id> [--format markdown|sarif|stix] [-o FILE]
+skill-sentry serve [--host 127.0.0.1] [--port 8000]
 ```
 
 Full reference: [07-cli-reference.md](07-cli-reference.md).

@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from skillsentry.core.parser import parse_skill
-from skillsentry.core.parser import skill_parser as parser_module
+from skill_sentry.core.parser import parse_skill
+from skill_sentry.core.parser import skill_parser as parser_module
 
 
 def _write_skill(root: Path, frontmatter: str, body: str = "Body\n") -> Path:

@@ -5,13 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skillsentry.core.config import (
+from skill_sentry.core.config import (
     ConfigError,
     default_config,
     load_config,
     write_default_config,
 )
-from skillsentry.core.version import engine_version, weights_fingerprint
+from skill_sentry.core.version import engine_version, weights_fingerprint
 
 
 def test_defaults_match_docs():

@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "skillsentry"
+name = "skill-sentry"
 dynamic = ["version"]
 description = "A context-aware firewall for the agent skill supply chain with Poisoned Well active defense."
 readme = "README.md"
@@ -52,20 +52,20 @@ dev = [
 ]
 
 [project.scripts]
-skillsentry = "skillsentry.cli:app"
+skill-sentry = "skill_sentry.cli:app"
 
 [tool.hatch.version]
-path = "skillsentry/core/version.py"
+path = "skill_sentry/core/version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["skillsentry"]
-# The dashboard is built into skillsentry/ui/dist and is gitignored, so it must be listed
+packages = ["skill_sentry"]
+# The dashboard is built into skill_sentry/ui/dist and is gitignored, so it must be listed
 # explicitly or the wheel would omit it.
-artifacts = ["skillsentry/ui/dist/**"]
+artifacts = ["skill_sentry/ui/dist/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "skillsentry",
+  "skill_sentry",
   "docs",
   "README.md",
   "LICENSE",
@@ -76,7 +76,7 @@ include = [
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["skillsentry", "tests"]
+src = ["skill_sentry", "tests"]
 extend-exclude = ["tests/fixtures/decisions/cases"]
 
 [tool.ruff.lint]
@@ -100,8 +100,8 @@ markers = [
   "live_ollama: end-to-end test against a live Ollama server (skips when none is reachable)",
 ]
 filterwarnings = [
-  "error::DeprecationWarning:skillsentry.*",
+  "error::DeprecationWarning:skill_sentry.*",
 ]
 
 [tool.coverage.run]
-source = ["skillsentry"]
+source = ["skill_sentry"]

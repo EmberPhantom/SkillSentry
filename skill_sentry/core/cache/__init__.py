@@ -1,0 +1,35 @@
+"""Persistent cache and scan-history storage.
+
+The cache is deliberately content-addressed and *never* stores arbitrary user
+files.  Only the hash, the verdict, and the evidence needed to redisplay it are
+written to SQLite.  A cached verdict is only reused when the engine version,
+model version, backend and scoring weights all match (docs/03-database.md).
+"""
+
+from __future__ import annotations
+
+from skill_sentry.core.cache.hash_utils import (
+    HashError,
+    SkillHash,
+    hash_bytes,
+    hash_skill_dir,
+)
+from skill_sentry.core.cache.sqlite_store import (
+    CachedResult,
+    ScanRecord,
+    SQLiteStore,
+    StoreError,
+    cache_key,
+)
+
+__all__ = [
+    "CachedResult",
+    "HashError",
+    "SQLiteStore",
+    "ScanRecord",
+    "SkillHash",
+    "StoreError",
+    "cache_key",
+    "hash_bytes",
+    "hash_skill_dir",
+]

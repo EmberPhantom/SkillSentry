@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skillsentry.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
-from skillsentry.core.parser import parse_skill
-from skillsentry.core.sandbox.instructions import (
+from skill_sentry.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
+from skill_sentry.core.parser import parse_skill
+from skill_sentry.core.sandbox.instructions import (
     BASELINE_CATEGORIES,
     InstructionCategory,
     SandboxExecutionPlan,
@@ -124,7 +124,7 @@ def test_plan_round_trips_through_json(tmp_path: Path) -> None:
 @pytest.mark.parametrize("bad", ["extra", "timeout"])
 def test_unknown_or_out_of_range_fields_are_rejected(bad: str) -> None:
     from pydantic import ValidationError
-    from skillsentry.core.sandbox.instructions import SandboxActionInstruction
+    from skill_sentry.core.sandbox.instructions import SandboxActionInstruction
 
     if bad == "extra":
         with pytest.raises(ValidationError):

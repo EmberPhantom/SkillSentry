@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skillsentry.core.parser import parse_skill
+from skill_sentry.core.parser import parse_skill
 
 
 def _write_manifest(tmp_path: Path, newline: bytes) -> Path:

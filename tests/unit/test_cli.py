@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from skillsentry.cli import app
+from skill_sentry.cli import app
 from typer.testing import CliRunner
 
 runner = CliRunner()

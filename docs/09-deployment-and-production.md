@@ -33,7 +33,7 @@ flowchart LR
 
 | Surface | Audience | Notes |
 |:---|:---|:---|
-| `pip install skillsentry` | Individual devs, local CLI | Pulls core + CLI; UI served via `skillsentry serve` |
+| `pip install skill-sentry` | Individual devs, local CLI | Pulls core + CLI; UI served via `skill-sentry serve` |
 | Docker image | CI runners, team servers | Includes sinkhole responder components; needs Docker-in-Docker or socket mount for the sandbox stage (documented trade-off; socket mount guarded by `no-new-privileges` guidance) |
 | GitHub Action `skillsentry/scan@v1` | Teams / OSS maintainers | PR gate + SARIF upload + cron re-scans |
 
@@ -46,10 +46,10 @@ A step-by-step guide for a new machine is in [16-user-guide.md](16-user-guide.md
 ```bash
 ollama pull gemma4:e4b-it-qat        # pre-cache the model (do this the night before demos)
 pip install -e .                  # from a checkout; not yet published to PyPI
-skillsentry init                  # writes skillsentry.toml
-skillsentry scan ./my-skill       # first run: full pipeline (<90 s target)
-skillsentry scan ./my-skill       # second run: ⚡ cached (<2 s)
-skillsentry serve                 # dashboard at http://127.0.0.1:8000
+skill-sentry init                  # writes skillsentry.toml
+skill-sentry scan ./my-skill       # first run: full pipeline (<90 s target)
+skill-sentry scan ./my-skill       # second run: ⚡ cached (<2 s)
+skill-sentry serve                 # dashboard at http://127.0.0.1:8000
 ```
 
 Performance expectations: uncached local scan **< 90 s**/skill (E4B Q4); cached **< 2 s**; vision images downscaled to 1024 px to hold the budget.

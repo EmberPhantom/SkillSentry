@@ -12,11 +12,11 @@ import os
 from pathlib import Path
 
 import pytest
-from skillsentry.core.cache.hash_utils import hash_skill_dir
-from skillsentry.core.contracts import Stage, StageResult
-from skillsentry.core.parser import parse_skill
-from skillsentry.core.semantic.analyzer import _chunk_prompt, _make_chunks
-from skillsentry.core.semantic.ast_anchor import scan_anchors
+from skill_sentry.core.cache.hash_utils import hash_skill_dir
+from skill_sentry.core.contracts import Stage, StageResult
+from skill_sentry.core.parser import parse_skill
+from skill_sentry.core.semantic.analyzer import _chunk_prompt, _make_chunks
+from skill_sentry.core.semantic.ast_anchor import scan_anchors
 
 SKILL_HEADER = """---
 name: {name}
@@ -189,7 +189,7 @@ class _ScriptedModel:
 
 
 def _semantic(skill: Path, patterns: list[dict]):
-    from skillsentry.core.semantic import analyze_semantics
+    from skill_sentry.core.semantic import analyze_semantics
 
     package = parse_skill(skill)
     empty = StageResult(stage=Stage.DETERMINISTIC_ANCHOR)

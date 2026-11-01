@@ -14,16 +14,16 @@ ollama pull gemma4:e4b-it-qat                 # local model (~night-before for d
 git clone https://github.com/<org>/skillsentry && cd skillsentry
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"                   # ruff, pytest, etc.
-skillsentry init                          # skillsentry.toml with defaults
+skill-sentry init                          # skillsentry.toml with defaults
 
 # 3. Frontend (ui/)
 cd ui && npm install && npm run dev       # Vite dev server → proxies to :8000
 
 # 4. Parallel development without the real API
-python -m skillsentry.server.demo_mode --port 8000   # mock server, canned verdicts
+python -m skill_sentry.server.demo_mode --port 8000   # mock server, canned verdicts
 ```
 
-**Verify your setup:** `skillsentry scan fixtures/benign/pdf-summarizer` → SAFE; `skillsentry scan fixtures/malicious/cloud-sync-pro` → MALICIOUS with Poisoned Well correlation.
+**Verify your setup:** `skill-sentry scan fixtures/benign/pdf-summarizer` → SAFE; `skill-sentry scan fixtures/malicious/cloud-sync-pro` → MALICIOUS with Poisoned Well correlation.
 
 ## 10.2 Repository Structure & Ownership
 
@@ -117,7 +117,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 | No canary events | Confirm sandbox enabled, inotify mounted, skill actually reads a seeded path; check `canary_events` table for `canary_seeded` rows |
 | Sinkhole misses DNS | Fallback per plan: hosts-file override + `resolv.conf` pinning inside the container |
 | Evasion fixture passes | Masquerade not applied? Verify `/dev/null:/.dockerenv:ro` mount and `LD_PRELOAD` env in the container spec |
-| UI shows stale verdicts | Query cache keys: engine/model version bump invalidates; `skillsentry cache stats` |
+| UI shows stale verdicts | Query cache keys: engine/model version bump invalidates; `skill-sentry cache stats` |
 | Demo jeopardy | `--demo-mode` is always the answer (Chaos Run doctrine) |
 
 ## 10.9 Risks & Mitigations (plan §13)
@@ -140,7 +140,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 | Phase | Window | Highlights |
 |:---|:---|:---|
 | **0 — Core Build (M0–M4)** | milestone-based | Full pipeline, 7+1 fixtures, dashboard, Chaos Run, rehearsed demo |
-| **1 — Stabilization (M5)** | after M4 | Pytest suite (parser, typosquat, fusion weights, cache); fixture regression; CI; `pip install skillsentry`; published Docker image; `scan --watch`; `skillsentry init`; model auto-download helper; CLI progress bars; 20-skill eval corpus + precision/recall; docs deep-dives |
+| **1 — Stabilization (M5)** | after M4 | Pytest suite (parser, typosquat, fusion weights, cache); fixture regression; CI; `pip install skill-sentry`; published Docker image; `scan --watch`; `skill-sentry init`; model auto-download helper; CLI progress bars; 20-skill eval corpus + precision/recall; docs deep-dives |
 | **2 — Production** | after M5 | MCP runtime proxy; signed verdicts (sigstore/cosign); community IOC feed; OpenTelemetry; Postgres team server; MCP server manifest scanning |
 
 ## 10.11 Compliance Checklist (judges will verify)

@@ -9,7 +9,7 @@ tests
 scripts
 ui/node_modules
 ui/dist
-skillsentry/ui/dist
+skill_sentry/ui/dist
 **/__pycache__
 **/*.pyc
 *.sqlite

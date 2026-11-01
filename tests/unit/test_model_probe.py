@@ -9,8 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import httpx
-from skillsentry.cli import app
-from skillsentry.core.models.gemma_local import GemmaLocal, ProbeResult
+from skill_sentry.cli import app
+from skill_sentry.core.models.gemma_local import GemmaLocal, ProbeResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -102,7 +102,7 @@ def test_doctor_says_the_model_is_not_pulled(tmp_path: Path, monkeypatch):
 
 def test_environment_config_path_must_exist(tmp_path: Path, monkeypatch):
     import pytest as _pytest
-    from skillsentry.core.config import ConfigError, load_config
+    from skill_sentry.core.config import ConfigError, load_config
 
     monkeypatch.setenv("SKILLSENTRY_CONFIG", str(tmp_path / "typo.toml"))
     with _pytest.raises(ConfigError, match="config file not found"):
