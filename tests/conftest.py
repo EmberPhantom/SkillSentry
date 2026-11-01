@@ -8,6 +8,11 @@ from __future__ import annotations
 
 import os
 import tempfile
+
+# Typer turns on colored output when GITHUB_ACTIONS is set, and the color codes split
+# flag names in help text, so the help tests would fail only on CI.  This must run
+# before Typer is imported.
+os.environ.setdefault("_TYPER_FORCE_DISABLE_TERMINAL", "1")
 from collections.abc import Iterator
 
 import pytest
