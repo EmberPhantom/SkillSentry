@@ -19,10 +19,10 @@ import json
 from pathlib import Path
 
 import pytest
-from skillsentry.cli import app
-from skillsentry.core.config import load_config
-from skillsentry.core.models.base import ModelUnavailable
-from skillsentry.core.models.gemma_local import GemmaLocal
+from skill_sentry_cli.cli import app
+from skill_sentry_cli.core.config import load_config
+from skill_sentry_cli.core.models.base import ModelUnavailable
+from skill_sentry_cli.core.models.gemma_local import GemmaLocal
 from typer.testing import CliRunner
 
 runner = CliRunner()

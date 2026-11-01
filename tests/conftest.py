@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import os
 import tempfile
+
+# Typer turns on colored output when GITHUB_ACTIONS is set, and the color codes split
+# flag names in help text, so the help tests would fail only on CI.  This must run
+# before Typer is imported.
+os.environ.setdefault("_TYPER_FORCE_DISABLE_TERMINAL", "1")
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from skillsentry.server.app import create_app
-from skillsentry.server.demo_backend import DemoBackend
+from skill_sentry_cli.server.app import create_app
+from skill_sentry_cli.server.demo_backend import DemoBackend
 
 # The mock model is only reachable from tests and development (see cli._refuse_mock_backend).
 os.environ.setdefault("SKILLSENTRY_DEV", "1")
@@ -41,6 +46,6 @@ def client(demo_app) -> Iterator[TestClient]:
 
 @pytest.fixture()
 def store():
-    from skillsentry.server.demo_data import build_demo_store
+    from skill_sentry_cli.server.demo_data import build_demo_store
 
     return build_demo_store()

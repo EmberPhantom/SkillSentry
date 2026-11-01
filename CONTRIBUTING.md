@@ -11,7 +11,7 @@ Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is M
 1. **The Verdict JSON Contract v1 is frozen.** Backward-compatible additions (new optional fields) only; breaking changes require a `v2` + migration path and sign-off from all maintainers. See [docs/05-api-reference.md](docs/05-api-reference.md) §5.5.
 2. **Shared identifiers stay shared.** Stage names, WS event names, and severity enums live in one constants module — no stringly-typed duplicates in UI or backend.
 3. **No error path may produce `SAFE`.** Any degraded scan must carry explicit `*-unavailable` findings (fail-safe rule).
-4. **Fixtures are hazardous material.** Malicious fixtures run *only* through `skillsentry scan` (sandboxed), use fictional C2 domains (`evil-collector.net`, `evil-c2.com`), and never reference real credentials. See fixture safety rules in [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.2.
+4. **Fixtures are hazardous material.** Malicious fixtures run *only* through `skill-sentry-cli scan` (sandboxed), use fictional C2 domains (`evil-collector.net`, `evil-c2.com`), and never reference real credentials. See fixture safety rules in [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.2.
 5. **Fusion-weight / prompt / anchor / masquerade changes must re-run the full fixture corpus** and update `tests/expected_verdicts.json` in the same PR.
 6. **Docs ship with behavior.** Public-facing changes update the relevant `docs/` file in the same PR.
 
@@ -21,11 +21,11 @@ Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is M
 git clone https://github.com/<org>/skillsentry && cd skillsentry
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-skillsentry init
+skill-sentry-cli init
 # frontend:
 cd ui && npm install && npm run dev
 # no backend yet? build against the mock server:
-python -m skillsentry.server.demo_mode --port 8000
+python -m skill_sentry_cli.server.demo_mode --port 8000
 ```
 
 - **Branches:** `feat/<topic>`, `fix/<topic>`, `docs/<topic>` off `main`.

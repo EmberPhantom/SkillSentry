@@ -27,9 +27,9 @@
 Owner tags on the repository tree (full annotated structure: [02-architecture.md](02-architecture.md) §2.6):
 
 ```text
-skillsentry/
+skill_sentry_cli/
  ├── pyproject.toml                     [D1]  (D2 reviews deps)
- ├── skillsentry/
+ ├── skill_sentry_cli/
  │   ├── cli.py                         [D1]  scan orchestration, exit codes
  │   ├── core/
  │   │   ├── cache/

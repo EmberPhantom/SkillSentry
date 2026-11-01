@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from skillsentry.core.poisoned_well.canary_gen import generate_canary_set
-from skillsentry.core.sandbox.monitor import (
+from skill_sentry_cli.core.poisoned_well.canary_gen import generate_canary_set
+from skill_sentry_cli.core.sandbox.monitor import (
     event_summary,
     format_events_jsonl,
     normalise_paths,

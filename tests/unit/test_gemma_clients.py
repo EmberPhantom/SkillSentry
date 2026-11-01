@@ -10,12 +10,12 @@ from pathlib import Path
 import httpx
 import pytest
 from PIL import Image
-from skillsentry.core.config import ModelSettings
-from skillsentry.core.models.base import ModelUnavailable
-from skillsentry.core.models.gemma_cloud import GemmaCloud
-from skillsentry.core.models.gemma_local import GemmaLocal
-from skillsentry.core.models.mock import MockGemma
-from skillsentry.core.models.selector import select_model
+from skill_sentry_cli.core.config import ModelSettings
+from skill_sentry_cli.core.models.base import ModelUnavailable
+from skill_sentry_cli.core.models.gemma_cloud import GemmaCloud
+from skill_sentry_cli.core.models.gemma_local import GemmaLocal
+from skill_sentry_cli.core.models.mock import MockGemma
+from skill_sentry_cli.core.models.selector import select_model
 
 SEMANTIC_SCHEMA = {
     "type": "object",

@@ -7,6 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Renamed
+- **The package, module and command are now `skill-sentry-cli`, `skill_sentry_cli` and `skill-sentry-cli`.** The name `skillsentry` on PyPI belongs to an unrelated project that installs the same module and command, so this project cannot publish under those names. `skill-sentry` was also rejected by PyPI as too similar to an existing project. **Breaking:** update imports from `skillsentry` to `skill_sentry_cli`, and the command from `skillsentry` to `skill-sentry-cli`. Your data is unchanged: `skillsentry.toml`, `~/.skillsentry`, `SKILLSENTRY_*` variables, the sandbox image name and the bundled skill name all keep their names.
+
+### Added
+- `skill-sentry setup`: guided first-time setup. It checks the same things as `doctor`, writes the default configuration if you agree, offers to install the sandbox image (a published copy when this release has one) and to download the model, and never installs Docker or Ollama itself. Every download or build waits for a yes; `--yes` accepts all prompts.
+- `install.sh`: installs from a published release after checking the wheel against `SHA256SUMS`. Uses pipx when available, otherwise a private virtual environment under your home folder. No sudo. `--uninstall` keeps your data.
+- Registry account manual (`docs/18-registry-accounts.md`): PyPI and TestPyPI accounts, two-factor authentication, trusted publishing, recovery.
+- Release workflow and runbook (`.github/workflows/release.yml`, `docs/17-release-process.md`): tag-driven, trusted publishing to TestPyPI for release candidates and to PyPI behind a reviewer approval, multi-architecture sandbox and server images, build provenance.
+- `scripts/check_wheel.py`: fails the build if the wheel is missing the dashboard, the sandbox sources, the rules, the known-name list, the bundled skill, or the command.
+
+### Fixed
+- `doctor` reported Docker as unreachable even when it was reachable, because its cleanup ran after every check. Each check now closes its client after its last use.
+
 ### Added
 - **User guide** (`docs/16-user-guide.md`): install from a checkout, check readiness, first scans, reading verdicts and UNSCANNED reasons, folder scans, reports and stored scans, dashboard, CI use, configuration, and troubleshooting with real messages. Its commands and flags are checked against `--help` by `tests/unit/test_user_guide.py`.
 - **Web dashboard** (`ui/`, React 18 and TypeScript): triage table with verdict filter, search and sort; new-scan form with a live console over the scan WebSocket; skill detail with overview, static findings, vision evidence, sandbox trace, Poisoned Well and export tabs; cache stats and clear. It ships inside the wheel and is served at `/` by `skillsentry serve`.

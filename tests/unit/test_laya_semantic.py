@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skillsentry.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
-from skillsentry.core.decisions import DecisionAnswer, MockDecisionClient
-from skillsentry.core.parser import parse_skill
-from skillsentry.core.semantic.candidates import MAX_CANDIDATES, build_candidates
-from skillsentry.core.semantic.laya_analyzer import analyze_semantics_laya
+from skill_sentry_cli.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
+from skill_sentry_cli.core.decisions import DecisionAnswer, MockDecisionClient
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.semantic.candidates import MAX_CANDIDATES, build_candidates
+from skill_sentry_cli.core.semantic.laya_analyzer import analyze_semantics_laya
 
 
 def _write_skill(root: Path, *, body: str = "Summarise the document.\n") -> Path:

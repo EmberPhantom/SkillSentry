@@ -7,8 +7,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from skillsentry.core.config import DecisionSettings
-from skillsentry.core.decisions import (
+from skill_sentry_cli.core.config import DecisionSettings
+from skill_sentry_cli.core.decisions import (
     DecisionQuestion,
     DecisionUnavailable,
     LayaDecisionClient,
@@ -192,7 +192,7 @@ def test_missing_package_is_a_typed_unavailable_error(monkeypatch: pytest.Monkey
     def _missing(name: str):
         raise ImportError("No module named 'laya'")
 
-    monkeypatch.setattr("skillsentry.core.decisions.laya.importlib.import_module", _missing)
+    monkeypatch.setattr("skill_sentry_cli.core.decisions.laya.importlib.import_module", _missing)
     client = LayaDecisionClient(DecisionSettings())
 
     assert client.health() is False

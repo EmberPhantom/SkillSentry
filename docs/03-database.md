@@ -305,7 +305,7 @@ WHERE content_hash = :hash
 | SkillSentry engine upgrade | `engine_version` mismatch ⇒ miss (all rows stale) |
 | Ollama model re-pull / new quant | `model_version` mismatch ⇒ miss |
 | Fusion weights config change | Treated as engine-version bump (weights hash folded into `engine_version`) |
-| Manual | `skillsentry cache clear [--older-than 30d]` |
+| Manual | `skill-sentry-cli cache clear [--older-than 30d]` |
 
 ## 3.6 Write Paths per Stage
 
@@ -348,7 +348,7 @@ GROUP BY ioc_type, value ORDER BY hits DESC;
 
 ## 3.8 Retention & Privacy
 
-- **Local mode:** data belongs to the user; nothing is uploaded anywhere. Default retention is unlimited; `skillsentry cache clear --older-than 90d` and `DELETE FROM scans WHERE started_at < …` (cascading) are the pruning tools.
+- **Local mode:** data belongs to the user; nothing is uploaded anywhere. Default retention is unlimited; `skill-sentry-cli cache clear --older-than 90d` and `DELETE FROM scans WHERE started_at < …` (cascading) are the pruning tools.
 - **Sensitive material:** canary credentials are *fake by construction* (marker `SKS-…`, `-fake` suffixes) so storing them is safe. HTTP bodies from the sandbox may contain fragments of real skill data — they are stored base64 in `sandbox_net_logs` and are only ever read by the local UI/exports.
 - **Exports** (SARIF/STIX/Markdown) are written to `~/.skillsentry/reports/<scan_id>/` and are user-initiated only.
 

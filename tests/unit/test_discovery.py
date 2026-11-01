@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 
 import pytest
-from skillsentry.core.cache import SQLiteStore
-from skillsentry.core.config import SkillsEntryConfig
-from skillsentry.core.engine import MAX_DISCOVERED_SKILLS, ScanEngine, ScanError
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.config import SkillsEntryConfig
+from skill_sentry_cli.core.engine import MAX_DISCOVERED_SKILLS, ScanEngine, ScanError
 
 
 def _manifest(root: Path, name: str | None = None) -> Path:

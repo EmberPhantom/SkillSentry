@@ -75,7 +75,7 @@ The fixture does **not** go dormant when it sees `/.dockerenv`; touching that pa
 
 1. Fixtures must **never** reference real credentials or real domains — C2 hosts are fictional (`evil-collector.net`, `evil-c2.com`) and unreachable by design (sinkhole-only network).
 2. Malicious fixtures live under `fixtures/malicious/` with a `README` warning and are excluded from any packaging step.
-3. Fixtures must not run outside the sandbox: CI executes them only through `skillsentry scan`.
+3. Fixtures must not run outside the sandbox: CI executes them only through `skill-sentry-cli scan`.
 4. If Gemma vision misses the payload during rehearsal, tune font size 4 px → 6 px (plan risk mitigation) — never weaken the detector to pass.
 
 **Phase 1 expansion:** grow the corpus to **20 skills** and publish a precision/recall table (plan §9.5).
@@ -192,7 +192,7 @@ jobs:
     needs: test
     runs-on: [self-hosted, gpu-optional]                      # Ollama available
     steps:
-      - run: skillsentry scan fixtures/ --format json --fail-on malicious --sarif-out results.sarif || true
+      - run: skill-sentry-cli scan fixtures/ --format json --fail-on malicious --sarif-out results.sarif || true
       - run: python tests/check_expected_verdicts.py results.sarif   # regression gate
 ```
 

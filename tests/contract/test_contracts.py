@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from skillsentry.core.contracts import (
+from skill_sentry_cli.core.contracts import (
     SCHEMA_MODELS,
     ActiveDefense,
     Finding,

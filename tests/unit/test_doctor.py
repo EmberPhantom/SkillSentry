@@ -1,13 +1,14 @@
-"""`skillsentry doctor`: required checks fail the command; optional ones only warn."""
+"""`skill-sentry-cli doctor`: required checks fail the command; optional ones only warn."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-from skillsentry import cli
-from skillsentry.core.cache import SQLiteStore
-from skillsentry.core.models import gemma_local
+from skill_sentry_cli import cli
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.models import gemma_local
+from skill_sentry_cli.core.models.gemma_local import ProbeResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -23,7 +24,7 @@ def temp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SQLiteStore:
 def test_missing_model_fails_the_command(
     temp_store: SQLiteStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(gemma_local.GemmaLocal, "preflight", lambda self: False)
+    monkeypatch.setattr(gemma_local.GemmaLocal, "probe", lambda self: ProbeResult.NO_MODEL)
 
     result = runner.invoke(cli.app, ["doctor"])
 
@@ -35,7 +36,7 @@ def test_missing_model_fails_the_command(
 def test_unreachable_docker_is_a_warning_not_a_failure(
     temp_store: SQLiteStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(gemma_local.GemmaLocal, "preflight", lambda self: True)
+    monkeypatch.setattr(gemma_local.GemmaLocal, "probe", lambda self: ProbeResult.READY)
     import docker
 
     def _no_engine() -> None:

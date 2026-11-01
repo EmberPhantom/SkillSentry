@@ -1,6 +1,6 @@
 # Frozen Schemas (v1)
 
-These files are generated from `skillsentry/core/contracts.py`. Do not edit them
+These files are generated from `skill_sentry_cli/core/contracts.py`. Do not edit them
 by hand.
 
 | File | Used for |

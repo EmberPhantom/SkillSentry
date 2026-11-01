@@ -8,7 +8,7 @@ The machine-readable sources of truth are:
 |:---|:---|
 | `schemas/verdict.v1.json` | Standalone JSON Schema for `Verdict` (frozen v1) |
 | `schemas/api.v1.json` | Bundle of every REST/WS model, keyed by model name |
-| `skillsentry/core/contracts.py` | Pydantic source; run `python scripts/export_schema.py` after edits |
+| `skill_sentry_cli/core/contracts.py` | Pydantic source; run `python scripts/export_schema.py` after edits |
 
 CI regenerates the schemas and fails on drift.
 

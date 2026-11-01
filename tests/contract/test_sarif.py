@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from skillsentry.core.verdict.sarif_report import build_sarif, rule_id
-from skillsentry.server.demo_data import build_demo_store
+from skill_sentry_cli.core.verdict.sarif_report import build_sarif, rule_id
+from skill_sentry_cli.server.demo_data import build_demo_store
 
 
 def _verdict(name: str):

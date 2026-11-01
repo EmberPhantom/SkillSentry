@@ -18,10 +18,10 @@ import tempfile
 import time
 from pathlib import Path
 
-from skillsentry.core.cache import SQLiteStore
-from skillsentry.core.config import load_config
-from skillsentry.core.contracts import ScanOptions
-from skillsentry.core.engine import ScanEngine
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.config import load_config
+from skill_sentry_cli.core.contracts import ScanOptions
+from skill_sentry_cli.core.engine import ScanEngine
 
 
 def _content_hash(skill_dir: Path) -> str:

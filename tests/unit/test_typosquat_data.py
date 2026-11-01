@@ -12,7 +12,7 @@ from importlib import resources
 from pathlib import Path
 
 import pytest
-from skillsentry.core.parser.typosquat import KNOWN_SKILL_NAMES, check_typosquat
+from skill_sentry_cli.core.parser.typosquat import KNOWN_SKILL_NAMES, check_typosquat
 
 ROOT = Path(__file__).resolve().parents[2]
 CORE_NAMES = {
@@ -28,7 +28,9 @@ CORE_NAMES = {
 
 
 def test_known_names_load_from_packaged_data() -> None:
-    raw = resources.files("skillsentry.data").joinpath("known_skills_v1.json").read_text("utf-8")
+    raw = (
+        resources.files("skill_sentry_cli.data").joinpath("known_skills_v1.json").read_text("utf-8")
+    )
     entries = json.loads(raw)["entries"]
 
     assert len(KNOWN_SKILL_NAMES) == len({entry["name"] for entry in entries})

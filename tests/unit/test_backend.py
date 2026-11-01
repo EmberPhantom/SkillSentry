@@ -5,11 +5,11 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from skillsentry.core.contracts import ExportFormat, ScanOptions, ScanRequest, ScanStatus
-from skillsentry.server.demo_backend import DemoBackend
-from skillsentry.server.demo_data import build_demo_store
-from skillsentry.server.errors import ApiError
-from skillsentry.server.live_backend import LiveBackend
+from skill_sentry_cli.core.contracts import ExportFormat, ScanOptions, ScanRequest, ScanStatus
+from skill_sentry_cli.server.demo_backend import DemoBackend
+from skill_sentry_cli.server.demo_data import build_demo_store
+from skill_sentry_cli.server.errors import ApiError
+from skill_sentry_cli.server.live_backend import LiveBackend
 
 
 @pytest.mark.asyncio
@@ -104,9 +104,9 @@ def test_stix_export_without_iocs_is_rejected():
 
 @pytest.mark.asyncio
 async def test_live_backend_validates_paths_instead_of_fabricating_verdicts(tmp_path):
-    from skillsentry.core.cache import SQLiteStore
-    from skillsentry.core.engine import ScanEngine
-    from skillsentry.core.models.mock import MockGemma
+    from skill_sentry_cli.core.cache import SQLiteStore
+    from skill_sentry_cli.core.engine import ScanEngine
+    from skill_sentry_cli.core.models.mock import MockGemma
 
     engine = ScanEngine(
         store=SQLiteStore(tmp_path / "live.sqlite"),
@@ -155,10 +155,10 @@ async def test_live_list_scans_does_not_paginate_the_store_twice():
 
 @pytest.mark.asyncio
 async def test_live_health_and_meta_use_the_injected_model(tmp_path, monkeypatch):
-    from skillsentry.core.cache import SQLiteStore
-    from skillsentry.core.engine import ScanEngine
-    from skillsentry.core.models.mock import MockGemma
-    from skillsentry.core.sandbox.runner import SandboxRunner
+    from skill_sentry_cli.core.cache import SQLiteStore
+    from skill_sentry_cli.core.engine import ScanEngine
+    from skill_sentry_cli.core.models.mock import MockGemma
+    from skill_sentry_cli.core.sandbox.runner import SandboxRunner
 
     # Make the health probe deterministic: this test is about model identity,
     # not about whether the host happens to have a reachable Docker daemon.
@@ -181,7 +181,7 @@ async def test_live_health_and_meta_use_the_injected_model(tmp_path, monkeypatch
 
 @pytest.mark.asyncio
 async def test_live_health_reports_a_broken_database_as_down():
-    from skillsentry.core.config import SkillsEntryConfig
+    from skill_sentry_cli.core.config import SkillsEntryConfig
 
     class BrokenStore:
         def ping(self) -> bool:

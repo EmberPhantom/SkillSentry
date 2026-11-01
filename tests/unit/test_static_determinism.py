@@ -9,11 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skillsentry.core.cache import SQLiteStore
-from skillsentry.core.config import SkillsEntryConfig
-from skillsentry.core.contracts import ScanOptions
-from skillsentry.core.engine import ScanEngine
-from skillsentry.core.models.mock import MockGemma
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.config import SkillsEntryConfig
+from skill_sentry_cli.core.contracts import ScanOptions
+from skill_sentry_cli.core.engine import ScanEngine
+from skill_sentry_cli.core.models.mock import MockGemma
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures"

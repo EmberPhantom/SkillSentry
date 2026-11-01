@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from skillsentry.core.cache import SQLiteStore
-from skillsentry.core.engine import ScanEngine
-from skillsentry.core.models.mock import MockGemma
-from skillsentry.server.app import create_app
-from skillsentry.server.live_backend import LiveBackend
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.engine import ScanEngine
+from skill_sentry_cli.core.models.mock import MockGemma
+from skill_sentry_cli.server.app import create_app
+from skill_sentry_cli.server.live_backend import LiveBackend
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 

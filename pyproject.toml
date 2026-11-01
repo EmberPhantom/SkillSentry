@@ -3,14 +3,16 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "skillsentry"
+name = "skill-sentry-cli"
 dynamic = ["version"]
 description = "A context-aware firewall for the agent skill supply chain with Poisoned Well active defense."
-readme = "README.md"
+readme = "packaging/PYPI_README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+license-files = ["LICENSE"]
 authors = [{ name = "Team SkillSentry" }]
-keywords = ["security", "agent-skills", "supply-chain", "sandbox", "gemma"]
+keywords = ["security", "agent-skills", "supply-chain", "sandbox", "local-llm"]
+
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -18,6 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Operating System :: POSIX :: Linux",
   "Topic :: Security",
 ]
 dependencies = [
@@ -34,6 +37,12 @@ dependencies = [
   "Jinja2>=3.1,<4.0",
   "Pillow>=10.0,<13.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/EmberPhantom/SkillSentry"
+Source = "https://github.com/EmberPhantom/SkillSentry"
+Issues = "https://github.com/EmberPhantom/SkillSentry/issues"
+Changelog = "https://github.com/EmberPhantom/SkillSentry/blob/main/docs/CHANGELOG.md"
 
 [project.optional-dependencies]
 laya = [
@@ -52,31 +61,36 @@ dev = [
 ]
 
 [project.scripts]
-skillsentry = "skillsentry.cli:app"
+skill-sentry-cli = "skill_sentry_cli.cli:app"
 
 [tool.hatch.version]
-path = "skillsentry/core/version.py"
+path = "skill_sentry_cli/core/version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["skillsentry"]
-# The dashboard is built into skillsentry/ui/dist and is gitignored, so it must be listed
+packages = ["skill_sentry_cli"]
+# The dashboard is built into skill_sentry_cli/ui/dist and is gitignored, so it must be listed
 # explicitly or the wheel would omit it.
-artifacts = ["skillsentry/ui/dist/**"]
+artifacts = ["skill_sentry_cli/ui/dist/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "skillsentry",
+  "skill_sentry_cli",
   "docs",
   "README.md",
+  "packaging",
   "LICENSE",
   "SECURITY.md",
   "CONTRIBUTING.md",
 ]
 
+# The dashboard build is git-ignored; the sdist must carry it so a wheel built from the sdist serves the dashboard.
+[tool.hatch.build.targets.sdist.force-include]
+"skill_sentry_cli/ui/dist" = "skill_sentry_cli/ui/dist"
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["skillsentry", "tests"]
+src = ["skill_sentry_cli", "tests"]
 extend-exclude = ["tests/fixtures/decisions/cases"]
 
 [tool.ruff.lint]
@@ -100,8 +114,8 @@ markers = [
   "live_ollama: end-to-end test against a live Ollama server (skips when none is reachable)",
 ]
 filterwarnings = [
-  "error::DeprecationWarning:skillsentry.*",
+  "error::DeprecationWarning:skill_sentry_cli.*",
 ]
 
 [tool.coverage.run]
-source = ["skillsentry"]
+source = ["skill_sentry_cli"]

@@ -10,9 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skillsentry.core.anchors.credential_flow import analyze_credential_flows, is_credential_bound
-from skillsentry.core.contracts import Finding, Severity
-from skillsentry.core.parser import parse_skill
+from skill_sentry_cli.core.anchors.credential_flow import (
+    analyze_credential_flows,
+    is_credential_bound,
+)
+from skill_sentry_cli.core.contracts import Finding, Severity
+from skill_sentry_cli.core.parser import parse_skill
 
 SLACK_TO_SLACK = """import os
 import requests
@@ -153,11 +156,11 @@ def test_binding_matches_dot_boundary_only() -> None:
 
 
 def test_cache_identity_changes_with_the_rules_fingerprint(tmp_path: Path) -> None:
-    from skillsentry.core.anchors import credential_flow
-    from skillsentry.core.cache import SQLiteStore
-    from skillsentry.core.config import SkillsEntryConfig
-    from skillsentry.core.engine import ScanEngine
-    from skillsentry.core.models.mock import MockGemma
+    from skill_sentry_cli.core.anchors import credential_flow
+    from skill_sentry_cli.core.cache import SQLiteStore
+    from skill_sentry_cli.core.config import SkillsEntryConfig
+    from skill_sentry_cli.core.engine import ScanEngine
+    from skill_sentry_cli.core.models.mock import MockGemma
 
     config = SkillsEntryConfig()
     config.model.backend = "demo"

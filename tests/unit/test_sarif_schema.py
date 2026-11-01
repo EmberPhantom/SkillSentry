@@ -11,7 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import jsonschema
-from skillsentry.core.contracts import (
+from skill_sentry_cli.core.contracts import (
     ExportFormat,
     Finding,
     FindingEvidence,
@@ -20,7 +20,7 @@ from skillsentry.core.contracts import (
     Verdict,
     VerdictTier,
 )
-from skillsentry.core.reports import render_report
+from skill_sentry_cli.core.reports import render_report
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads(

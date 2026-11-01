@@ -11,18 +11,18 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-from skillsentry.core.config import DecisionSettings
-from skillsentry.core.decisions import LayaDecisionClient, semantic_questions
-from skillsentry.core.parser import parse_skill
-from skillsentry.core.semantic import scan_anchors
-from skillsentry.core.semantic.laya_analyzer import build_decision_state
+from skill_sentry_cli.core.config import DecisionSettings
+from skill_sentry_cli.core.decisions import LayaDecisionClient, semantic_questions
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.semantic import scan_anchors
+from skill_sentry_cli.core.semantic.laya_analyzer import build_decision_state
 
 REPO = Path(__file__).resolve().parents[2]
 CASES = REPO / "tests" / "fixtures" / "decisions" / "cases"
 
 pytestmark = pytest.mark.skipif(
     importlib.util.find_spec("laya") is None,
-    reason='requires the laya extra: pip install "skillsentry[laya]"',
+    reason='requires the laya extra: pip install "skill-sentry-cli[laya]"',
 )
 
 

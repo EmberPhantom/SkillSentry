@@ -8,8 +8,8 @@ from dataclasses import replace
 from uuid import UUID
 
 import pytest
-from skillsentry.core.poisoned_well.canary_gen import generate_canary_set
-from skillsentry.core.sandbox.canary_fs import (
+from skill_sentry_cli.core.poisoned_well.canary_gen import generate_canary_set
+from skill_sentry_cli.core.sandbox.canary_fs import (
     build_canary_tar,
     canary_for_path,
     canary_paths,

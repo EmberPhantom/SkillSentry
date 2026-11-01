@@ -266,13 +266,13 @@ flowchart TD
 ## 2.6 Module Map (Repository Structure)
 
 ```text
-skillsentry/
+skill_sentry_cli/
  ├── LICENSE                          # MIT
  ├── README.md                        # GIF → problem → arch → run → eval
  ├── SECURITY.md
  ├── pyproject.toml
- ├── skillsentry/
- │   ├── cli.py                       # `skillsentry scan ./skill-folder`
+ ├── skill_sentry_cli/
+ │   ├── cli.py                       # `skill-sentry-cli scan ./skill-folder`
  │   ├── core/
  │   │   ├── cache/
  │   │   │   ├── sqlite_store.py      # SHA-256 hash → cached verdict
@@ -341,7 +341,7 @@ skillsentry/
 | Frontend | **React 18 + Vite + TypeScript + Tailwind + shadcn/ui** | Dedicated frontend dev ⇒ polish expected |
 | Charts/graphs | **Recharts** (risk gauge) + **React Flow** (IOC graph) | IOC visualization for Poisoned Well |
 | Report format | **SARIF 2.1.0-style JSON + Markdown + STIX** | Instant credibility with technical audiences |
-| Packaging | `pip install skillsentry` + Docker image + GitHub Action | Three distribution surfaces |
+| Packaging | `pip install skill-sentry-cli` + Docker image + GitHub Action | Three distribution surfaces |
 
 ### Model backends
 
