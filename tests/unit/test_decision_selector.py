@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from skill_sentry.core.config import DecisionSettings, default_config
-from skill_sentry.core.decisions import (
+from skill_sentry_cli.core.config import DecisionSettings, default_config
+from skill_sentry_cli.core.decisions import (
     DecisionAnswer,
     DecisionQuestion,
     DecisionResult,

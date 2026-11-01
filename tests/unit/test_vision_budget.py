@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from PIL import Image
-from skill_sentry.core.contracts import ImageAnalysis
-from skill_sentry.core.parser import parse_skill
-from skill_sentry.core.vision import vision_scanner as scanner
+from skill_sentry_cli.core.contracts import ImageAnalysis
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.vision import vision_scanner as scanner
 
 
 class _CountingVision:

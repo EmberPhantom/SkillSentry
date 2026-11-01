@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // The dashboard talks to the SkillSentry server on the same origin in production.
-// In development, Vite forwards API paths to a running `skill-sentry serve`.
+// In development, Vite forwards API paths to a running `skill-sentry-cli serve`.
 const API = process.env.SKILLSENTRY_API ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
@@ -10,7 +10,7 @@ export default defineConfig({
   base: "./",
   build: {
     // Built into the package so the wheel ships the dashboard (see pyproject.toml).
-    outDir: "../skill_sentry/ui/dist",
+    outDir: "../skill_sentry_cli/ui/dist",
     emptyOutDir: true,
     sourcemap: false,
   },

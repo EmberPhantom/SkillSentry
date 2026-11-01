@@ -12,8 +12,8 @@ import json
 from pathlib import Path
 
 import pytest
-from skill_sentry.core.decisions import MockDecisionClient
-from skill_sentry.core.decisions.calibration import (
+from skill_sentry_cli.core.decisions import MockDecisionClient
+from skill_sentry_cli.core.decisions.calibration import (
     CalibrationError,
     CorpusRecord,
     calibrate_probability,
@@ -22,7 +22,7 @@ from skill_sentry.core.decisions.calibration import (
     fit_temperature,
     split_held_out,
 )
-from skill_sentry.core.decisions.questions import CAPABILITY_QUESTIONS
+from skill_sentry_cli.core.decisions.questions import CAPABILITY_QUESTIONS
 
 REPO = Path(__file__).resolve().parents[2]
 REPO_SCRIPT = REPO / "scripts" / "calibrate_laya.py"

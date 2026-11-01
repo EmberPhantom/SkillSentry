@@ -25,7 +25,7 @@ def main() -> int:
         [
             sys.executable,
             "-m",
-            "skill_sentry.server.demo_mode",
+            "skill_sentry_cli.server.demo_mode",
             "--port",
             str(PORT),
             "--speed",

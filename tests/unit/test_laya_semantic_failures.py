@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from skill_sentry.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
-from skill_sentry.core.decisions import DecisionAnswer, DecisionQuestion, DecisionResult
-from skill_sentry.core.decisions.base import DecisionUnavailable
-from skill_sentry.core.parser import parse_skill
-from skill_sentry.core.semantic.laya_analyzer import (
+from skill_sentry_cli.core.contracts import Finding, FindingEvidence, Severity, Stage, StageResult
+from skill_sentry_cli.core.decisions import DecisionAnswer, DecisionQuestion, DecisionResult
+from skill_sentry_cli.core.decisions.base import DecisionUnavailable
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.semantic.laya_analyzer import (
     analyze_semantics_laya,
     degraded_semantic_stage,
     deterministic_only_stage,

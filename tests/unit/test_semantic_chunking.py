@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from skill_sentry.core.contracts import Stage, StageResult
-from skill_sentry.core.models.base import ModelUnavailable
-from skill_sentry.core.parser import parse_skill
-from skill_sentry.core.semantic import analyze_semantics
-from skill_sentry.core.semantic import analyzer as analyzer_module
+from skill_sentry_cli.core.contracts import Stage, StageResult
+from skill_sentry_cli.core.models.base import ModelUnavailable
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.semantic import analyze_semantics
+from skill_sentry_cli.core.semantic import analyzer as analyzer_module
 
 
 class _RecordingModel:

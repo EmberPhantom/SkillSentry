@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from skill_sentry.server.app import create_app
-from skill_sentry.server.demo_backend import DemoBackend
+from skill_sentry_cli.server.app import create_app
+from skill_sentry_cli.server.demo_backend import DemoBackend
 
 
 @pytest.fixture()

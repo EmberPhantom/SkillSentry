@@ -11,10 +11,10 @@ PY=".venv/Scripts/python.exe"
 step() { printf '\n== %s\n' "$1"; }
 
 step "ruff check"
-"$PY" -m ruff check skill_sentry tests scripts
+"$PY" -m ruff check skill_sentry_cli tests scripts
 
 step "ruff format --check"
-"$PY" -m ruff format --check skill_sentry tests scripts
+"$PY" -m ruff format --check skill_sentry_cli tests scripts
 
 step "pytest"
 "$PY" -m pytest tests -q -p no:cacheprovider

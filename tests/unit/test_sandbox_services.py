@@ -8,13 +8,13 @@ import socket
 import struct
 
 import pytest
-from skill_sentry.core.contracts import utc_now
-from skill_sentry.core.sandbox.dns_sinkhole import (
+from skill_sentry_cli.core.contracts import utc_now
+from skill_sentry_cli.core.sandbox.dns_sinkhole import (
     DnsSinkhole,
     build_dns_response,
     parse_dns_query,
 )
-from skill_sentry.core.sandbox.fake_http import FakeHttpResponder, HttpObservation
+from skill_sentry_cli.core.sandbox.fake_http import FakeHttpResponder, HttpObservation
 
 
 def _query(qname: str, *, qtype: int = 1, ident: int = 0x1234) -> bytes:

@@ -41,7 +41,7 @@ Two differences to know:
 
 ```bash
 python -m pip install --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ skill-sentry==<version>
+  --extra-index-url https://pypi.org/simple/ skill-sentry-cli==<version>
 ```
 
 ## 4. Register the trusted publisher
@@ -52,7 +52,7 @@ Trusted publishing lets the release workflow publish without storing an API toke
 
 | Field | PyPI | TestPyPI |
 |:---|:---|:---|
-| PyPI project name | `skill-sentry` | `skill-sentry` |
+| PyPI project name | `skill-sentry-cli` | `skill-sentry-cli` |
 | Owner | `EmberPhantom` | `EmberPhantom` |
 | Repository name | `SkillSentry` | `SkillSentry` |
 | Workflow filename | `release.yml` | `release.yml` |
@@ -60,7 +60,7 @@ Trusted publishing lets the release workflow publish without storing an API toke
 
 Warnings from PyPI's documentation:
 
-- **A pending publisher does not reserve the project name.** If someone else registers `skill-sentry` first, your pending publisher becomes invalid. Publish soon after you register.
+- **A pending publisher does not reserve the project name.** If someone else registers `skill-sentry-cli` first, your pending publisher becomes invalid. Publish soon after you register.
 - **The first successful publish converts it** into a normal publisher. No further setup is needed.
 
 ## 5. Set up GitHub to match

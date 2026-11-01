@@ -5,11 +5,16 @@ from __future__ import annotations
 import json
 
 import pytest
-from skill_sentry.core.contracts import ExportFormat
-from skill_sentry.core.reports import MEDIA_TYPES, ReportFiles, render_report, write_report_files
-from skill_sentry.core.verdict.markdown_report import build_markdown
-from skill_sentry.core.verdict.stix_report import NoIOCsError, build_stix
-from skill_sentry.server.demo_data import build_demo_store
+from skill_sentry_cli.core.contracts import ExportFormat
+from skill_sentry_cli.core.reports import (
+    MEDIA_TYPES,
+    ReportFiles,
+    render_report,
+    write_report_files,
+)
+from skill_sentry_cli.core.verdict.markdown_report import build_markdown
+from skill_sentry_cli.core.verdict.stix_report import NoIOCsError, build_stix
+from skill_sentry_cli.server.demo_data import build_demo_store
 
 
 def _verdict(name: str):
@@ -86,7 +91,7 @@ def test_write_report_files_writes_expected_bundle(tmp_path):
 
 
 def test_markdown_shows_unscanned_when_a_stage_degraded():
-    from skill_sentry.core.contracts import Stage, StageResult
+    from skill_sentry_cli.core.contracts import Stage, StageResult
 
     degraded = [StageResult(stage=Stage.SEMANTIC, degraded=True, error="model unavailable")]
     text = build_markdown(_verdict("git-helper"), stage_results=degraded)
@@ -96,7 +101,7 @@ def test_markdown_shows_unscanned_when_a_stage_degraded():
 
 
 def test_malicious_verdict_is_not_downgraded_by_a_degraded_stage():
-    from skill_sentry.core.contracts import Stage, StageResult
+    from skill_sentry_cli.core.contracts import Stage, StageResult
 
     degraded = [StageResult(stage=Stage.VISION, degraded=True, error="vision unavailable")]
     text = build_markdown(_verdict("cloud-sync-pro"), stage_results=degraded)
@@ -105,7 +110,7 @@ def test_malicious_verdict_is_not_downgraded_by_a_degraded_stage():
 
 
 def test_complete_scan_is_not_marked_unscanned():
-    from skill_sentry.core.contracts import Stage, StageResult
+    from skill_sentry_cli.core.contracts import Stage, StageResult
 
     complete = [StageResult(stage=Stage.SEMANTIC)]
     text = build_markdown(_verdict("git-helper"), stage_results=complete)

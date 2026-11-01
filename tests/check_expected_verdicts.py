@@ -43,11 +43,11 @@ def _expected() -> dict[str, dict[str, Any]]:
 
 
 def _scan_one(name: str, expected: dict[str, Any], *, sandbox: bool) -> CheckResult:
-    from skill_sentry.core.cache import SQLiteStore
-    from skill_sentry.core.config import SkillsEntryConfig
-    from skill_sentry.core.contracts import ScanOptions
-    from skill_sentry.core.engine import ScanEngine
-    from skill_sentry.core.models.mock import MockGemma
+    from skill_sentry_cli.core.cache import SQLiteStore
+    from skill_sentry_cli.core.config import SkillsEntryConfig
+    from skill_sentry_cli.core.contracts import ScanOptions
+    from skill_sentry_cli.core.engine import ScanEngine
+    from skill_sentry_cli.core.models.mock import MockGemma
 
     with tempfile.TemporaryDirectory(prefix="skillsentry-fixture-") as temp:
         store = SQLiteStore(Path(temp) / "scan.sqlite")
@@ -138,7 +138,7 @@ def docker_prerequisites() -> tuple[bool, str]:
     try:
         client = docker.from_env()
         client.ping()
-        from skill_sentry.core.config import SkillsEntryConfig
+        from skill_sentry_cli.core.config import SkillsEntryConfig
 
         image = SkillsEntryConfig().sandbox.base_image
         client.images.get(image)

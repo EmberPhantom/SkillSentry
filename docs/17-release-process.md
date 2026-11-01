@@ -2,7 +2,7 @@
 
 This is the runbook for publishing a version of SkillSentry. It has two parts: the steps only a maintainer with the accounts can do, and what the release workflow does once a tag is pushed.
 
-**Names.** The Python distribution is `skill-sentry`, the module is `skill_sentry`, and the command is `skill-sentry`. The product is still called SkillSentry. The sandbox image is published as `skillsentry-sandbox` and the server image as `skill-sentry-server`, both under `ghcr.io/emberphantom`.
+**Names.** The Python distribution is `skill-sentry-cli`, the module is `skill_sentry_cli`, and the command is `skill-sentry-cli`. The product is still called SkillSentry. The sandbox image is published as `skillsentry-sandbox` and the server image as `skill-sentry-server`, both under `ghcr.io/emberphantom`.
 
 ## 1. One-time setup (maintainer)
 
@@ -18,7 +18,7 @@ In the repository settings, the following is also needed:
 
 ```bash
 # On main, after the change set is merged:
-#   1. set __version__ in skill_sentry/core/version.py to e.g. 2.0.0rc1
+#   1. set __version__ in skill_sentry_cli/core/version.py to e.g. 2.0.0rc1
 #   2. move the matching notes into docs/CHANGELOG.md under a new version heading
 git tag v2.0.0rc1
 git push origin v2.0.0rc1
@@ -29,8 +29,8 @@ The workflow then publishes to TestPyPI and creates a GitHub pre-release. Instal
 ```bash
 python3.12 -m venv /tmp/rc-check && . /tmp/rc-check/bin/activate
 python -m pip install --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ skill-sentry==2.0.0rc1
-skill-sentry --version
+  --extra-index-url https://pypi.org/simple/ skill-sentry-cli==2.0.0rc1
+skill-sentry-cli --version
 ```
 
 ## 3. Final release
@@ -55,13 +55,13 @@ The `checks` and `build` jobs run. The `publish-pypi` job then waits for a revie
 | Sandbox image, both architectures | `ghcr.io/emberphantom/skillsentry-sandbox:<v>`; its digest is written into the wheel |
 | Server image, both architectures | `ghcr.io/emberphantom/skill-sentry-server:<v>` |
 
-The sandbox digest is written into `skill_sentry/data/sandbox_image.json` before the wheel is built. `skill-sentry setup` pulls that exact digest, so an installed version uses the image it shipped with. Source checkouts have no digest and build the image locally.
+The sandbox digest is written into `skill_sentry_cli/data/sandbox_image.json` before the wheel is built. `skill-sentry-cli setup` pulls that exact digest, so an installed version uses the image it shipped with. Source checkouts have no digest and build the image locally.
 
 ## 5. Checks before tagging
 
 ```bash
 python -m pip install -e ".[dev]"
-ruff check skill_sentry tests scripts && ruff format --check skill_sentry tests scripts
+ruff check skill_sentry_cli tests scripts && ruff format --check skill_sentry_cli tests scripts
 pytest tests -q
 scripts/build_release.sh      # dashboard, wheel, fresh-venv install
 python scripts/check_wheel.py dist/*.whl

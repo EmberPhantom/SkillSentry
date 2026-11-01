@@ -7,10 +7,10 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
-from skill_sentry.core.contracts import ExfilChannel, Stage, VerdictTier
-from skill_sentry.core.poisoned_well.canary_gen import generate_canary_set
-from skill_sentry.core.poisoned_well.exfil_tracker import ExfilTracker
-from skill_sentry.core.sandbox.monitor import MonitorEvent
+from skill_sentry_cli.core.contracts import ExfilChannel, Stage, VerdictTier
+from skill_sentry_cli.core.poisoned_well.canary_gen import generate_canary_set
+from skill_sentry_cli.core.poisoned_well.exfil_tracker import ExfilTracker
+from skill_sentry_cli.core.sandbox.monitor import MonitorEvent
 
 SCAN_ID = UUID("33333333-3333-4333-8333-333333333333")
 MARKER = "SKS-7f3a9c21"

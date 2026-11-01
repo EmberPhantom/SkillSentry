@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skill_sentry.core.cache import SQLiteStore
-from skill_sentry.core.config import SkillsEntryConfig
-from skill_sentry.core.contracts import ScanOptions
-from skill_sentry.core.engine import ScanEngine
-from skill_sentry.core.models.mock import MockGemma
-from skill_sentry.core.poisoned_well.canary_gen import generate_canary_set
-from skill_sentry.core.sandbox.runner import SandboxRequest, SandboxResult
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.config import SkillsEntryConfig
+from skill_sentry_cli.core.contracts import ScanOptions
+from skill_sentry_cli.core.engine import ScanEngine
+from skill_sentry_cli.core.models.mock import MockGemma
+from skill_sentry_cli.core.poisoned_well.canary_gen import generate_canary_set
+from skill_sentry_cli.core.sandbox.runner import SandboxRequest, SandboxResult
 
 
 class _CountingRunner:

@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skill_sentry.core.anchors import credential_flow as flow
-from skill_sentry.core.anchors.declared_hosts import extract_declared_hosts, is_host_declared
-from skill_sentry.core.contracts import Severity
-from skill_sentry.core.parser import parse_skill
+from skill_sentry_cli.core.anchors import credential_flow as flow
+from skill_sentry_cli.core.anchors.declared_hosts import extract_declared_hosts, is_host_declared
+from skill_sentry_cli.core.contracts import Severity
+from skill_sentry_cli.core.parser import parse_skill
 
 
 def _skill(tmp_path: Path, script: str, *, frontmatter: str = "", name: str = "tool.py") -> object:

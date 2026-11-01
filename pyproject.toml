@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "skill-sentry"
+name = "skill-sentry-cli"
 dynamic = ["version"]
 description = "A context-aware firewall for the agent skill supply chain with Poisoned Well active defense."
 readme = "packaging/PYPI_README.md"
@@ -61,20 +61,20 @@ dev = [
 ]
 
 [project.scripts]
-skill-sentry = "skill_sentry.cli:app"
+skill-sentry-cli = "skill_sentry_cli.cli:app"
 
 [tool.hatch.version]
-path = "skill_sentry/core/version.py"
+path = "skill_sentry_cli/core/version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["skill_sentry"]
-# The dashboard is built into skill_sentry/ui/dist and is gitignored, so it must be listed
+packages = ["skill_sentry_cli"]
+# The dashboard is built into skill_sentry_cli/ui/dist and is gitignored, so it must be listed
 # explicitly or the wheel would omit it.
-artifacts = ["skill_sentry/ui/dist/**"]
+artifacts = ["skill_sentry_cli/ui/dist/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "skill_sentry",
+  "skill_sentry_cli",
   "docs",
   "README.md",
   "packaging",
@@ -86,7 +86,7 @@ include = [
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["skill_sentry", "tests"]
+src = ["skill_sentry_cli", "tests"]
 extend-exclude = ["tests/fixtures/decisions/cases"]
 
 [tool.ruff.lint]
@@ -110,8 +110,8 @@ markers = [
   "live_ollama: end-to-end test against a live Ollama server (skips when none is reachable)",
 ]
 filterwarnings = [
-  "error::DeprecationWarning:skill_sentry.*",
+  "error::DeprecationWarning:skill_sentry_cli.*",
 ]
 
 [tool.coverage.run]
-source = ["skill_sentry"]
+source = ["skill_sentry_cli"]

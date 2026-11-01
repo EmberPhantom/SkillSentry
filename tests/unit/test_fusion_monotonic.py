@@ -1,6 +1,6 @@
 """Unit tests for fusion monotonicity and floor enforcement."""
 
-from skill_sentry.core.contracts import (
+from skill_sentry_cli.core.contracts import (
     Finding,
     FindingEvidence,
     OverrideSignal,
@@ -9,7 +9,7 @@ from skill_sentry.core.contracts import (
     StageResult,
     VerdictTier,
 )
-from skill_sentry.core.verdict.fusion import fuse
+from skill_sentry_cli.core.verdict.fusion import fuse
 
 
 def test_anchor_malicious_overrides_benign_model():

@@ -6,7 +6,7 @@ import base64
 from dataclasses import dataclass
 
 import pytest
-from skill_sentry.core.sandbox.masquerade import (
+from skill_sentry_cli.core.sandbox.masquerade import (
     DOCKERENV_PATH,
     FAKE_CGROUP_CONTENT,
     FAKE_MOUNTINFO_CONTENT,

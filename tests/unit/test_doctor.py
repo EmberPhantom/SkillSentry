@@ -1,13 +1,13 @@
-"""`skill-sentry doctor`: required checks fail the command; optional ones only warn."""
+"""`skill-sentry-cli doctor`: required checks fail the command; optional ones only warn."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-from skill_sentry import cli
-from skill_sentry.core.cache import SQLiteStore
-from skill_sentry.core.models import gemma_local
+from skill_sentry_cli import cli
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.models import gemma_local
 from typer.testing import CliRunner
 
 runner = CliRunner()

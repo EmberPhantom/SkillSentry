@@ -1,6 +1,6 @@
 """The user guide only documents commands and flags the CLI really has.
 
-Every ``skill-sentry`` command and ``--flag`` in the guide's shell examples must
+Every ``skill-sentry-cli`` command and ``--flag`` in the guide's shell examples must
 appear in ``--help``.  The guide also follows the documentation gates: no model
 names, no machine-specific paths, and no hand-typed pass counts.
 """
@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
-from skill_sentry import cli
+from skill_sentry_cli import cli
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,7 +40,7 @@ def _skillsentry_commands(text: str) -> list[list[str]]:
     for block in _bash_blocks(text):
         for raw in block.splitlines():
             line = raw.strip()
-            if not line.startswith("skill-sentry "):
+            if not line.startswith("skill-sentry-cli "):
                 continue
             line = line.split("#", 1)[0].strip()
             commands.append(line.split()[1:])

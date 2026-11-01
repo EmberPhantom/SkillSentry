@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from skill_sentry.core.config import (
+from skill_sentry_cli.core.config import (
     DecisionSettings,
     default_config,
     load_config,
     write_default_config,
 )
-from skill_sentry.core.decisions import (
+from skill_sentry_cli.core.decisions import (
     CAPABILITY_QUESTIONS,
     DECEPTION_CHOICES,
     INTENT_CHOICES,

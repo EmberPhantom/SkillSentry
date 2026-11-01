@@ -51,7 +51,7 @@ SkillSentry is a security tool that **executes untrusted code by design** (insid
 
 Good-faith research against **your own** installations and the `fixtures/` corpus is welcome and covered by safe harbor. Never point SkillSentry's deception outputs at third-party infrastructure.
 
-⚠️ `fixtures/malicious/` contains intentionally malicious skill code for testing. It must only ever be executed **through `skill-sentry scan`** (which sandboxes it) — never run fixture scripts directly on a host.
+⚠️ `fixtures/malicious/` contains intentionally malicious skill code for testing. It must only ever be executed **through `skill-sentry-cli scan`** (which sandboxes it) — never run fixture scripts directly on a host.
 
 ## Secure Distribution
 

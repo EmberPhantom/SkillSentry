@@ -8,7 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Renamed
-- **The package, module and command are now `skill-sentry`, `skill_sentry` and `skill-sentry`.** The name `skillsentry` on PyPI belongs to an unrelated project that installs the same module and command, so this project cannot publish under the old names. **Breaking:** update imports from `skillsentry` to `skill_sentry`, and the command from `skillsentry` to `skill-sentry`. Your data is unchanged: `skillsentry.toml`, `~/.skillsentry`, `SKILLSENTRY_*` variables, the sandbox image name and the bundled skill name all keep their names.
+- **The package, module and command are now `skill-sentry-cli`, `skill_sentry_cli` and `skill-sentry-cli`.** The name `skillsentry` on PyPI belongs to an unrelated project that installs the same module and command, so this project cannot publish under those names. `skill-sentry` was also rejected by PyPI as too similar to an existing project. **Breaking:** update imports from `skillsentry` to `skill_sentry_cli`, and the command from `skillsentry` to `skill-sentry-cli`. Your data is unchanged: `skillsentry.toml`, `~/.skillsentry`, `SKILLSENTRY_*` variables, the sandbox image name and the bundled skill name all keep their names.
 
 ### Added
 - `skill-sentry setup`: guided first-time setup. It checks the same things as `doctor`, writes the default configuration if you agree, offers to install the sandbox image (a published copy when this release has one) and to download the model, and never installs Docker or Ollama itself. Every download or build waits for a yes; `--yes` accepts all prompts.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from skill_sentry.core.contracts import (
+from skill_sentry_cli.core.contracts import (
     Finding,
     OverrideSignal,
     Severity,
@@ -11,7 +11,7 @@ from skill_sentry.core.contracts import (
     StageResult,
     VerdictTier,
 )
-from skill_sentry.core.verdict.fusion import FusionError, fuse, score_to_verdict
+from skill_sentry_cli.core.verdict.fusion import FusionError, fuse, score_to_verdict
 
 DEFAULT_SIGNALS = {"anchors": 20.0, "semantic": 20.0, "vision": 20.0, "sandbox": 20.0}
 

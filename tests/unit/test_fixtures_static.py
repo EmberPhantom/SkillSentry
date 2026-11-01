@@ -6,10 +6,10 @@ import json
 from pathlib import Path
 
 import pytest
-from skill_sentry.core.cache import SQLiteStore
-from skill_sentry.core.contracts import ScanOptions
-from skill_sentry.core.engine import ScanEngine
-from skill_sentry.core.models.mock import MockGemma
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.contracts import ScanOptions
+from skill_sentry_cli.core.engine import ScanEngine
+from skill_sentry_cli.core.models.mock import MockGemma
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures"

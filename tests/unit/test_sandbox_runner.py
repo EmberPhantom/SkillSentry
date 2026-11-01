@@ -14,12 +14,12 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from skill_sentry.core.sandbox.masquerade import (
+from skill_sentry_cli.core.sandbox.masquerade import (
     FAKE_CGROUP_CONTENT,
     FAKE_MOUNTINFO_CONTENT,
     MasqueradeError,
 )
-from skill_sentry.core.sandbox.runner import (
+from skill_sentry_cli.core.sandbox.runner import (
     MAX_CAPTURED_OUTPUT_BYTES,
     SandboxConfig,
     SandboxError,

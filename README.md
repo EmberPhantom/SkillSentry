@@ -78,27 +78,27 @@ Deep-dives: [Architecture](docs/02-architecture.md) · [Database](docs/03-databa
 
 ## 🚀 How to Run
 
-Install with `pipx install skill-sentry`, or with the install script in the latest release. Then run `skill-sentry setup`. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
+Install with `pipx install skill-sentry-cli`, or with the install script in the latest release. Then run `skill-sentry-cli setup`. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
 
-**Prereqs:** Python 3.11 to 3.13 · Docker (for the sandbox) · [Ollama](https://ollama.com) with the local model. `skill-sentry setup` checks all of these and asks before anything is downloaded.
+**Prereqs:** Python 3.11 to 3.13 · Docker (for the sandbox) · [Ollama](https://ollama.com) with the local model. `skill-sentry-cli setup` checks all of these and asks before anything is downloaded.
 
 ```bash
 # From a checkout (a PyPI release is planned, not yet published)
 pip install -e .
 cd ui && npm ci && npm run build && cd ..   # builds the dashboard into the package
-skill-sentry init                             # writes skillsentry.toml
-skill-sentry sandbox build                    # builds the sandbox image (needs Docker)
+skill-sentry-cli init                             # writes skillsentry.toml
+skill-sentry-cli sandbox build                    # builds the sandbox image (needs Docker)
 
 ollama pull gemma4:e4b-it-qat                # local model used for semantic and vision analysis
 
-skill-sentry scan ./fixtures/benign/pdf-summarizer        # ✅ SAFE
-skill-sentry scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠️ C2 mapped
-skill-sentry scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
+skill-sentry-cli scan ./fixtures/benign/pdf-summarizer        # ✅ SAFE
+skill-sentry-cli scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠️ C2 mapped
+skill-sentry-cli scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
 
-skill-sentry serve                    # Dashboard → http://127.0.0.1:8000
-skill-sentry scan cloud-sync-pro --demo-mode  # offline canned demo (skill names), no Docker or model needed
-skill-sentry export <scan_id> --format sarif   # re-render a stored report
-skill-sentry cache stats              # inspect the verdict cache
+skill-sentry-cli serve                    # Dashboard → http://127.0.0.1:8000
+skill-sentry-cli scan cloud-sync-pro --demo-mode  # offline canned demo (skill names), no Docker or model needed
+skill-sentry-cli export <scan_id> --format sarif   # re-render a stored report
+skill-sentry-cli cache stats              # inspect the verdict cache
 ```
 
 **Server image:** `docker build -t skillsentry/server:2.0.0 .` then

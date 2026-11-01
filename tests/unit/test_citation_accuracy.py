@@ -10,8 +10,8 @@ import json
 from pathlib import Path
 
 import pytest
-from skill_sentry.core.parser import parse_skill
-from skill_sentry.core.semantic import scan_anchors
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.semantic import scan_anchors
 
 ROOT = Path(__file__).resolve().parents[2]
 TRUTH = json.loads(

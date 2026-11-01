@@ -6,8 +6,8 @@ import re
 from uuid import UUID
 
 import pytest
-from skill_sentry.core.contracts import ContextCanary
-from skill_sentry.core.poisoned_well.canary_gen import (
+from skill_sentry_cli.core.contracts import ContextCanary
+from skill_sentry_cli.core.poisoned_well.canary_gen import (
     CANARY_ROOT,
     CanaryFile,
     extract_markers,
@@ -16,7 +16,7 @@ from skill_sentry.core.poisoned_well.canary_gen import (
     normalize_intent,
     validate_marker,
 )
-from skill_sentry.core.sandbox.context_honeypot import build_honeypot, plan, runtime_environment
+from skill_sentry_cli.core.sandbox.context_honeypot import build_honeypot, plan, runtime_environment
 
 SCAN_ID = UUID("11111111-1111-4111-8111-111111111111")
 MARKER = "SKS-7f3a9c21"

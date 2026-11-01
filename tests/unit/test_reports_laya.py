@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
-from skill_sentry.core.contracts import (
+from skill_sentry_cli.core.contracts import (
     ExportFormat,
     Finding,
     FindingEvidence,
@@ -16,10 +16,10 @@ from skill_sentry.core.contracts import (
     Verdict,
     VerdictTier,
 )
-from skill_sentry.core.decisions.report import decision_summary
-from skill_sentry.core.parser import parse_skill
-from skill_sentry.core.reports import render_report
-from skill_sentry.core.vision.vision_scanner import scan_vision
+from skill_sentry_cli.core.decisions.report import decision_summary
+from skill_sentry_cli.core.parser import parse_skill
+from skill_sentry_cli.core.reports import render_report
+from skill_sentry_cli.core.vision.vision_scanner import scan_vision
 
 LEAK_MARKER = "SECRET-PROMPT-MARKER-7f3a"
 

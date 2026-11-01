@@ -1,12 +1,12 @@
-"""``skill-sentry setup``: every prompt is a choice, and nothing is downloaded or built without a yes."""
+"""``skill-sentry-cli setup``: every prompt is a choice, and nothing is downloaded or built without a yes."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-from skill_sentry import cli
-from skill_sentry.core.models.gemma_local import GemmaLocal, ProbeResult
+from skill_sentry_cli import cli
+from skill_sentry_cli.core.models.gemma_local import GemmaLocal, ProbeResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -202,7 +202,7 @@ class _FakeDocker:
 
 
 def test_pinned_image_is_pulled_by_digest_and_tagged(config_file, monkeypatch):
-    from skill_sentry import cli as cli_module
+    from skill_sentry_cli import cli as cli_module
 
     images = _FakeImages(fail=False)
     monkeypatch.setattr(
@@ -219,7 +219,7 @@ def test_pinned_image_is_pulled_by_digest_and_tagged(config_file, monkeypatch):
 
 
 def test_failed_pinned_pull_falls_back_to_a_local_build(config_file, monkeypatch):
-    from skill_sentry import cli as cli_module
+    from skill_sentry_cli import cli as cli_module
 
     monkeypatch.setattr(
         cli_module, "pinned_sandbox_digest", lambda: ("ghcr.io/x/sandbox", "sha256:abc")
@@ -232,6 +232,6 @@ def test_failed_pinned_pull_falls_back_to_a_local_build(config_file, monkeypatch
 
 
 def test_source_checkout_has_no_pinned_digest():
-    from skill_sentry import cli as cli_module
+    from skill_sentry_cli import cli as cli_module
 
     assert cli_module.pinned_sandbox_digest() is None

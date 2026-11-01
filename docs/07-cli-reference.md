@@ -1,6 +1,6 @@
 # 7 · CLI Reference
 
-> `skill-sentry` — audit Agent Skills from the terminal, wire scans into CI, and manage the local cache.
+> `skill-sentry-cli` — audit Agent Skills from the terminal, wire scans into CI, and manage the local cache.
 >
 > Items defined by the v2.0 plan are marked as such; additional commands/flags needed for a complete CLI surface are marked **Spec (proposed)**.
 
@@ -10,7 +10,7 @@
 
 ```bash
 # PyPI (Phase 1)
-pip install skill-sentry
+pip install skill-sentry-cli
 
 # Docker image
 docker pull skillsentry/skillsentry:2.0
@@ -34,12 +34,12 @@ Without Ollama/Docker the CLI still runs in **degraded static mode** (explicitly
 
 ## 7.2 Commands
 
-### `skill-sentry scan <path>` — the core command
+### `skill-sentry-cli scan <path>` — the core command
 
 Audits a skill directory (or a folder of skills) through the full 8-stage pipeline.
 
 ```bash
-skill-sentry scan ./fixtures/malicious/cloud-sync-pro
+skill-sentry-cli scan ./fixtures/malicious/cloud-sync-pro
 ```
 
 ```text
@@ -73,11 +73,11 @@ Report: ~/.skillsentry/reports/3f9c…/report.sarif
 
 `scan` accepts either one skill directory or a folder. Discovery recurses deterministically, skips symlinked/ignored directories, and refuses more than 500 skills rather than silently truncating. `--watch`, `--upload-sarif`, and managed `cache`/`export` commands remain roadmap items, not M1 CLI flags.
 
-### `skill-sentry init`
+### `skill-sentry-cli init`
 
-Writes a documented `skillsentry.toml`. `--path` chooses the file (default `./skillsentry.toml`); `--force` overwrites an existing file. It does not probe Ollama or Docker; use `skill-sentry doctor` for that.
+Writes a documented `skillsentry.toml`. `--path` chooses the file (default `./skillsentry.toml`); `--force` overwrites an existing file. It does not probe Ollama or Docker; use `skill-sentry-cli doctor` for that.
 
-### `skill-sentry cache …`
+### `skill-sentry-cli cache …`
 
 | Command | Description |
 |:---|:---|
@@ -85,7 +85,7 @@ Writes a documented `skillsentry.toml`. `--path` chooses the file (default `./sk
 | `cache list [--limit N]` | Most recent scans and their verdicts (1–500, default 20) |
 | `cache clear [--older-than 7d]` | Remove cached verdicts; `--older-than` accepts a number of days or hours (`7d`, `12h`) |
 
-### `skill-sentry export <scan_id> [--format sarif|markdown|stix] [-o FILE]`
+### `skill-sentry-cli export <scan_id> [--format sarif|markdown|stix] [-o FILE]`
 
 Re-render the report of a stored scan without re-running it. `--format` defaults to `markdown`; `-o`/`--output` writes to a file instead of stdout. STIX output needs a triggered Poisoned Well.
 
@@ -93,17 +93,17 @@ Re-render the report of a stored scan without re-running it. `--format` defaults
 
 **Skills without an entrypoint.** A skill that ships scripts but does not declare `entrypoint:` in its frontmatter cannot be run in the sandbox, so its scripts are read but not executed. The result is `UNSCANNED` until the author declares the entrypoint.
 
-### `skill-sentry serve [--host 127.0.0.1] [--port 8000] [--demo-mode] [--speed 1.0]`
+### `skill-sentry-cli serve [--host 127.0.0.1] [--port 8000] [--demo-mode] [--speed 1.0]`
 
 Runs the FastAPI server and dashboard ([05-api-reference.md](05-api-reference.md), [06-ui-ux.md](06-ui-ux.md)). `--demo-mode` serves the canned store; `--speed` sets the demo replay speed (0 is instant). The bind address defaults to loopback.
 
-### `skill-sentry self-audit`
+### `skill-sentry-cli self-audit`
 
-Scans SkillSentry's own Agent Skill package (`skill_sentry/skill/SKILL.md` + `scripts/audit.sh`) — the product audits itself. It takes the same `--format`, `--fail-on`, `-q`, `--no-cache`, `--sandbox/--no-sandbox`, `--backend` and `--timeout` options as `scan`, and `--fail-on` defaults to `suspicious`.
+Scans SkillSentry's own Agent Skill package (`skill_sentry_cli/skill/SKILL.md` + `scripts/audit.sh`) — the product audits itself. It takes the same `--format`, `--fail-on`, `-q`, `--no-cache`, `--sandbox/--no-sandbox`, `--backend` and `--timeout` options as `scan`, and `--fail-on` defaults to `suspicious`.
 
 ## 7.3 Configuration — `skillsentry.toml`
 
-Created by `skill-sentry init`; precedence: **CLI flags > env vars > config file > defaults**.
+Created by `skill-sentry-cli init`; precedence: **CLI flags > env vars > config file > defaults**.
 
 ```toml
 [model]
@@ -155,12 +155,12 @@ upload_sarif = false             # not read in v1; roadmap with the GitHub Actio
 
 | Command | Purpose |
 |:---|:---|
-| `skill-sentry doctor` | Check the model, dashboard and database (required), and Docker and the sandbox image (optional). Exits 3 when a required check fails. |
-| `skill-sentry cache stats` | Show the number of cached verdicts and the database size. |
-| `skill-sentry cache list [--limit N]` | List the most recent scans and their verdicts. |
-| `skill-sentry cache clear [--older-than 7d]` | Remove cached verdicts, optionally only the older ones. |
-| `skill-sentry export <scan_id> [--format sarif\|markdown\|stix] [-o FILE]` | Re-render the report of a stored scan without re-running it. |
-| `skill-sentry sandbox build` | Build the sandbox image from the sources packaged with SkillSentry. |
+| `skill-sentry-cli doctor` | Check the model, dashboard and database (required), and Docker and the sandbox image (optional). Exits 3 when a required check fails. |
+| `skill-sentry-cli cache stats` | Show the number of cached verdicts and the database size. |
+| `skill-sentry-cli cache list [--limit N]` | List the most recent scans and their verdicts. |
+| `skill-sentry-cli cache clear [--older-than 7d]` | Remove cached verdicts, optionally only the older ones. |
+| `skill-sentry-cli export <scan_id> [--format sarif\|markdown\|stix] [-o FILE]` | Re-render the report of a stored scan without re-running it. |
+| `skill-sentry-cli sandbox build` | Build the sandbox image from the sources packaged with SkillSentry. |
 
 `--fail-on` defaults to `suspicious` for `scan` and `self-audit`.
 

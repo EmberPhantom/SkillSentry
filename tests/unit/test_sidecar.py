@@ -9,7 +9,7 @@ import threading
 from uuid import UUID
 
 import pytest
-from skill_sentry.core.sandbox.sidecar import (
+from skill_sentry_cli.core.sandbox.sidecar import (
     MAX_SIDECAR_LOG_BYTES,
     SidecarError,
     SinkholeConfig,
@@ -193,7 +193,7 @@ def test_start_is_serialised_under_concurrency():
 
 
 def test_log_read_is_bounded(monkeypatch: pytest.MonkeyPatch):
-    from skill_sentry.core.sandbox import sidecar as module
+    from skill_sentry_cli.core.sandbox import sidecar as module
 
     huge = b"x" * (MAX_SIDECAR_LOG_BYTES + 4096)
 

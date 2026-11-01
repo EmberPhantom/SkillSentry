@@ -12,8 +12,8 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from skill_sentry.server.app import create_app
-from skill_sentry.server.demo_backend import DemoBackend
+from skill_sentry_cli.server.app import create_app
+from skill_sentry_cli.server.demo_backend import DemoBackend
 
 # The mock model is only reachable from tests and development (see cli._refuse_mock_backend).
 os.environ.setdefault("SKILLSENTRY_DEV", "1")
@@ -41,6 +41,6 @@ def client(demo_app) -> Iterator[TestClient]:
 
 @pytest.fixture()
 def store():
-    from skill_sentry.server.demo_data import build_demo_store
+    from skill_sentry_cli.server.demo_data import build_demo_store
 
     return build_demo_store()

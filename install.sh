@@ -1,7 +1,7 @@
 #!/bin/sh
-# Install SkillSentry's command, skill-sentry, from a published release.
+# Install SkillSentry's command, skill-sentry-cli, from a published release.
 #
-#   sh install.sh                 install the pinned version, then run `skill-sentry setup`
+#   sh install.sh                 install the pinned version, then run `skill-sentry-cli setup`
 #   sh install.sh --no-setup      install only
 #   sh install.sh --upgrade       reinstall the pinned version over an existing install
 #   sh install.sh --uninstall     remove the command; your data is kept
@@ -13,9 +13,9 @@ set -eu
 
 VERSION="2.0.0"
 REPO="EmberPhantom/SkillSentry"
-HOME_DIR="${SKILL_SENTRY_HOME:-$HOME/.local/share/skill-sentry}"
+HOME_DIR="${SKILL_SENTRY_HOME:-$HOME/.local/share/skill-sentry-cli}"
 BIN_DIR="$HOME/.local/bin"
-WHEEL_NAME="skill_sentry-${VERSION}-py3-none-any.whl"
+WHEEL_NAME="skill_sentry_cli-${VERSION}-py3-none-any.whl"
 BASE_URL="${SKILL_SENTRY_RELEASE_URL:-https://github.com/${REPO}/releases/download/v${VERSION}}"
 
 run_setup=1
@@ -44,12 +44,12 @@ while [ $# -gt 0 ]; do
 done
 
 uninstall() {
-  if command -v pipx >/dev/null 2>&1 && pipx list --short 2>/dev/null | grep -q '^skill-sentry '; then
-    pipx uninstall skill-sentry
+  if command -v pipx >/dev/null 2>&1 && pipx list --short 2>/dev/null | grep -q '^skill-sentry-cli '; then
+    pipx uninstall skill-sentry-cli
   fi
-  rm -f "$BIN_DIR/skill-sentry"
+  rm -f "$BIN_DIR/skill-sentry-cli"
   rm -rf "$HOME_DIR"
-  printf 'Removed the skill-sentry command.\n'
+  printf 'Removed the skill-sentry-cli command.\n'
   printf 'Kept your data: ~/.skillsentry (scan history, reports) and any skillsentry.toml you wrote.\n'
   printf 'Delete those folders yourself if you no longer need them.\n'
 }
@@ -103,9 +103,9 @@ install_command() {
     mkdir -p "$HOME_DIR" "$BIN_DIR"
     "$python_bin" -m venv "$HOME_DIR/venv"
     "$HOME_DIR/venv/bin/python" -m pip install --quiet --upgrade --force-reinstall "$WHEEL_PATH"
-    ln -sf "$HOME_DIR/venv/bin/skill-sentry" "$BIN_DIR/skill-sentry"
+    ln -sf "$HOME_DIR/venv/bin/skill-sentry-cli" "$BIN_DIR/skill-sentry-cli"
   fi
-  printf 'Installed skill-sentry %s.\n' "$VERSION"
+  printf 'Installed skill-sentry-cli %s.\n' "$VERSION"
   case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *) printf 'Add %s to your PATH, for example: export PATH="$HOME/.local/bin:$PATH"\n' "$BIN_DIR" ;;
@@ -120,9 +120,9 @@ fi
 install_command
 
 if [ "$run_setup" -eq 1 ]; then
-  if command -v skill-sentry >/dev/null 2>&1; then
-    skill-sentry setup || printf 'Setup did not finish. Fix the lines above, then run: skill-sentry setup\n'
+  if command -v skill-sentry-cli >/dev/null 2>&1; then
+    skill-sentry-cli setup || printf 'Setup did not finish. Fix the lines above, then run: skill-sentry-cli setup\n'
   else
-    printf 'Open a new terminal, then run: skill-sentry setup\n'
+    printf 'Open a new terminal, then run: skill-sentry-cli setup\n'
   fi
 fi

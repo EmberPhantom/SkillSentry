@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from skill_sentry.core.models.base import ModelClient
-from skill_sentry.core.models.mock import (
+from skill_sentry_cli.core.models.base import ModelClient
+from skill_sentry_cli.core.models.mock import (
     CLEAN_RESPONSE,
     CLOUD_DECEPTIVE,
     INVOICE_BBOX,

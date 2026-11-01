@@ -1,6 +1,6 @@
 """The old module and command name must not come back in shipped code or current docs.
 
-The package is ``skill_sentry`` and the command is ``skill-sentry``.  The bare
+The package is ``skill_sentry_cli`` and the command is ``skill-sentry-cli``.  The bare
 word ``skillsentry`` is still allowed where it names something else on purpose:
 runtime contracts (labels, SARIF and STIX identifiers, the sandbox image and
 its container paths), the config and data folder, the bundled skill's own name,
@@ -24,7 +24,7 @@ HISTORICAL = (
     "docs/15-",
     "docs/checklists/",
     "docs/CHANGELOG.md",
-    "skill_sentry/data/known_skills_v1.json",
+    "skill_sentry_cli/data/known_skills_v1.json",
     "tests/ground_truth/anchor_citations.json",
     "tests/unit/test_rename.py",
 )
@@ -35,7 +35,9 @@ OLD_NAME = re.compile(
     r"|^\s*(?:from|import)\s+skillsentry\b"
     r"|(?<![\w./:\-])skillsentry/(?:core|data|server|cli|skill|ui|rules|tests|scripts)/"
     r"|(?<![\w./\-])skillsentry(?=\s+(?:scan|doctor|init|serve|sandbox|cache|export|self-audit|setup)\b)"
-    r"|pip install skillsentry\b",
+    r"|pip install skillsentry\b"
+    r"|\bskill_sentry\.(?:core|data|server|cli)\b"
+    r"|(?<![\w-])skill-sentry(?=\s+(?:scan|doctor|init|serve|sandbox|cache|export|self-audit|setup)\b)",
     re.MULTILINE,
 )
 
@@ -69,9 +71,9 @@ def test_old_module_and_command_names_are_gone():
 
 
 def test_installed_package_and_command_use_the_new_names():
-    from skill_sentry import cli
+    from skill_sentry_cli import cli
 
-    assert cli.app.info.name == "skill-sentry"
+    assert cli.app.info.name == "skill-sentry-cli"
     import importlib.metadata as metadata
 
-    assert metadata.version("skill-sentry") == "2.0.0"
+    assert metadata.version("skill-sentry-cli") == "2.0.0"

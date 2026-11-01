@@ -5,18 +5,18 @@
 ## Install
 
 ```bash
-pipx install skill-sentry        # or: python -m pip install skill-sentry
-skill-sentry setup              # checks Docker and the local model, builds the sandbox
-skill-sentry doctor             # confirms the setup is ready
+pipx install skill-sentry-cli        # or: python -m pip install skill-sentry-cli
+skill-sentry-cli setup              # checks Docker and the local model, builds the sandbox
+skill-sentry-cli doctor             # confirms the setup is ready
 ```
 
-Requirements: Python 3.11 to 3.13, Docker (for the sandbox), and [Ollama](https://ollama.com) for the local model. `skill-sentry doctor` tells you the exact command for anything missing.
+Requirements: Python 3.11 to 3.13, Docker (for the sandbox), and [Ollama](https://ollama.com) for the local model. `skill-sentry-cli doctor` tells you the exact command for anything missing.
 
 ## First scan
 
 ```bash
-skill-sentry scan path/to/my-skill
-skill-sentry scan path/to/skills-folder --format sarif --sarif-out results.sarif
+skill-sentry-cli scan path/to/my-skill
+skill-sentry-cli scan path/to/skills-folder --format sarif --sarif-out results.sarif
 ```
 
 Exit codes: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. The default gate is `--fail-on suspicious`.

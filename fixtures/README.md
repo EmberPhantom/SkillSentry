@@ -22,7 +22,7 @@ The static column is verified with the real `ScanEngine` and deterministic
 ## Safety rules
 
 - Never run `malicious/` or `stretch/` directly on a workstation. CI executes
-  them only through `skill-sentry scan`.
+  them only through `skill-sentry-cli scan`.
 - C2 domains (`evil-collector.net`, `evil-c2.com`) are fictional and reachable
   only through the per-scan sinkhole network.
 - The "credentials" read by the malicious fixtures are canaries seeded inside

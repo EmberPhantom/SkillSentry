@@ -10,9 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from skill_sentry import cli
-from skill_sentry.core.cache import SQLiteStore
-from skill_sentry.core.exit_codes import ExitCode
+from skill_sentry_cli import cli
+from skill_sentry_cli.core.cache import SQLiteStore
+from skill_sentry_cli.core.exit_codes import ExitCode
 from typer.testing import CliRunner
 
 runner = CliRunner()

@@ -22,7 +22,7 @@ CHECK_VENV="$(mktemp -d)/venv"
 "$PY" -m venv "$CHECK_VENV"
 "$CHECK_VENV/Scripts/python.exe" -m pip install -q "$WHEEL" 2>/dev/null \
   || "$CHECK_VENV/bin/python" -m pip install -q "$WHEEL"
-(cd "$(dirname "$CHECK_VENV")" && "$CHECK_VENV/Scripts/skill-sentry.exe" --version 2>/dev/null \
-  || "$CHECK_VENV/bin/skill-sentry" --version)
+(cd "$(dirname "$CHECK_VENV")" && "$CHECK_VENV/Scripts/skill-sentry-cli.exe" --version 2>/dev/null \
+  || "$CHECK_VENV/bin/skill-sentry-cli" --version)
 
 printf '\nRELEASE BUILD OK: %s\n' "$WHEEL"
