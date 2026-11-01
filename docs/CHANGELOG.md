@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
-## [2.0.0rc1] — release candidate for the first public release
+## [2.0.0] — first public release
 
 ### Renamed
 - **The package, module and command are now `skill-sentry-cli`, `skill_sentry_cli` and `skill-sentry-cli`.** The name `skillsentry` on PyPI belongs to an unrelated project that installs the same module and command, so this project cannot publish under those names. `skill-sentry` was also rejected by PyPI as too similar to an existing project. **Breaking:** update imports from `skillsentry` to `skill_sentry_cli`, and the command from `skillsentry` to `skill-sentry-cli`. Your data is unchanged: `skillsentry.toml`, `~/.skillsentry`, `SKILLSENTRY_*` variables, the sandbox image name and the bundled skill name all keep their names.
