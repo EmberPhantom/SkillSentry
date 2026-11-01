@@ -31,21 +31,36 @@ SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any script
 
 ## 3. Install
 
-SkillSentry is **not on PyPI yet**, so install it from a copy of the repository.
+Pick one. All three put the `skill-sentry` command on your PATH.
+
+**A. The install script** (Linux and macOS; the release files are checksum-verified):
+
+```bash
+curl -fsSLO https://github.com/EmberPhantom/SkillSentry/releases/latest/download/install.sh
+sh install.sh                 # installs, then runs `skill-sentry setup`
+```
+
+Read `install.sh` before running it, as you would any script you download. To install without the guided setup, add `--no-setup`. The script never uses sudo and installs only under your home folder.
+
+**B. pipx** (any platform with Python 3.11 to 3.13):
+
+```bash
+pipx install skill-sentry
+```
+
+**C. From a checkout** (for contributors):
 
 ```bash
 git clone https://github.com/EmberPhantom/SkillSentry.git
 cd SkillSentry
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-skill-sentry --version
 ```
 
-Expected: `SkillSentry 2.0.0 - Fully local analysis · open weights`.
+Check the install with `skill-sentry --version`. Expected: `SkillSentry 2.0.0 - Fully local analysis · open weights`.
 
-**Build the dashboard** (once, and again after you update the code):
+**Build the dashboard** only when you install from a checkout (B and A ship it built):
 
 ```bash
 cd ui
@@ -54,14 +69,9 @@ npm run build
 cd ..
 ```
 
-**Optional: a standalone wheel** (for another machine or a clean install):
+> **Windows (not verified here):** use option B with `pipx`. The activation line for a checkout is `.venv\Scripts\activate`.
 
-```bash
-scripts/build_release.sh
-python -m pip install dist/skillsentry-2.0.0-py3-none-any.whl
-```
-
-> **Windows and macOS (not verified here):** the venv activation is `.venv\Scripts\activate` on Windows. Use `python -m` for every command so the right interpreter runs.
+**Upgrade:** `pipx upgrade skill-sentry`, or run the install script again. **Uninstall:** `sh install.sh --uninstall`, or `pipx uninstall skill-sentry`. Both keep your scan history and any `skillsentry.toml` you wrote.
 
 ---
 
@@ -110,6 +120,13 @@ If you want a different model, set `ollama_model` in the `[model]` section of `s
 ---
 
 ## 6. Check that you are ready
+
+`skill-sentry setup` walks through the same checks. It asks before every download or build, and it never installs Docker or Ollama for you. Use `--yes` to accept every prompt, or `--skip-model` / `--skip-sandbox` to skip a step.
+
+```bash
+skill-sentry setup
+```
+
 
 ```bash
 skill-sentry doctor

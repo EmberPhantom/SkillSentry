@@ -11,7 +11,6 @@
 **⚡ Powered by Gemma 4 · open weights ⚡**
 
 <!-- Record the 30-sec demo GIF during M4 (docs/08-testing-and-evaluation.md §8.7) -->
-![SkillSentry demo](docs/assets/demo.gif)
 
 </div>
 
@@ -79,9 +78,9 @@ Deep-dives: [Architecture](docs/02-architecture.md) · [Database](docs/03-databa
 
 ## 🚀 How to Run
 
-Step-by-step install, first scans, reports, dashboard, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
+Install with `pipx install skill-sentry`, or with the install script in the latest release. Then run `skill-sentry setup`. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
 
-**Prereqs:** Python 3.11+ · Node 20+ (to build the dashboard) · Docker (for the sandbox) · [Ollama](https://ollama.com) with the Gemma 4 E4B model.
+**Prereqs:** Python 3.11 to 3.13 · Docker (for the sandbox) · [Ollama](https://ollama.com) with the local model. `skill-sentry setup` checks all of these and asks before anything is downloaded.
 
 ```bash
 # From a checkout (a PyPI release is planned, not yet published)

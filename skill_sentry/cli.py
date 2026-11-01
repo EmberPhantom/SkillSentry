@@ -10,8 +10,10 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import subprocess
 import sys
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
@@ -620,9 +622,16 @@ def export_report(
         typer.echo(f"wrote {output}")
 
 
-@app.command("doctor")
-def doctor() -> None:
-    """Check what a scan needs on this machine, and say what is missing.
+@dataclass(frozen=True)
+class ReadinessCheck:
+    name: str
+    ok: bool
+    required: bool
+    detail: str
+
+
+def readiness_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
+    """What a full scan needs on this machine.  Used by ``doctor`` and ``setup``.
 
     Required checks must pass for a full scan.  Docker and the sandbox image are
     optional: without them, scans run with --no-sandbox and the sandbox stage
@@ -632,20 +641,8 @@ def doctor() -> None:
     from skill_sentry.core.models.gemma_local import GemmaLocal
     from skill_sentry.server.app import _default_ui_dist
 
-    cfg = _load_config_or_exit()
-    required_failed = False
-
-    def report(ok: bool, name: str, detail: str, *, required: bool = True) -> None:
-        nonlocal required_failed
-        if ok:
-            status = "PASS"
-        elif required:
-            status = "FAIL"
-            required_failed = True
-        else:
-            status = "WARN"
-        typer.echo(f"{status}  {name}: {detail}")
-
+    checks: list[ReadinessCheck] = []
+    probe_error: str | None = None
     try:
         model = GemmaLocal(base_url=cfg.model.ollama_url, model=cfg.model.ollama_model)
         try:
@@ -655,9 +652,6 @@ def doctor() -> None:
     except Exception as exc:  # any probe failure is a finding, not a crash
         probe = ProbeResult.UNREACHABLE
         probe_error = type(exc).__name__
-    else:
-        probe_error = None
-    pulled = probe == ProbeResult.READY
     if probe == ProbeResult.READY:
         model_detail = f"{cfg.model.ollama_model} is pulled"
     elif probe == ProbeResult.NO_MODEL:
@@ -667,13 +661,16 @@ def doctor() -> None:
     else:
         cause = f" ({probe_error})" if probe_error else ""
         model_detail = f"cannot reach the model server at {cfg.model.ollama_url}{cause}"
-    report(pulled, "model", model_detail)
+    checks.append(ReadinessCheck("model", probe == ProbeResult.READY, True, model_detail))
 
     ui_index = _default_ui_dist() / "index.html"
-    report(
-        ui_index.is_file(),
-        "dashboard",
-        "built" if ui_index.is_file() else "not built; run scripts/build_release.sh",
+    checks.append(
+        ReadinessCheck(
+            "dashboard",
+            ui_index.is_file(),
+            True,
+            "built" if ui_index.is_file() else "not built; run scripts/build_release.sh",
+        )
     )
 
     try:
@@ -683,35 +680,56 @@ def doctor() -> None:
     except Exception as exc:
         db_ok = False
         db_detail = f"cannot open {cfg.db_path}: {exc}"
-    report(db_ok, "database", db_detail)
+    checks.append(ReadinessCheck("database", db_ok, True, db_detail))
+
+    checks.extend(_docker_checks(cfg))
+    return checks
+
+
+_DOCKER_DOWN = "engine not reachable; sandbox scans are unavailable (use --no-sandbox)"
+
+
+def _docker_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
+    import docker
 
     try:
-        import docker
-
         client = docker.from_env()
         client.ping()
-        docker_ok = True
-        docker_detail = "engine reachable"
     except Exception:
-        client = None
-    finally:
-        if client is not None:
-            client.close()
-        docker_ok = False
-        docker_detail = "engine not reachable; sandbox scans are unavailable (use --no-sandbox)"
-    report(docker_ok, "docker", docker_detail, required=False)
-
-    if client is not None:
+        return [ReadinessCheck("docker", False, False, _DOCKER_DOWN)]
+    try:
+        image_check: ReadinessCheck
         try:
             client.images.get(cfg.sandbox.base_image)
-            image_ok = True
-            image_detail = f"{cfg.sandbox.base_image} is present"
+            image_check = ReadinessCheck(
+                "sandbox image", True, False, f"{cfg.sandbox.base_image} is present"
+            )
         except Exception:
-            image_ok = False
-            image_detail = f"{cfg.sandbox.base_image} is missing; run: skill-sentry sandbox build"
-        report(image_ok, "sandbox image", image_detail, required=False)
+            image_check = ReadinessCheck(
+                "sandbox image",
+                False,
+                False,
+                f"{cfg.sandbox.base_image} is missing; run: skill-sentry sandbox build",
+            )
+    finally:
+        client.close()
+    return [ReadinessCheck("docker", True, False, "engine reachable"), image_check]
 
-    if required_failed:
+
+@app.command("doctor")
+def doctor() -> None:
+    """Check what a scan needs on this machine, and say what is missing.
+
+    Required checks must pass for a full scan.  Docker and the sandbox image are
+    optional: without them, scans run with --no-sandbox and the sandbox stage
+    reports itself as degraded.
+    """
+
+    checks = readiness_checks(_load_config_or_exit())
+    for check in checks:
+        status = "PASS" if check.ok else ("FAIL" if check.required else "WARN")
+        typer.echo(f"{status}  {check.name}: {check.detail}")
+    if any(check.required and not check.ok for check in checks):
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
     typer.echo("ready for a full scan")
 
@@ -724,9 +742,66 @@ app.add_typer(sandbox_app, name="sandbox")
 def sandbox_build() -> None:
     """Build the sandbox image from the sources packaged with SkillSentry."""
 
+    build_sandbox_image(_load_config_or_exit())
+
+
+def pinned_sandbox_digest() -> tuple[str, str] | None:
+    """The published sandbox image this release was built against, or None for a source checkout.
+
+    The release workflow writes the digest into ``data/sandbox_image.json`` before
+    it builds the wheel, so an installed version pulls exactly the image it shipped with.
+    """
+
+    import importlib.resources
+    import json
+
+    text = (
+        importlib.resources.files("skill_sentry.data")
+        .joinpath("sandbox_image.json")
+        .read_text(encoding="utf-8")
+    )
+    record = json.loads(text)
+    digest = str(record.get("digest") or "").strip()
+    repository = str(record.get("repository") or "").strip()
+    if not digest or not repository:
+        return None
+    return repository, digest
+
+
+def pull_pinned_sandbox(cfg: SkillsEntryConfig) -> bool:
+    """Pull the pinned published image and tag it as the configured base image.
+
+    Returns False when no digest is pinned or the pull fails, so the caller can
+    fall back to building from the packaged sources.
+    """
+
+    pinned = pinned_sandbox_digest()
+    if pinned is None:
+        return False
+    repository, digest = pinned
     import docker
 
-    cfg = _load_config_or_exit()
+    client = None
+    try:
+        client = docker.from_env()
+        image = client.images.pull(f"{repository}@{digest}")
+        image.tag(cfg.sandbox.base_image)
+    except docker.errors.DockerException as exc:
+        typer.echo(f"could not pull the published sandbox image: {exc}")
+        return False
+    finally:
+        close = getattr(client, "close", None)
+        if callable(close):
+            close()
+    typer.echo(f"pulled the published sandbox image as {cfg.sandbox.base_image}")
+    return True
+
+
+def build_sandbox_image(cfg: SkillsEntryConfig) -> None:
+    """Build the sandbox image from the packaged sources; a Docker failure is an operational error."""
+
+    import docker
+
     assets = Path(__file__).resolve().parent / "core" / "sandbox" / "assets"
     client = None
     try:
@@ -745,6 +820,98 @@ def sandbox_build() -> None:
         if callable(close):
             close()
     typer.echo(f"built {cfg.sandbox.base_image}")
+
+
+def _confirm(question: str, *, default: bool, assume_yes: bool) -> bool:
+    """Ask before anything is downloaded or built.  ``--yes`` answers every question."""
+
+    if assume_yes:
+        return True
+    return typer.confirm(question, default=default)
+
+
+@app.command("setup")
+def setup(
+    assume_yes: bool = typer.Option(
+        False, "--yes", help="Answer yes to every prompt (downloads and builds)."
+    ),
+    skip_model: bool = typer.Option(False, "--skip-model", help="Do not check or pull the model."),
+    skip_sandbox: bool = typer.Option(
+        False, "--skip-sandbox", help="Do not check or build the sandbox image."
+    ),
+) -> None:
+    """Guided first-time setup.  Asks before every download or build.
+
+    It never installs Docker or Ollama itself; it says what to install.  It ends
+    with the same readiness checks as ``doctor``.
+    """
+
+    from skill_sentry.core.config import write_default_config
+    from skill_sentry.core.models.gemma_local import GemmaLocal
+
+    config_path = Path(os.getenv("SKILLSENTRY_CONFIG") or Path.cwd() / "skillsentry.toml")
+    if not config_path.exists() and _confirm(
+        f"Write the default configuration to {config_path}?", default=True, assume_yes=assume_yes
+    ):
+        write_default_config(config_path, force=False)
+        typer.echo(f"wrote {config_path}")
+    cfg = _load_config_or_exit()
+
+    checks = {check.name: check for check in readiness_checks(cfg)}
+
+    if not skip_sandbox:
+        docker_check = checks.get("docker")
+        if docker_check is None or not docker_check.ok:
+            typer.echo(
+                "Docker is not reachable. Install Docker, then make sure your user can run "
+                "`docker ps` without sudo (the user guide, section 4, explains the group step)."
+            )
+        elif (
+            not checks["sandbox image"].ok
+            and _confirm(
+                "Install the sandbox image now? A published copy is downloaded when this release "
+                "has one; otherwise it is built from the packaged sources (a few minutes).",
+                default=True,
+                assume_yes=assume_yes,
+            )
+            and not pull_pinned_sandbox(cfg)
+        ):
+            build_sandbox_image(cfg)
+
+    if not skip_model:
+        model_name = cfg.model.ollama_model
+        probe = GemmaLocal(base_url=cfg.model.ollama_url, model=model_name)
+        try:
+            state = probe.probe()
+        finally:
+            probe.close()
+        if state == ProbeResult.UNREACHABLE:
+            typer.echo(
+                f"The model server is not reachable at {cfg.model.ollama_url}. Install Ollama "
+                "from https://ollama.com, start it (`ollama serve`), then run setup again."
+            )
+        elif state == ProbeResult.NO_MODEL and _confirm(
+            f"Download the configured model now with `ollama pull {model_name}`? "
+            "This is several gigabytes.",
+            default=False,
+            assume_yes=assume_yes,
+        ):
+            try:
+                result = subprocess.run(["ollama", "pull", model_name], check=False)
+            except FileNotFoundError:
+                typer.echo("The ollama command was not found. Install Ollama first.")
+            else:
+                if result.returncode != 0:
+                    typer.echo(f"`ollama pull {model_name}` failed (exit {result.returncode}).")
+
+    final = readiness_checks(cfg)
+    for check in final:
+        status = "PASS" if check.ok else ("FAIL" if check.required else "WARN")
+        typer.echo(f"{status}  {check.name}: {check.detail}")
+    if any(check.required and not check.ok for check in final):
+        typer.echo("Setup is not complete yet. Fix the FAIL lines above, then run setup again.")
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+    typer.echo("ready for a full scan")
 
 
 if __name__ == "__main__":  # pragma: no cover
