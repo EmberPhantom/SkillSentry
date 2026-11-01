@@ -39,11 +39,13 @@ flowchart LR
 
 ## 9.2 Local Deployment (developer machine)
 
+A step-by-step guide for a new machine is in [16-user-guide.md](16-user-guide.md).
+
 **Requirements:** 8 GB+ RAM recommended (Gemma 4 E4B Q4 + Docker sandbox), ~10 GB disk for the model, Docker daemon, Python 3.11+.
 
 ```bash
 ollama pull gemma4:e4b-it-qat        # pre-cache the model (do this the night before demos)
-pip install skillsentry
+pip install -e .                  # from a checkout; not yet published to PyPI
 skillsentry init                  # writes skillsentry.toml
 skillsentry scan ./my-skill       # first run: full pipeline (<90 s target)
 skillsentry scan ./my-skill       # second run: ⚡ cached (<2 s)

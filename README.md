@@ -79,6 +79,8 @@ Deep-dives: [Architecture](docs/02-architecture.md) · [Database](docs/03-databa
 
 ## 🚀 How to Run
 
+Step-by-step install, first scans, reports, dashboard, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
+
 **Prereqs:** Python 3.11+ · Node 20+ (to build the dashboard) · Docker (for the sandbox) · [Ollama](https://ollama.com) with the Gemma 4 E4B model.
 
 ```bash

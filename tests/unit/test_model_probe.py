@@ -98,3 +98,12 @@ def test_doctor_says_the_model_is_not_pulled(tmp_path: Path, monkeypatch):
 
     assert "gemma3:1b is not pulled" in result.output
     assert "cannot reach" not in result.output
+
+
+def test_environment_config_path_must_exist(tmp_path: Path, monkeypatch):
+    import pytest as _pytest
+    from skillsentry.core.config import ConfigError, load_config
+
+    monkeypatch.setenv("SKILLSENTRY_CONFIG", str(tmp_path / "typo.toml"))
+    with _pytest.raises(ConfigError, match="config file not found"):
+        load_config()

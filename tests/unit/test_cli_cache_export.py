@@ -79,3 +79,34 @@ def test_fail_on_defaults_to_suspicious_for_scan_and_self_audit() -> None:
         assert result.exit_code == 0
         assert "suspicious" in result.output
         assert "--fail-on" in result.output
+
+
+def test_cache_list_prints_id_skill_status_and_verdict(
+    temp_store: SQLiteStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from skillsentry.core.contracts import ScanStatus, VerdictTier
+
+    row = {
+        "scan_id": "3f9c0000-0000-4000-8000-000000000001",
+        "skill": "pdf-summarizer",
+        "status": ScanStatus.COMPLETED,
+        "verdict": VerdictTier.SAFE,
+    }
+    monkeypatch.setattr(temp_store, "list_scans", lambda **_: [row])
+
+    result = runner.invoke(cli.app, ["cache", "list"])
+
+    assert result.exit_code == 0
+    assert (
+        "3f9c0000-0000-4000-8000-000000000001  pdf-summarizer  completed  SAFE"
+    ) in result.output
+    assert "VerdictTier" not in result.output
+
+
+def test_cache_stats_reports_file_size_and_hit_rate(temp_store: SQLiteStore) -> None:
+    result = runner.invoke(cli.app, ["cache", "stats"])
+
+    assert result.exit_code == 0
+    size_line = next(line for line in result.output.splitlines() if line.startswith("size_bytes:"))
+    assert int(size_line.split(":", 1)[1]) > 0
+    assert "hit_rate: 0.000" in result.output

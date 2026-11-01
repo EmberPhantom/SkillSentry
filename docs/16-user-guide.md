@@ -1,0 +1,433 @@
+# 16 · User Guide: set up and use SkillSentry
+
+> Written for someone who wants to audit agent skills on their own machine. You do not need to contribute code. Follow the steps in order; each one says what you should see.
+
+**Verified on:** Linux (Python 3.12 venv, Docker, Ollama). The commands below were run start to finish on a fresh clone. macOS and Windows notes are marked **not verified here**.
+
+---
+
+## 1. What SkillSentry does
+
+SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any scripts it ships), checks it statically, runs its entrypoint inside a locked-down Docker sandbox, asks a local language model to judge whether the text matches what the code does, and returns one verdict: `SAFE`, `SUSPICIOUS`, or `MALICIOUS`, with the evidence it found.
+
+**What stays on your machine:** the skill, the scan, the model, and the reports. Nothing is uploaded unless you turn on the optional cloud backend (section 14).
+
+---
+
+## 2. Requirements
+
+| Needed for | What | Check |
+|:---|:---|:---|
+| Everything | Python 3.11, 3.12 or 3.13 | `python3.12 --version` |
+| Everything | git | `git --version` |
+| Full scans | Docker, and permission to use it without sudo | `docker ps` works |
+| Full scans | Ollama, running, with the model that `skillsentry doctor` names | `ollama list` |
+| Dashboard only | Node.js 20 or newer | `node --version` |
+| Model | About 8 GB of free RAM while a scan runs | Close heavy apps first |
+
+> **Python version:** use `python3.11`, `python3.12` or `python3.13` explicitly. A default `python` of 3.14 has not been tested with SkillSentry.
+
+---
+
+## 3. Install
+
+SkillSentry is **not on PyPI yet**, so install it from a copy of the repository.
+
+```bash
+git clone https://github.com/EmberPhantom/SkillSentry.git
+cd SkillSentry
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+skillsentry --version
+```
+
+Expected: `SkillSentry 2.0.0 - Fully local analysis · open weights`.
+
+**Build the dashboard** (once, and again after you update the code):
+
+```bash
+cd ui
+npm ci
+npm run build
+cd ..
+```
+
+**Optional: a standalone wheel** (for another machine or a clean install):
+
+```bash
+scripts/build_release.sh
+python -m pip install dist/skillsentry-2.0.0-py3-none-any.whl
+```
+
+> **Windows and macOS (not verified here):** the venv activation is `.venv\Scripts\activate` on Windows. Use `python -m` for every command so the right interpreter runs.
+
+---
+
+## 4. Docker access and the sandbox image
+
+The sandbox runs each skill's entrypoint in a container with no network access, a memory limit, and a time limit.
+
+**Give your user access to Docker** (Linux, once):
+
+```bash
+sudo usermod -aG docker "$USER"
+```
+
+Then **log out and back in** (or reboot). A shell started before the change does not have the new group, and Docker will still say `permission denied`. Check it:
+
+```bash
+id -nG | tr ' ' '\n' | grep -x docker   # should print: docker
+docker ps                                # should print a table, even if empty
+```
+
+**Build the sandbox image** (once; it takes a few minutes the first time):
+
+```bash
+skillsentry sandbox build
+```
+
+Expected: `built skillsentry-sandbox:local`.
+
+---
+
+## 5. The local model
+
+SkillSentry uses a language model that runs on your machine through Ollama.
+
+1. Install Ollama from <https://ollama.com>, then start it (on Linux it usually runs as a service; otherwise run `ollama serve` in a terminal and leave it open).
+2. Ask SkillSentry which model it needs and what to run:
+
+```bash
+skillsentry doctor
+```
+
+If the last line says `FAIL model: … is not pulled; run: ollama pull …`, run the command it prints. Pulling a model downloads several gigabytes; do this once.
+
+If you want a different model, set `ollama_model` in the `[model]` section of `skillsentry.toml` to the name you pulled (section 13).
+
+---
+
+## 6. Check that you are ready
+
+```bash
+skillsentry doctor
+```
+
+Each line is one check:
+
+| Line | Meaning | What to do |
+|:---|:---|:---|
+| `PASS model: … is pulled` | The local model is ready | Nothing |
+| `FAIL model: cannot reach the model server at …` | Ollama is not running, or the address is wrong | Start Ollama, or fix `ollama_url` (section 13) |
+| `FAIL model: … is not pulled; run: ollama pull …` | The configured model is missing | Run the command it prints |
+| `PASS dashboard: built` | The dashboard is built | Nothing; otherwise run the dashboard build (section 3) |
+| `PASS database: writable at …` | Scan history can be saved | Nothing |
+| `WARN docker: engine not reachable …` | Full sandbox scans are not possible | Section 4 |
+| `PASS sandbox image: … is present` | The sandbox image is built | Nothing |
+| `ready for a full scan` | Every required check passed | You can run full scans |
+
+`doctor` exits `0` when it is ready and `3` when a required check fails.
+
+> If `doctor` says Docker is unreachable but you already ran `docker ps` successfully, your terminal session started before you joined the `docker` group. Open a new terminal.
+
+---
+
+## 7. Your first scans
+
+The repository includes two sample skills under `fixtures/`. One is harmless. The other is a deliberately malicious test skill that steals credentials through DNS. Both are safe to scan because they only run inside the sandbox.
+
+**Scan the harmless sample:**
+
+```bash
+skillsentry scan fixtures/benign/pdf-summarizer
+```
+
+Expected (the first time; a repeat is marked `(cached)`):
+
+```text
+SkillSentry 2.0.0 - Fully local analysis · open weights - backend: auto (local -> cloud -> unavailable)
+[OK] pdf-summarizer - SAFE - risk 0 - confidence 0.75
+```
+
+**Scan the malicious sample:**
+
+```bash
+skillsentry scan fixtures/malicious/cloud-sync-pro
+```
+
+Expected:
+
+```text
+[X] cloud-sync-pro - MALICIOUS - risk 95 - confidence 1.00
+   AWS credential file or environment variable referenced (scripts/sync.sh:4)
+   Poisoned Well: DNS_TUNNELING -> evil-collector.net (marker SKS-…)
+```
+
+The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` marker is a fake credential that SkillSentry planted in the sandbox; seeing it leave the sandbox proves the skill tried to steal it.
+
+**Reading the result**
+
+| Line | Meaning |
+|:---|:---|
+| `[OK]` / `[!]` / `[X]` | `SAFE`, `SUSPICIOUS`, `MALICIOUS` |
+| `[?] … UNSCANNED` | The verdict is shown, but the scan did not finish every check. See section 14 |
+| `risk N` | 0 to 100; higher is worse |
+| `confidence X` | How much of the pipeline contributed to the verdict |
+| `(cached)` | The same skill, unchanged, was scanned before |
+
+**What to do with each verdict**
+
+| Verdict | Meaning | Action |
+|:---|:---|:---|
+| `SAFE` | Nothing suspicious was found | Install after a quick look at the report |
+| `SUSPICIOUS` | Something needs a human look | Read every cited finding; ask the author if unclear |
+| `MALICIOUS` | Hard evidence of hostile behaviour | Do not install |
+| `UNSCANNED` | The scan is incomplete (model, sandbox, or a file was not read) | Fix the reason shown, then scan again; do not install meanwhile |
+
+Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. See section 11.
+
+---
+
+## 8. Scan your own skills
+
+**One skill:**
+
+```bash
+skillsentry scan path/to/my-skill
+```
+
+A skill folder must contain a `SKILL.md`. If it has scripts, its `SKILL.md` must declare the entrypoint:
+
+```yaml
+---
+name: my-skill
+description: One sentence that says what the skill does.
+entrypoint: python scripts/run.py
+---
+```
+
+Without an `entrypoint:`, SkillSentry reads the scripts but does not run them. The result is `UNSCANNED` until you declare one.
+
+**A folder of skills** (each child folder that has a `SKILL.md` is scanned):
+
+```bash
+skillsentry scan path/to/skills-folder
+```
+
+The last line is a summary:
+
+```text
+Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
+```
+
+**Useful options**
+
+| Option | What it does |
+|:---|:---|
+| `--fail-on suspicious` (default) | Exit `1` for `SUSPICIOUS` and `MALICIOUS` |
+| `--fail-on malicious` | Exit `1` only for `MALICIOUS` (not recommended in CI; see section 11) |
+| `--no-cache` | Ignore saved results and scan again |
+| `--timeout 120` | Sandbox time limit in seconds (5 to 600; default 60) |
+| `--no-sandbox` | Static analysis and the model only; the entrypoint is never run. Verdicts are weaker. |
+| `-q` / `--quiet` | Print only the verdict line |
+
+**Skills that are never run:** a skill with no `entrypoint:` is reported `UNSCANNED`. A skill whose SKILL.md or files cannot be read as text is reported with the reason; see the troubleshooting table.
+
+---
+
+## 9. Reports and stored scans
+
+Choose a format with `--format` (`text`, `json`, `markdown`, `sarif`), and save it with `--output`:
+
+```bash
+skillsentry scan fixtures/malicious/cloud-sync-pro --format markdown --output reports/cloud-sync-pro.md
+skillsentry scan fixtures/malicious/cloud-sync-pro --format json --output reports/cloud-sync-pro.json
+skillsentry scan fixtures/malicious/cloud-sync-pro --format sarif --output reports/cloud-sync-pro.sarif
+```
+
+SARIF 2.1.0 files open in editors and in code-scanning tools.
+
+**Find a stored scan and export it again without re-running it:**
+
+```bash
+skillsentry cache list                  # newest first: scan ID, skill, status, verdict
+skillsentry export <scan-id> --format markdown -o reports/again.md
+```
+
+Each `cache list` line starts with the scan ID. Copy it into `export`.
+
+**Cache and history:**
+
+```bash
+skillsentry cache stats                 # entries, database size, hit rate
+skillsentry cache clear --older-than 7d # remove old saved results
+```
+
+**Where the history lives:** `~/.skillsentry/skillsentry.db`. Change it with the `SKILLSENTRY_DB` environment variable, for example `SKILLSENTRY_DB=/tmp/test.db skillsentry scan …`.
+
+---
+
+## 10. The dashboard
+
+```bash
+skillsentry serve
+```
+
+Open <http://127.0.0.1:8000> in a browser. The server listens only on your own machine.
+
+- `/` serves the dashboard page.
+- `/health` reports whether Ollama, Docker and the database are ready (`"ok"` or `"down"`).
+- `/scans` lists stored scans as JSON.
+
+Use another port with `skillsentry serve --port 8080`. Stop the server with `Ctrl+C`.
+
+If the port is taken, you see `address already in use`. Pick another port.
+
+---
+
+## 11. Use SkillSentry in CI
+
+A CI runner needs Docker and a local model server to produce full verdicts. Hosted runners usually have neither, so a hosted run will report `UNSCANNED` unless you provide a model server. Plan for that before you rely on the gate.
+
+The gate must fail when a skill is not fully scanned. Keep the default `--fail-on suspicious`: an `UNSCANNED` skill shows as `SUSPICIOUS`, which fails the gate. Do not use `--fail-on malicious` for this reason.
+
+Example workflow (**the commands were run locally; this file was not run on GitHub**):
+
+```yaml
+name: skill audit
+on: [pull_request]
+jobs:
+  audit:
+    runs-on: self-hosted        # a runner with Docker, Ollama, and the model pulled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: skillsentry sandbox build
+      - run: skillsentry scan skills/ --format sarif --sarif-out results.sarif
+      - uses: github/codeql-action/upload-sarif@v3   # not verified here
+        if: always()
+        with:
+          sarif_file: results.sarif
+```
+
+**Exit codes**
+
+| Code | Meaning | CI |
+|:---|:---|:---|
+| `0` | Every skill is below the gate | Pass |
+| `1` | At least one skill meets the gate | Fail the merge |
+| `2` | Bad command-line options | Fix the workflow |
+| `3` | Operational error: bad path, Docker or database failure, nothing completed | Investigate |
+
+---
+
+## 12. The offline demo
+
+To see the output without Docker or a model:
+
+```bash
+skillsentry scan cloud-sync-pro --demo-mode
+```
+
+`--demo-mode` takes a skill **name** from the built-in demo set (`pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`, `cloud-sync-pro`, `invoice-helper`, `slack-notif-mal`). It does not scan a folder, and its results are canned, not real analysis. The banner says `demo`.
+
+---
+
+## 13. Configuration
+
+```bash
+skillsentry init            # writes skillsentry.toml in the current folder
+skillsentry init --force    # overwrite it
+```
+
+The file has sections for the model, the sandbox, the Poisoned Well deception, scoring, and the decision layer. The keys you are most likely to change:
+
+```toml
+[model]
+ollama_url = "http://localhost:11434"   # where Ollama listens
+ollama_model = "…"                      # the model you pulled (doctor names it)
+```
+
+**Precedence:** command-line flags, then environment variables, then `skillsentry.toml`, then built-in defaults.
+
+**Choosing the file:** SkillSentry reads `./skillsentry.toml`, or the file named by `SKILLSENTRY_CONFIG`. A path that does not exist is an error, not a silent fallback:
+
+```bash
+SKILLSENTRY_CONFIG=/path/to/other.toml skillsentry doctor
+```
+
+Useful environment variables:
+
+| Variable | Use |
+|:---|:---|
+| `SKILLSENTRY_CONFIG` | Path to the configuration file |
+| `SKILLSENTRY_DB` | Path to the history database |
+| `OLLAMA_HOST` | Address of the Ollama server (overrides the file) |
+
+---
+
+## 14. Troubleshooting
+
+Each message below was produced on purpose and quoted exactly. The first line of a scan's reason names the first stage that did not finish; the report lists every stage.
+
+| What you see | Cause | Fix |
+|:---|:---|:---|
+| `UNSCANNED … sandbox degraded: Docker unavailable … Permission denied` | Your shell is not in the `docker` group | Section 4: join the group and open a new terminal |
+| `FAIL model: cannot reach the model server at …` | Ollama is not running, or `ollama_url` is wrong | Start Ollama; check `ollama_url` |
+| `UNSCANNED … semantic degraded: model unavailable: local model is not reachable at …` | The model server could not be reached | Start Ollama; run `doctor` |
+| `FAIL model: … is not pulled; run: ollama pull …` | The configured model is not downloaded | Run the command it prints |
+| `error: config file not found: …` (exit 2) | `SKILLSENTRY_CONFIG` names a missing file | Fix the path |
+| `error: no SKILL.md found under …` (exit 3) | The folder has no `SKILL.md` | Point at the skill folder, or add the file |
+| `ERROR: … address already in use` | The port is taken | `skillsentry serve --port 8080` |
+| `UNSCANNED … spec degraded: manifest validation failed`, then `symlink is not allowed in a skill package: …` | The skill contains a symbolic link | Replace it with a real file, or remove it |
+| `UNSCANNED … SKILL.md is not valid UTF-8` | The file is not plain UTF-8 text | Re-save it as UTF-8 |
+| `UNSCANNED … text file not analysed: scripts/x.py (larger than 1 MiB)` | A file is too large to read | Split or shrink the file; SkillSentry will not call it clean |
+| `UNSCANNED … sandbox … no declared entrypoint, so the scripts were not executed; declare 'entrypoint:' …` | The skill has scripts but no `entrypoint:` | Add `entrypoint:` to `SKILL.md` |
+| `[?] … UNSCANNED` with a reason you do not understand | Anything not listed here | Read the report: `--format markdown --output …` |
+| `[OK] … SAFE` with `LOW sandbox-exit: Skill exited with status 2` | The skill ran and exited with an error (for example, it needs an argument) | Expected for some skills; the finding is low risk |
+| A scan is very slow | The first scan of a large skill, or the model is short of memory | Wait once; close other apps; cached rescans take under a second |
+| A scan is killed with `sandbox timed out` | The entrypoint ran past `--timeout` | Raise `--timeout` (up to 600) if the skill is legitimately slow |
+
+**Where to look when something is still wrong**
+
+- The verdict's full reason: `skillsentry scan <path> --format json` (every stage and finding).
+- Ollama: `curl http://localhost:11434/api/tags` should list the model.
+- Docker: `docker ps` should print a table.
+- The history database: `skillsentry cache list`.
+
+---
+
+## 15. Safety notes
+
+- The malicious sample is test material. It only runs inside the sandbox through `skillsentry scan`. Do not copy its scripts out and run them.
+- The sandbox has no route to the internet. A skill that tries to reach an outside host fails inside the sandbox and is reported as a finding.
+- `--no-sandbox` never runs the entrypoint. Use it only when Docker is not available, and read the verdict as weaker evidence.
+- Canary credentials planted in the sandbox are fake. They are never real secrets.
+- Nothing leaves your machine unless you enable the cloud backend.
+
+---
+
+## 16. Command cheat sheet
+
+```bash
+skillsentry --version
+skillsentry doctor
+skillsentry init [--force]
+skillsentry sandbox build
+skillsentry scan <skill-or-folder> [--format text|json|markdown|sarif] [--output FILE] [--sarif-out FILE]
+skillsentry scan <skill-or-folder> [--fail-on suspicious|malicious] [--no-cache] [--timeout N] [--no-sandbox] [-q]
+skillsentry scan <skill-name> --demo-mode
+skillsentry self-audit
+skillsentry cache list [--limit N]
+skillsentry cache stats
+skillsentry cache clear [--older-than 7d]
+skillsentry export <scan-id> [--format markdown|sarif|stix] [-o FILE]
+skillsentry serve [--host 127.0.0.1] [--port 8000]
+```
+
+Full reference: [07-cli-reference.md](07-cli-reference.md).

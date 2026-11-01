@@ -23,6 +23,7 @@ This directory contains the complete documentation set for **SkillSentry v2.0**,
 | 7 | [CLI Reference](07-cli-reference.md) | `skillsentry` command reference, configuration file, environment variables, exit codes for CI, examples |
 | 8 | [Testing & Evaluation](08-testing-and-evaluation.md) | Test strategy, the 7+1 fixture corpus, evaluation plan & metrics, Chaos Run procedure, rehearsed demo script, CI pipeline |
 | 9 | [Deployment & Production](09-deployment-and-production.md) | Distribution surfaces (pip / Docker / GitHub Action), self-hosted team-server topology, MCP runtime interception (Phase 2), production hardening, observability, operations |
+| 16 | [User Guide](16-user-guide.md) | Install, check readiness, scan skills, read verdicts, reports, dashboard, CI use, troubleshooting |
 | 10 | [Developer Guide](10-developer-guide.md) | Environment setup, repo structure, dev workflow, coding standards, extension guides (new stage / fixture / canary intent), roadmap |
 | 11 | [Team & Workload](11-team-and-workload.md) | **Authoritative** 3-developer role split, module ownership map, work packages, milestones M0–M5, RACI, interface contracts, swing tasks |
 | 12 | [Contract Additions](12-contract-additions.md) | Additive M0 contract fields, API clarifications, batch semantics |
@@ -45,6 +46,7 @@ The following live at the **repo root** (one level above `docs/` in the assemble
 
 ## 🧭 Reading Paths
 
+- **New user** → 16 → 7
 - **New contributor** → 1 → 2 → 10 → 8
 - **Team lead / project planning** → 11 → 2 → 8
 - **Security reviewer / judge** → 1 → 4 → 2 → 8

@@ -301,3 +301,13 @@ def test_init_into_an_unwritable_path_is_reported(tmp_path: Path):
     assert result.exit_code == 3, result.output
     assert "could not write" in result.output
     assert "Traceback" not in result.output
+
+
+def test_missing_environment_config_is_a_usage_error_not_a_traceback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("SKILLSENTRY_CONFIG", str(tmp_path / "typo.toml"))
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 2, result.output
+    assert "config file not found" in result.output
+    assert "Traceback" not in result.output

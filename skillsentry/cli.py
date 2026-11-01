@@ -288,8 +288,18 @@ def _refuse_mock_backend(backend: str) -> None:
         raise typer.Exit(code=int(ExitCode.USAGE))
 
 
+def _load_config_or_exit() -> SkillsEntryConfig:
+    """Load the configuration; a bad file is a usage error with a message, not a traceback."""
+
+    try:
+        return load_config()
+    except ConfigError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+
 def _config_for_backend(backend: str) -> SkillsEntryConfig:
-    config = load_config()
+    config = _load_config_or_exit()
     if backend == "auto":
         return config
     config = config.model_copy(deep=True)
@@ -525,7 +535,7 @@ app.add_typer(cache_app, name="cache")
 
 
 def _store() -> SQLiteStore:
-    return SQLiteStore(load_config().db_path)
+    return SQLiteStore(_load_config_or_exit().db_path)
 
 
 @cache_app.command("stats")
@@ -533,9 +543,12 @@ def cache_stats() -> None:
     """Show the number of cached verdicts and the database size."""
 
     with contextlib.closing(_store()) as store:
-        entries, size_bytes = store.cache_stats()
+        entries, hit_rate = store.cache_stats()
+        db_path = Path(str(store.path))
+    size_bytes = db_path.stat().st_size if db_path.is_file() else 0
     typer.echo(f"entries: {entries}")
-    typer.echo(f"size_bytes: {int(size_bytes)}")
+    typer.echo(f"size_bytes: {size_bytes}")
+    typer.echo(f"hit_rate: {hit_rate:.3f}")
 
 
 @cache_app.command("list")
@@ -550,10 +563,9 @@ def cache_list(
         typer.echo("no scans recorded")
         return
     for row in rows:
-        typer.echo(
-            f"{row.get('scanId')}  {row.get('skillName')}  "
-            f"{row.get('status')}  {row.get('verdict') or '-'}"
-        )
+        status = getattr(row.get("status"), "value", row.get("status"))
+        verdict = getattr(row.get("verdict"), "value", row.get("verdict"))
+        typer.echo(f"{row.get('scan_id')}  {row.get('skill')}  {status}  {verdict or '-'}")
 
 
 @cache_app.command("clear")
@@ -620,7 +632,7 @@ def doctor() -> None:
     from skillsentry.core.models.gemma_local import GemmaLocal
     from skillsentry.server.app import _default_ui_dist
 
-    cfg = load_config()
+    cfg = _load_config_or_exit()
     required_failed = False
 
     def report(ok: bool, name: str, detail: str, *, required: bool = True) -> None:
@@ -714,7 +726,7 @@ def sandbox_build() -> None:
 
     import docker
 
-    cfg = load_config()
+    cfg = _load_config_or_exit()
     assets = Path(__file__).resolve().parent / "core" / "sandbox" / "assets"
     client = None
     try:

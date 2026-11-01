@@ -1217,7 +1217,7 @@ class ScanEngine:
                 }
             )
         if selection.backend == "legacy":
-            return analyze_semantics(package, anchors, model)
+            return self._legacy_semantic(package, anchors, model)
         if selection.backend == "none":
             off_values = {"none", "off", "disabled"}
             explicitly_off = self.config.decision.backend.strip().lower() in off_values
@@ -1226,6 +1226,19 @@ class ScanEngine:
             return degraded_semantic_stage(
                 anchors, selection.reason or "semantic decision backend unavailable"
             )
+        return self._legacy_semantic(package, anchors, model)
+
+    def _legacy_semantic(
+        self,
+        package: SkillPackage,
+        anchors: StageResult,
+        model: ModelClient | None,
+    ) -> StageResult:
+        """Legacy analysis; with no model, the reason the model could not be selected is kept."""
+
+        if model is None:
+            reason = self._model_error or "no model backend is configured"
+            return degraded_semantic_stage(anchors, f"model unavailable: {reason}")
         return analyze_semantics(package, anchors, model)
 
     def _decision_selection(self, model: ModelClient | None) -> DecisionSelection:

@@ -289,3 +289,28 @@ def test_cached_scan_keeps_the_original_skill_id(tmp_path: Path):
     finally:
         engine.close()
         store.close()
+
+
+def test_unreachable_model_server_is_named_in_the_unscanned_reason(tmp_path: Path, monkeypatch):
+    from skillsentry.core.config import load_config
+
+    config_file = tmp_path / "unreachable.toml"
+    config_file.write_text(
+        '[model]\nbackend = "local"\nollama_url = "http://127.0.0.1:9"\n'
+        'ollama_model = "gemma3:1b"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SKILLSENTRY_CONFIG", str(config_file))
+    config = load_config()
+    store = SQLiteStore(tmp_path / "unreachable.sqlite")
+    engine = ScanEngine(config, store=store)
+    skill = _write_skill(tmp_path)
+
+    try:
+        outcome = engine.scan(skill, options=ScanOptions(sandbox=False))
+        semantic = [r for r in outcome.stage_results if r.stage.value == "semantic"]
+        assert semantic and semantic[0].degraded
+        assert "model unavailable:" in (semantic[0].error or "")
+    finally:
+        engine.close()
+        store.close()

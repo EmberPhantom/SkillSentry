@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Added
+- **User guide** (`docs/16-user-guide.md`): install from a checkout, check readiness, first scans, reading verdicts and UNSCANNED reasons, folder scans, reports and stored scans, dashboard, CI use, configuration, and troubleshooting with real messages. Its commands and flags are checked against `--help` by `tests/unit/test_user_guide.py`.
 - **Web dashboard** (`ui/`, React 18 and TypeScript): triage table with verdict filter, search and sort; new-scan form with a live console over the scan WebSocket; skill detail with overview, static findings, vision evidence, sandbox trace, Poisoned Well and export tabs; cache stats and clear. It ships inside the wheel and is served at `/` by `skillsentry serve`.
 - **CLI:** `cache stats|list|clear`, `export <scan_id>` (re-renders a stored report), and `sandbox build` (builds the sandbox image from the packaged sources).
 - **`skillsentry doctor`** checks what a full scan needs: the model pulled into the local server, a writable database and the built dashboard are required; Docker and the sandbox image are optional.
@@ -39,6 +40,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - Documentation: `docs/07` matches `--help` (fail-on default, `init`, `serve`, `self-audit`, cache and export flags, environment variables). `docs/02`, `04` and `08` now state the 768 px vision cap, the three-image budget, the fail-closed model path and the cloud backend name.
 
 ### Fixed
+- `cache list` shows the scan ID, skill, status and verdict; `cache stats` reports the database file size and the hit rate (it printed the hit rate as the size).
+- A missing config file named by `SKILLSENTRY_CONFIG` is an error (exit 2), not a silent fallback to defaults; the CLI never shows a traceback for a bad config.
+- An unreachable model server is named in the UNSCANNED reason.
 - **Model evidence alone cannot make a verdict MALICIOUS.** A MALICIOUS tier needs a malicious override, or a non-model finding or signal of HIGH or above. Otherwise the verdict is capped at SUSPICIOUS and a NOTE says so. Model findings can still raise a verdict to SUSPICIOUS.
 - **Model citations are verified.** A quote the model cites must appear in the skill; the reported line is the one that contains it. Unverifiable quotes are dropped and counted in a NOTE.
 - **Ordinary network code is not a reverse shell.** A plain socket is MEDIUM. CRITICAL is reserved for reverse-shell primitives (`/dev/tcp`, `pty.spawn`, `os.dup2`). The DNS rule matches only commands, not the word "host" in prose.

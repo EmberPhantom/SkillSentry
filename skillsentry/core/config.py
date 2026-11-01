@@ -266,9 +266,12 @@ def load_config(path: str | Path | None = None) -> SkillsEntryConfig:
     A missing file is not an error: defaults are used (except when the caller
     explicitly passes a path, in which case a missing file raises).
     """
-    explicit = path is not None
+    # A path named by the environment is as explicit as one passed in: a typo must not
+    # silently fall back to defaults.
+    env_path = os.getenv("SKILLSENTRY_CONFIG")
+    explicit = path is not None or bool(env_path)
     if path is None:
-        path = os.getenv("SKILLSENTRY_CONFIG") or Path.cwd() / "skillsentry.toml"
+        path = env_path or Path.cwd() / "skillsentry.toml"
     config_path = Path(path).expanduser()
 
     data: dict[str, Any] = {}
