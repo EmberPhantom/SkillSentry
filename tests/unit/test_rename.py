@@ -76,4 +76,4 @@ def test_installed_package_and_command_use_the_new_names():
     assert cli.app.info.name == "skill-sentry-cli"
     import importlib.metadata as metadata
 
-    assert metadata.version("skill-sentry-cli") == "2.0.0"
+    assert metadata.version("skill-sentry-cli") == "2.0.0rc1"

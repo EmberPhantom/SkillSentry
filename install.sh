@@ -11,7 +11,7 @@
 # No sudo.  Nothing is installed outside your home directory.  Python 3.11 to 3.13 is required.
 set -eu
 
-VERSION="2.0.0"
+VERSION="2.0.0rc1"
 REPO="EmberPhantom/SkillSentry"
 HOME_DIR="${SKILL_SENTRY_HOME:-$HOME/.local/share/skill-sentry-cli}"
 BIN_DIR="$HOME/.local/bin"
