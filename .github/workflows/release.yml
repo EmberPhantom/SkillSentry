@@ -140,16 +140,24 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          # Kept out of dist/: the publish action uploads every file there to the index.
+          mkdir -p release
           # The attached installer must fetch this release, not the one it was copied from.
-          sed -E "s/^VERSION=\"[^\"]*\"/VERSION=\"${VERSION}\"/" install.sh > dist/install.sh
-          chmod +x dist/install.sh
-          grep -q "^VERSION=\"${VERSION}\"" dist/install.sh
-          cd dist && sha256sum *.whl *.tar.gz install.sh > SHA256SUMS && cat SHA256SUMS
+          sed -E "s/^VERSION=\"[^\"]*\"/VERSION=\"${VERSION}\"/" install.sh > release/install.sh
+          chmod +x release/install.sh
+          grep -q "^VERSION=\"${VERSION}\"" release/install.sh
+          (cd dist && sha256sum *.whl *.tar.gz) > release/SHA256SUMS
+          cat release/SHA256SUMS
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
           path: dist/
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release
+          path: release/
 
       - name: Build provenance (public repositories only)
         if: github.event.repository.private == false
@@ -208,6 +216,10 @@ jobs:
         with:
           name: dist
           path: dist/
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+          path: release/
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
@@ -215,5 +227,5 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
-            dist/install.sh
-            dist/SHA256SUMS
+            release/install.sh
+            release/SHA256SUMS
