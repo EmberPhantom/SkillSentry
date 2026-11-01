@@ -6,15 +6,13 @@ This is the runbook for publishing a version of SkillSentry. It has two parts: t
 
 ## 1. One-time setup (maintainer)
 
-1. **Accounts with two-factor authentication:** a PyPI account and a TestPyPI account.
-2. **Trusted publishers** (no API tokens are stored anywhere). On each index, add a *pending publisher* for the project `skill-sentry`:
-   - owner `EmberPhantom`, repository `SkillSentry`, workflow `release.yml`;
-   - environment `testpypi` on TestPyPI and `pypi` on PyPI.
-3. **GitHub environments** in the repository settings:
-   - `testpypi`: no protection rules needed.
-   - `pypi`: **required reviewers** (at least one maintainer other than the person tagging). Nothing reaches PyPI without that approval.
-4. **Packages:** after the first image push, set `skillsentry-sandbox` and `skill-sentry-server` to public in the package settings, so anyone can pull them.
-5. **Branch protection** on `main`: pull request reviews required, and the `CI` and `checks` jobs required before merge.
+Create the accounts and register the trusted publishers as described in [18-registry-accounts.md](18-registry-accounts.md). That manual covers both indexes, two-factor setup, the pending publisher values, and recovery.
+
+In the repository settings, the following is also needed:
+
+- **Environments:** `testpypi` (no protection rules) and `pypi` (required reviewer, so no one can publish alone).
+- **Packages:** after the first image push, set `skillsentry-sandbox` and `skill-sentry-server` to public, so anyone can pull them.
+- **Branch protection on `main`:** pull request reviews required, and the `CI` and `checks` jobs required before merge.
 
 ## 2. Cutting a pre-release (dry run)
 

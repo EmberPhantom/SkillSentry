@@ -24,6 +24,7 @@ This directory contains the complete documentation set for **SkillSentry v2.0**,
 | 8 | [Testing & Evaluation](08-testing-and-evaluation.md) | Test strategy, the 7+1 fixture corpus, evaluation plan & metrics, Chaos Run procedure, rehearsed demo script, CI pipeline |
 | 9 | [Deployment & Production](09-deployment-and-production.md) | Distribution surfaces (pip / Docker / GitHub Action), self-hosted team-server topology, MCP runtime interception (Phase 2), production hardening, observability, operations |
 | 16 | [User Guide](16-user-guide.md) | Install, check readiness, scan skills, read verdicts, reports, dashboard, CI use, troubleshooting |
+| 18 | [Registry Accounts](18-registry-accounts.md) | Creating PyPI and TestPyPI accounts with two-factor authentication, trusted-publisher setup, recovery |
 | 10 | [Developer Guide](10-developer-guide.md) | Environment setup, repo structure, dev workflow, coding standards, extension guides (new stage / fixture / canary intent), roadmap |
 | 11 | [Team & Workload](11-team-and-workload.md) | **Authoritative** 3-developer role split, module ownership map, work packages, milestones M0–M5, RACI, interface contracts, swing tasks |
 | 12 | [Contract Additions](12-contract-additions.md) | Additive M0 contract fields, API clarifications, batch semantics |

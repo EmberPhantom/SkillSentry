@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ### Added
 - `skill-sentry setup`: guided first-time setup. It checks the same things as `doctor`, writes the default configuration if you agree, offers to install the sandbox image (a published copy when this release has one) and to download the model, and never installs Docker or Ollama itself. Every download or build waits for a yes; `--yes` accepts all prompts.
 - `install.sh`: installs from a published release after checking the wheel against `SHA256SUMS`. Uses pipx when available, otherwise a private virtual environment under your home folder. No sudo. `--uninstall` keeps your data.
+- Registry account manual (`docs/18-registry-accounts.md`): PyPI and TestPyPI accounts, two-factor authentication, trusted publishing, recovery.
 - Release workflow and runbook (`.github/workflows/release.yml`, `docs/17-release-process.md`): tag-driven, trusted publishing to TestPyPI for release candidates and to PyPI behind a reviewer approval, multi-architecture sandbox and server images, build provenance.
 - `scripts/check_wheel.py`: fails the build if the wheel is missing the dashboard, the sandbox sources, the rules, the known-name list, the bundled skill, or the command.
 
