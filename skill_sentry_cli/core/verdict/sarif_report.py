@@ -77,7 +77,7 @@ def build_sarif(
                 "id": rid,
                 "name": _slug(rid.rsplit("/", 1)[-1], fallback="finding"),
                 "shortDescription": {"text": finding.message},
-                "helpUri": "https://github.com/skillsentry/skillsentry#readme",
+                "helpUri": "https://github.com/EmberPhantom/SkillSentry#readme",
                 "defaultConfiguration": {"level": LEVEL_BY_SEVERITY[finding.severity]},
                 "properties": {
                     "stage": finding.stage.value,
@@ -114,7 +114,7 @@ def build_sarif(
                 "tool": {
                     "driver": {
                         "name": "SkillSentry",
-                        "informationUri": "https://github.com/skillsentry/skillsentry",
+                        "informationUri": "https://github.com/EmberPhantom/SkillSentry",
                         "version": ENGINE_VERSION,
                         "semanticVersion": ENGINE_VERSION,
                         "rules": list(rules.values()),

@@ -1,0 +1,26 @@
+# Local checks that run before each commit. Install once with: pre-commit install
+# Run on everything with: pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+        # Fixtures contain fake keys on purpose; they are scanned by the test suite instead.
+        exclude: ^(fixtures|tests/fixtures)/
+      - id: end-of-file-fixer
+        exclude: ^(fixtures|tests/fixtures|ui/dist)/
+      - id: trailing-whitespace
+        exclude: ^(fixtures|tests/fixtures|ui/dist)/
+        args: [--markdown-linebreak-ext=md]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Same version as the development environment (the dev extra).
+    rev: v0.17.3
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
