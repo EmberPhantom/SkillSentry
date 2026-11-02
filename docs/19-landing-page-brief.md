@@ -564,7 +564,7 @@ These are the places where the repository's own claims or first results do not s
 - Every command's `--help` matches the flags in 19.6.
 - `doctor` and the offline demo produce the output in 19.5.
 - `install.sh --dry-run` prints the expected version, download URL and checksum URL (exit 0). A real install was not run here.
-- `tests/unit/test_docs_hygiene.py`: 4 passed.
+- `tests/unit/test_docs_hygiene.py`: all checks pass in CI (the live count is in the CI run, not in this brief).
 
 **Blocking for open source** (fix before the first public announcement):
 
@@ -608,7 +608,7 @@ These are the places where the repository's own claims or first results do not s
 | `scan fixtures/malicious/cloud-sync-pro --no-sandbox --no-cache -q` | Did not finish within 120 s; stopped |
 | `doctor` | Exit 0; Docker warning; output in 19.5 |
 | `install.sh --dry-run` | Exit 0; prints version 2.0.0 and the release URLs |
-| `pytest tests/unit/test_docs_hygiene.py` | 4 passed |
+| `pytest tests/unit/test_docs_hygiene.py` | all checks pass (see CI) |
 | Sandboxed scan | **Not run**: Docker unreachable from this session |
 | `install.sh` full install | **Not run** |
 | `tests/unit/test_user_guide.py` | Re-run after this change; it checks the user guide, not this file |
