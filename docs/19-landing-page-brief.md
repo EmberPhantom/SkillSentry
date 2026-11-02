@@ -566,14 +566,24 @@ These are the places where the repository's own claims or first results do not s
 - `install.sh --dry-run` prints the expected version, download URL and checksum URL (exit 0). A real install was not run here.
 - `tests/unit/test_docs_hygiene.py`: all checks pass in CI (the live count is in the CI run, not in this brief).
 
-**Blocking for open source** (fix before the first public announcement):
+**Open-source readiness status** (branch `chore/open-source-readiness`, to be reviewed before push):
 
-1. **Wrong organization in SARIF output.** `core/verdict/sarif_report.py` sets `helpUri` and `informationUri` to `github.com/skillsentry/skillsentry`. The repository is `EmberPhantom/SkillSentry`. This affects every SARIF file users upload.
-2. **Stale install instructions.** `docs/07-cli-reference.md` documents `pip install`, a Docker tag `skillsentry/skillsentry:2.0`, and a `git clone https://github.com/<org>/skillsentry` path. `CONTRIBUTING.md` has the same `<org>` placeholder.
-3. **Internal team material in public docs.** The README closing line names "Dev 1/Dev 2/Dev 3". `CONTRIBUTING.md` has an internal ownership map. Docs 11, 13, 14 and `docs/checklists/` are internal hackathon and team artifacts.
-4. **Model name in public text.** The README and the CLI badge are clean. These still name the model: `CONTRIBUTING.md` (footer), the bundled `skill_sentry_cli/skill/SKILL.md`, and the footers of `docs/01` to `docs/15`. The bundled skill matters most, because it ships inside the wheel.
-5. **Duplicate changelog heading.** `docs/CHANGELOG.md` has two `## [2.0.0]` headings, one of them dated "2026-10 (MLH Hacktoberfest Hack Day)".
-6. **Missing community files.** `CODE_OF_CONDUCT.md`, issue and pull request templates, `CODEOWNERS`, and a dependency updater (Dependabot or Renovate) are absent.
+Done on the branch:
+
+1. **SARIF organisation.** `helpUri` and `informationUri` now point at `EmberPhantom/SkillSentry`.
+2. **Install and CLI docs.** Docs 07 and 10 and the README use real commands and the real clone URL. The `<org>` placeholders are gone, and the CLI reference no longer shows output the CLI never prints.
+3. **Internal material.** Docs 11, 13, 14 and the checklists moved to `docs/internal/`, with an archive note. The README byline and the CONTRIBUTING ownership map no longer name roles.
+4. **Model badge.** The public badge text matches the CLI's badge in the README, CONTRIBUTING, the docs footers, and the bundled skill.
+5. **Changelog.** The hackathon entry has its own heading, so the 2.0.0 heading is unique.
+6. **Community files.** Code of Conduct, support guide, issue and pull request templates, CODEOWNERS, Dependabot, pre-commit, and `.editorconfig` are in place.
+
+Still open:
+
+- **Model name in prose.** Design prose in docs 01 to 09 and 12 still says "Gemma" where it describes the model. The frozen contract field `gemma_badge` and the config defaults `gemma4:e4b-it-qat` and `gemma-4-e4b` keep their names. Decide whether the public docs should avoid the name entirely.
+- **Repository settings** only a maintainer can change: private vulnerability reporting, branch protection, description and topics, CI running green on GitHub (a billing block is noted), and the PyPI and GHCR publications.
+- **Release path** is tested only by a real tag. Run a release-candidate tag to exercise it end to end.
+- **Local API** has no authentication. That is fine on loopback. Document the rule clearly.
+- **Version.** The examples in this brief were captured on 2.0.0. `main` is now 2.1.0rc1.
 7. **No authentication on the local API.** Fine on loopback. Document the rule clearly and keep the container binding in 19.9 in mind.
 8. **Release path untested end to end.** The release workflow runs only on a real tag. Plan a release-candidate tag to exercise it.
 9. **CI status.** The repository notes a hosted-CI billing block. Confirm the workflows run green on GitHub before claiming CI status.
@@ -583,17 +593,15 @@ These are the places where the repository's own claims or first results do not s
 - Measure and publish accuracy on a stated benchmark, including the false-positive rate on benign skills (see 19.12).
 - Sign release artifacts and images, and publish an SBOM. Provenance is generated only for public repositories.
 - Add a coverage threshold and a type checker (`mypy` or `pyright`); neither is configured.
-- Add a pre-commit configuration.
 - Add a health check to the server image, and pin the base images by digest. The server image uses unpinned `node` and `python` bases.
 - Align the Node version: release CI uses Node 20, while the server Dockerfile uses Node 24.
 - Confirm Python 3.14 support or state that it is unsupported. The user guide says it is untested.
-- Write a `SUPPORT.md` and a governance note; state the security contact. `SECURITY.md` uses GitHub Security Advisories.
+- Add a governance note. `SUPPORT.md` and the security policy are in place; `SECURITY.md` uses GitHub Security Advisories.
 
-**Documentation cleanup to do with this brief:**
+**Documentation cleanup:**
 
-- `docs/CHANGELOG.md` has stale `skillsentry` and `skill-sentry` command names in earlier entries. These are historical and can stay, but mark them.
-- `docs/README.md` (the index) omits docs 12, 14, 15 and 17, and lists doc 18 out of order.
-- `scripts/audit.sh` lists exit code 4 as live. It is not returned.
+- `docs/CHANGELOG.md` keeps old `skillsentry` and `skill-sentry` command names in earlier entries. They are historical, so leave them.
+- The docs index now lists every document in order, and `audit.sh` no longer claims exit code 4.
 
 ---
 

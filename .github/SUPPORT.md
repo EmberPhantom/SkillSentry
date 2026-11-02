@@ -25,4 +25,4 @@ Remove anything that is a real credential, a private skill, or a personal path b
 
 ## Response expectations
 
-SkillSentry is maintained by volunteers. We aim to reply to new issues within a week. Security reports have their own timeline in [SECURITY.md](SECURITY.md).
+SkillSentry is maintained by volunteers. We aim to reply to new issues within a week. Security reports have their own timeline in [SECURITY.md](../SECURITY.md).
