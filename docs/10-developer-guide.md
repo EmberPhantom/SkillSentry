@@ -146,7 +146,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 ## 10.11 Compliance Checklist (judges will verify)
 
 - ☐ Public GitHub repo + MIT LICENSE
-- ☐ Gemma 4 load-bearing: **"Powered by Gemma 4 · open weights"** in UI header + README
+- ☐ Badge text matches the CLI: **"Fully local analysis · open weights"** in the UI header and README
 - ☐ SkillSentry ships its own spec-compliant `SKILL.md` (name, description 1–1024 chars with trigger keywords, bundled scripts)
 - ☐ Original harness called out in README: *"The sandbox runner, canary filesystem, DNS sinkhole, context-aware honeypot system, sandbox evasion detector, and Poisoned Well correlation engine are original code"*
 - ☐ README order: 30-sec GIF → threat model → architecture diagram → how-to-run → eval table

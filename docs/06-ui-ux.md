@@ -15,7 +15,7 @@
 | Typography | **Inter** for UI text · **JetBrains Mono** for code, evidence, hashes, IOCs, and the live console |
 | Iconography | Emoji-in-label for demo readability (🛡 ✅ ⚠️ 🚫 ☠️ 👁 🔒 ⚡) paired with text — never color or icon alone |
 | Motion | Scan-line sweep on active scans; timeline rows animate in as WS events arrive; no motion on cached (instant) results |
-| **Brand moment** (compliance requirement) | Header badge — **"Powered by Gemma 4 · open weights"** — visible on **every** screen |
+| **Brand moment** (compliance requirement) | Header badge — **"Fully local analysis · open weights"** — visible on **every** screen |
 
 ## 6.2 Screen Architecture
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ 🛡 SkillSentry          [Powered by Gemma 4 · open weights]    ⚙ Settings  │
+│ 🛡 SkillSentry          [Fully local analysis · open weights]    ⚙ Settings  │
 ├────────────────────────────────────────────────────────────────────────────┤
 │ Skill Store Scan — 7 skills · 4 safe · 3 blocked          [+ Scan folder]  │
 ├────────────────────────────────────────────────────────────────────────────┤

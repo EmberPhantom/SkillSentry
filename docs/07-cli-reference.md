@@ -43,7 +43,7 @@ skill-sentry-cli scan ./fixtures/malicious/cloud-sync-pro
 ```
 
 ```text
-🛡 SkillSentry v2.0 · Powered by Gemma 4 · open weights · backend: local (ollama)
+🛡 SkillSentry v2.0 · Fully local analysis · open weights · backend: local (ollama)
 [0/7] cache      ✓ miss (hash 9f2c…)
 [1/7] spec       ✓ frontmatter valid · typosquat check: clean
 [2/7] anchors    ⚑ 3 deterministic findings (eval, nslookup, credential read)

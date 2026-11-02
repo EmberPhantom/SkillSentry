@@ -77,7 +77,7 @@ Streams the report file (generated on demand, cached under `~/.skillsentry/repor
 | `GET /cache/stats` | `{entries, hitRate, dbSizeBytes, engineVersion, modelVersion}` |
 | `DELETE /cache?older_than=90d` | Prune cache rows (cascades to history per config) |
 | `GET /health` | Liveness + dependency check: `{ollama: "ok"\|"down", docker: "ok"\|"down", db: "ok"}` — the UI's degraded-mode banner reads this |
-| `GET /meta` | `{version, backendActive, gemmaBadge: "Powered by Gemma 4 · open weights", demoMode: bool}` |
+| `GET /meta` | `{version, backendActive, gemmaBadge: "Fully local analysis · open weights", demoMode: bool}` |
 
 ## 5.3 WebSocket — `WS /scan/{id}/stream`
 
