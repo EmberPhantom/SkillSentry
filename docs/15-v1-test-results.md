@@ -80,7 +80,7 @@ Run in this order on the machine with Ollama, Docker and the real skills. Record
 
 ## Developer 2 integration (measured, 2026-10-30)
 
-Ported from `feature/developer-2` onto `integrate/dev2-v1`. Their branch was not merged; files were ported one at a time, each with its own test. See [14-developer2-handoff.md](14-developer2-handoff.md#integration-log-2026-10-30).
+Ported from `feature/developer-2` onto `integrate/dev2-v1`. Their branch was not merged; files were ported one at a time, each with its own test. See [14-developer2-handoff.md](internal/14-developer2-handoff.md#integration-log-2026-10-30).
 
 | Measure | Result |
 |:---|:---|

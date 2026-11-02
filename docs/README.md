@@ -27,10 +27,10 @@ This directory contains the complete documentation set for **SkillSentry v2.0**,
 | 18 | [Registry Accounts](18-registry-accounts.md) | Creating PyPI and TestPyPI accounts with two-factor authentication, trusted-publisher setup, recovery |
 | 19 | [Landing-Page Brief](19-landing-page-brief.md) | Product and command reference for the landing page: positioning, pipeline, install, every CLI command and flag, verdicts, config, outputs, CI, claims to verify, open-source readiness |
 | 10 | [Developer Guide](10-developer-guide.md) | Environment setup, repo structure, dev workflow, coding standards, extension guides (new stage / fixture / canary intent), roadmap |
-| 11 | [Team & Workload](11-team-and-workload.md) | **Authoritative** 3-developer role split, module ownership map, work packages, milestones M0–M5, RACI, interface contracts, swing tasks |
+| 11 | [Team & Workload](internal/11-team-and-workload.md) | **Authoritative** 3-developer role split, module ownership map, work packages, milestones M0–M5, RACI, interface contracts, swing tasks |
 | 12 | [Contract Additions](12-contract-additions.md) | Additive M0 contract fields, API clarifications, batch semantics |
-| 13 | [Laya Integration Plan](13-laya-integration-plan.md) | Revised V1 model plan: embedded local Laya semantic layer, deterministic evidence/fusion, deferred vision, INT-4 handoff |
-| ✓ | [Work Checklists](checklists/README.md) | Task-level checklists per developer (CL-D1/D2/D3 series) with dependencies, acceptance criteria, and a milestone → checklist matrix |
+| 13 | [Laya Integration Plan](internal/13-laya-integration-plan.md) | Revised V1 model plan: embedded local Laya semantic layer, deterministic evidence/fusion, deferred vision, INT-4 handoff |
+| ✓ | [Work Checklists](internal/checklists/README.md) | Task-level checklists per developer (CL-D1/D2/D3 series) with dependencies, acceptance criteria, and a milestone → checklist matrix |
 | — | [Changelog](CHANGELOG.md) | Version history following Keep a Changelog |
 
 ## 🗂 Repository-Root Artifacts

@@ -321,7 +321,7 @@ skill_sentry_cli/
  └── tests/
 ```
 
-**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](11-team-and-workload.md).
+**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](internal/11-team-and-workload.md).
 
 ## 2.7 Technology Stack & Rationale
 
@@ -375,7 +375,7 @@ Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. 
 | SARIF report file | Verdict engine | Export button | SARIF 2.1.0-style |
 | Mock Ollama endpoint | Dev 3 | Dev 1 | Canned JSON (parallel dev) |
 
-**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](11-team-and-workload.md).
+**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](internal/11-team-and-workload.md).
 
 ## 2.10 Phase 2 — MCP Runtime Interception
 

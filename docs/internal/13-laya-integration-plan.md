@@ -774,7 +774,7 @@ Exit codes:
 - `tests/eval/` or `tests/fixtures/decisions/`
 - `scripts/calibrate_laya.py`
 - `docs/08-testing-and-evaluation.md`
-- `docs/13-laya-integration-plan.md` (results appendix)
+- `docs/internal/13-laya-integration-plan.md` (results appendix)
 
 **Evaluation set**
 
