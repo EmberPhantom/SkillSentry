@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [2.1.0rc1] — 2026-11-02
+
 ### Added
 - `install.ps1`: a native Windows installer (no administrator rights, checksum-verified, PATH set, `-DryRun`, `-NoSetup`, `-Uninstall`).
 - `install.sh`: `--version`, `--dry-run`, and a PATH line for your shell.
