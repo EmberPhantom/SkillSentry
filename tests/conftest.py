@@ -13,6 +13,8 @@ import tempfile
 # flag names in help text, so the help tests would fail only on CI.  This must run
 # before Typer is imported.
 os.environ.setdefault("_TYPER_FORCE_DISABLE_TERMINAL", "1")
+# Rich wraps help text to the console width; a narrow Windows CI console splits option defaults.
+os.environ.setdefault("COLUMNS", "200")
 from collections.abc import Iterator
 
 import pytest

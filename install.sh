@@ -139,11 +139,13 @@ fetch_wheel() {
 
 # Tell the user the exact line to add, for their shell, instead of a generic hint.
 path_hint() {
+  # The quoted text below is printed for the user to paste, so it must not expand here.
+  # shellcheck disable=SC2016
   line='export PATH="$HOME/.local/bin:$PATH"'
   shell_name="$(basename "${SHELL:-sh}")"
   case "$shell_name" in
-    zsh) profile="~/.zshrc" ;;
-    bash) profile="~/.bashrc (or ~/.bash_profile on macOS)" ;;
+    zsh) profile="$HOME/.zshrc" ;;
+    bash) profile="$HOME/.bashrc (or $HOME/.bash_profile on macOS)" ;;
     fish)
       printf 'Add %s to your PATH by running: fish_add_path %s\n' "$BIN_DIR" "$BIN_DIR"
       return 0
@@ -173,10 +175,11 @@ install_command() {
     return 0
   fi
   fetch_wheel
+  python_bin="$(find_python)" || die "Python 3.11 to 3.13 is required on $(os_name). $(python_hint), then run this again"
   if command -v pipx >/dev/null 2>&1; then
-    pipx install --force "$WHEEL_PATH"
+    # Pin pipx to the Python we validated; otherwise it may pick a newer, unsupported one.
+    pipx install --force --python "$python_bin" "$WHEEL_PATH"
   else
-    python_bin="$(find_python)" || die "Python 3.11 to 3.13 is required on $(os_name). $(python_hint), then run this again"
     mkdir -p "$HOME_DIR" "$BIN_DIR"
     "$python_bin" -m venv "$HOME_DIR/venv"
     "$HOME_DIR/venv/bin/python" -m pip install --quiet --upgrade --force-reinstall "$WHEEL_PATH"

@@ -122,7 +122,8 @@ jobs:
           $wheel = (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
           powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun -Wheel $wheel
           powershell -ExecutionPolicy Bypass -File install.ps1 -Wheel $wheel -NoSetup
-          & "$env:LOCALAPPDATA\skill-sentry-cli\venv\Scripts\skill-sentry-cli.exe" --version
+          $env:Path = "$env:USERPROFILE\.local\bin;$env:LOCALAPPDATA\skill-sentry-cli\venv\Scripts;$env:Path"
+          skill-sentry-cli --version
           powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
           if (Test-Path "$env:LOCALAPPDATA\skill-sentry-cli\venv") { exit 1 }
 
@@ -151,7 +152,8 @@ jobs:
           python -m pip wheel . --no-deps -w dist
           sh install.sh --dry-run --wheel dist/*.whl
           sh install.sh --wheel dist/*.whl --no-setup
-          "$HOME/.local/share/skill-sentry-cli/venv/bin/skill-sentry-cli" --version
+          # pipx (preinstalled here) puts the command in ~/.local/bin; the private venv does too.
+          PATH="$HOME/.local/bin:$PATH" skill-sentry-cli --version
           sh install.sh --uninstall
 
   installers:
