@@ -120,7 +120,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - MCP server manifest scanning support
 - Versioned verdict schema with migration path; signed release tags
 
-## [2.0.0] — 2026-10 (MLH Hacktoberfest Hack Day)
+## [2.0.0-hackathon] — 2026-10 (MLH Hacktoberfest Hack Day)
 
 ### Added
 - **8-stage inspection pipeline**: cache → spec/typosquat → deterministic anchor + semantic → multimodal vision → context-aware sandbox → Poisoned Well → evasion detection → verdict fusion

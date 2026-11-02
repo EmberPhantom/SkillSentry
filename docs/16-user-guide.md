@@ -79,7 +79,7 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.0.0 - Fully local analysis · open weights`.
+Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.1.0rc1 - Fully local analysis · open weights` (the version number matches the release you installed).
 
 **Build the dashboard** only when you install from a checkout (B and A ship it built):
 

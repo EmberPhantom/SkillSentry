@@ -11,7 +11,7 @@
 ollama pull gemma4:e4b-it-qat                 # local model (~night-before for demos)
 
 # 2. Backend
-git clone https://github.com/<org>/skillsentry && cd skillsentry
+git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"                   # ruff, pytest, etc.
 skill-sentry-cli init                          # skillsentry.toml with defaults

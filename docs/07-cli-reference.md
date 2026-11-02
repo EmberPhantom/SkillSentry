@@ -9,16 +9,16 @@
 ## 7.1 Installation
 
 ```bash
-# PyPI (Phase 1)
-pip install skill-sentry-cli
+# From a source checkout (works today)
+git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
+python3.12 -m venv .venv && . .venv/bin/activate
+python -m pip install -e ".[dev]"
 
-# Docker image
-docker pull skillsentry/skillsentry:2.0
-docker run --rm -v "$PWD/skills:/skills:ro" skillsentry/skillsentry:2.0 scan /skills/pdf-summarizer
+# Install script from the latest release (Linux, macOS, WSL), checksum-verified
+sh install.sh
 
-# From source (hackathon / dev)
-git clone https://github.com/<org>/skillsentry && cd skillsentry
-pip install -e ".[dev]"
+# PyPI, once the release is published
+pipx install skill-sentry-cli
 ```
 
 **Prerequisites:**
@@ -26,7 +26,7 @@ pip install -e ".[dev]"
 | Dependency | Required for | Check |
 |:---|:---|:---|
 | Python 3.11+ | everything | `python --version` |
-| Ollama + Gemma 4 E4B (Q4) | local semantic/vision analysis | `ollama list` → pull: `ollama pull gemma4:e4b-it-qat` |
+| Ollama with the configured local model | local semantic and vision analysis | `ollama list`; `skill-sentry-cli doctor` names the model to pull |
 | Docker daemon | sandbox, Poisoned Well, evasion detection | `docker info` |
 | Gemini API key (**opt-in**) | cloud fallback | `export GEMINI_API_KEY=…` |
 
@@ -39,24 +39,17 @@ Without Ollama/Docker the CLI still runs in **degraded static mode** (explicitly
 Audits a skill directory (or a folder of skills) through the full 8-stage pipeline.
 
 ```bash
-skill-sentry-cli scan ./fixtures/malicious/cloud-sync-pro
+skill-sentry-cli scan cloud-sync-pro --demo-mode
 ```
 
 ```text
-🛡 SkillSentry v2.0 · Fully local analysis · open weights · backend: local (ollama)
-[0/7] cache      ✓ miss (hash 9f2c…)
-[1/7] spec       ✓ frontmatter valid · typosquat check: clean
-[2/7] anchors    ⚑ 3 deterministic findings (eval, nslookup, credential read)
-[2/7] semantic   ✓ Gemma: declared "cloud sync" ≠ actual "credential exfil" (deceptive)
-[3/7] vision     ✓ 0 images
-[4/7] sandbox    🚨 CANARY READ ~/.aws/credentials (T+1.2s)
-[4.5] ☠ well     🔍 marker SKS-7f3a9c21 decoded from DNS query → CONFIRMED
-[5/7] evasion    ✓ no probes
-[6/7] verdict    🚫 MALICIOUS · risk 99 · confidence 1.0 (hard evidence)
-
-C2 indicators: evil-collector.net (DNS_TUNNELING, base64)
-Report: ~/.skillsentry/reports/3f9c…/report.sarif
+SkillSentry <version> - Fully local analysis · open weights - backend: demo/mock
+[X] cloud-sync-pro - MALICIOUS - risk 97 - confidence 1.00
+   Canary marker exfiltrated via DNS tunnel to evil-collector.net (scripts/sync.sh:7)
+   Poisoned Well: DNS_TUNNELING -> evil-collector.net (marker SKS-7f3a9c21)
 ```
+
+This is the offline demo output, captured from a real run. A sandboxed scan prints the same shape, with the evidence from each stage. The per-stage progress lines in earlier drafts of this page were never printed by the CLI; see the [user guide](16-user-guide.md) §7 for real sandboxed output.
 
 | Flag | Default | Description |
 |:---|:---|:---|
@@ -71,7 +64,7 @@ Report: ~/.skillsentry/reports/3f9c…/report.sarif
 | `-q, --quiet` | off | Verdict line only (suppresses the banner and progress chatter). |
 | `--demo-mode` | off | Serve the canned 7-skill demo verdict. Kept separate from live scans; no fabricated live evidence. |
 
-`scan` accepts either one skill directory or a folder. Discovery recurses deterministically, skips symlinked/ignored directories, and refuses more than 500 skills rather than silently truncating. `--watch`, `--upload-sarif`, and managed `cache`/`export` commands remain roadmap items, not M1 CLI flags.
+`scan` accepts either one skill directory or a folder. Discovery recurses deterministically, skips symlinked/ignored directories, and refuses more than 500 skills rather than silently truncating. `--watch` and `--upload-sarif` are planned and not implemented.
 
 ### `skill-sentry-cli init`
 
@@ -172,22 +165,22 @@ upload_sarif = false             # not read in v1; roadmap with the GitHub Actio
 | `1` | At least one verdict meets/exceeds `--fail-on` (default: SUSPICIOUS) | **Blocks PR merge** |
 | `2` | Usage error (unsupported `--format`, `--fail-on`, `--backend`, or invalid option) | Pipeline config bug |
 | `3` | Operational error (missing/invalid skill path, Docker/DB failure, no scan completed) — *never* a fabricated verdict | Retry/alert |
-| `4` | Reserved for a future hard model-unavailable abort. Current live scans degrade model-dependent stages honestly, emit an explicit degradation finding, and still return a verdict. | Fix backend config |
+| `4` | Defined in the source but never returned. A scan that cannot reach the model degrades to `UNSCANNED` and exits with its verdict code. | Fix the model setup (`skill-sentry-cli doctor`) |
 
 A parent folder containing a valid skill and an invalid/unscannable child returns the completed reports and exits `3`; partial success is never reported as a clean CI pass. Usage errors are checked before any scan starts.
 
-GitHub Action `skillsentry/scan@v1` maps `fail-on: malicious` to this contract (see [09-deployment-and-production.md](09-deployment-and-production.md)).
+A planned GitHub Action, `skillsentry/scan@v1`, would map to this contract (see [09-deployment-and-production.md](09-deployment-and-production.md)). **It is not published.** Until it is, call the CLI directly in your workflow, as shown in the [user guide](16-user-guide.md) §11.
 
-## 7.6 GitHub Action Quick Reference (plan §12.3)
+## 7.6 GitHub Action (planned)
 
 ```yaml
-# consumer's .github/workflows/skill-audit.yml
+# Planned interface; not available yet
 - uses: skillsentry/scan@v1
   with:
     path: ./skills/
     fail-on: malicious        # blocks PR merge
     upload-sarif: true        # appears in GitHub Security tab
-    model: gemma-4-e4b-local  # or gemini-api
+    backend: auto             # auto | local | cloud
     cache: true               # enable incremental scanning
 ```
 

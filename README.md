@@ -99,8 +99,8 @@ skill-sentry-cli export <scan_id> --format sarif   # re-render a stored report
 skill-sentry-cli cache stats              # inspect the verdict cache
 ```
 
-**Server image:** `docker build -t skill-sentry-server:2.0.0 .` then
-`docker run -p 127.0.0.1:8000:8000 skill-sentry-server:2.0.0`. The container does not
+**Server image:** `docker build -t skill-sentry-server:local .` then
+`docker run -p 127.0.0.1:8000:8000 skill-sentry-server:local`. The container does not
 mount the Docker socket, so the sandbox is unavailable inside it by default. Mounting
 `/var/run/docker.sock` gives the container root-equivalent control of the host, so only do
 that deliberately.
@@ -138,7 +138,7 @@ Full CLI reference: [docs/07-cli-reference.md](docs/07-cli-reference.md) · Depl
 | `slack-notif-mal` | probes `/.dockerenv`, steals Slack token | 🚫 MALICIOUS 100 | Evasion detection + context honeypot |
 | `g1t-translate`* | typosquat of `git-translate` | ⚠️ SUSPICIOUS 30–70 | Levenshtein detector |
 
-**Targets** (the 2.0.0 numbers are not yet re-measured in CI; see the eval notes in docs/08):** malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md).
+**Targets** (not yet re-measured for the current release; see [docs/08](docs/08-testing-and-evaluation.md)): malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md).
 
 ## 📚 Documentation
 
