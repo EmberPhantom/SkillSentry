@@ -144,13 +144,10 @@ if ($DryRun) {
     exit 0
 }
 
-$python = $null
-if (-not (Get-Command pipx -ErrorAction SilentlyContinue)) {
-    $python = Find-Python
-    if (-not $python) {
-        Show-PythonHelp
-        exit 1
-    }
+$python = Find-Python
+if (-not $python) {
+    Show-PythonHelp
+    exit 1
 }
 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("skill-sentry-" + [guid]::NewGuid().ToString("N"))
@@ -166,13 +163,15 @@ try {
     }
 
     if (Get-Command pipx -ErrorAction SilentlyContinue) {
-        pipx install --force $wheelPath
+        # Pin pipx to the Python we validated; otherwise it may pick a newer, unsupported one.
+        $pythonExe = (& $python[0] @($python | Select-Object -Skip 1) -c "import sys; print(sys.executable)").Trim()
+        pipx install --force --python $pythonExe $wheelPath
         if ($LASTEXITCODE -ne 0) { Fail "pipx could not install the package" }
     } else {
         New-Item -ItemType Directory -Path $AppHome -Force | Out-Null
         $exe = $python[0]
         $pyArgs = @()
-        if ($python.Count -gt 1) { $pyArgs += $python[1..($python.Count - 1)] }
+        if ($python.Count -gt 1) { $pyArgs += @($python | Select-Object -Skip 1) }
         & $exe @pyArgs -m venv $VenvDir
         if ($LASTEXITCODE -ne 0) { Fail "could not create the virtual environment in $VenvDir" }
         & (Join-Path $VenvScripts "python.exe") -m pip install --quiet --upgrade --force-reinstall $wheelPath
