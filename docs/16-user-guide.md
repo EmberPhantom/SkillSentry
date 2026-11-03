@@ -94,6 +94,8 @@ cd ..
 
 **Upgrade:** `pipx upgrade skill-sentry-cli`, or run the install script again. **Uninstall:** `sh install.sh --uninstall`, or `pipx uninstall skill-sentry-cli`. Both keep your scan history and any `skillsentry.toml` you wrote.
 
+**Verify a download.** The install script checks the wheel against `SHA256SUMS` before installing. To check a release's image or wheel yourself, see [Verify a release](17-release-process.md#verify-a-release).
+
 ---
 
 ## 4. Docker access and the sandbox image

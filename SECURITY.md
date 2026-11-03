@@ -55,5 +55,6 @@ Good-faith research against **your own** installations and the `fixtures/` corpu
 
 ## Secure Distribution
 
-- Phase 2: signed release tags and **sigstore keyless-signed verdicts** (`cosign verify-blob`); until then, prefer installing from source at a reviewed commit or the published Docker image digest.
+- Release images are keyless-signed with cosign by digest, and the wheel has a build provenance attestation. The commands to check them are in [docs/17-release-process.md](docs/17-release-process.md#verify-a-release).
+- Phase 2: **sigstore keyless-signed verdicts** (`cosign verify-blob`). Until then, prefer installing from source at a reviewed commit or the published Docker image digest.
 - Verify Ollama model digests (`model_version` is recorded with every verdict — see [docs/03-database.md](docs/03-database.md)).
