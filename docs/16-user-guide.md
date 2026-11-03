@@ -25,7 +25,7 @@ SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any script
 | Dashboard only | Node.js 24 | `node --version` |
 | Model | About 8 GB of free RAM while a scan runs | Close heavy apps first |
 
-> **Python version:** use `python3.11`, `python3.12` or `python3.13` explicitly. A default `python` of 3.14 has not been tested with SkillSentry.
+> **Python version:** use `python3.11`, `python3.12` or `python3.13` explicitly. Python 3.14 is not supported yet. CI runs the unit tests on it as a non-blocking check, so its status is visible before support is announced.
 
 ---
 
@@ -324,6 +324,8 @@ skill-sentry-cli serve
 ```
 
 Open <http://127.0.0.1:8000> in a browser. The server listens only on your own machine.
+
+The dashboard has no login. Anyone who can reach the port can see your scans and start new ones, so keep the server on `127.0.0.1` and do not expose it to a network.
 
 - `/` serves the dashboard page.
 - `/health` reports whether Ollama, Docker and the database are ready (`"ok"` or `"down"`).

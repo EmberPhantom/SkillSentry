@@ -32,6 +32,7 @@ Start with the [User Guide](16-user-guide.md) if you use SkillSentry, or the [De
 | 17 | [Release Process](17-release-process.md) | Tag-driven release runbook: TestPyPI and PyPI publishing, sandbox and server images, provenance |
 | 18 | [Registry Accounts](18-registry-accounts.md) | Creating PyPI and TestPyPI accounts with two-factor authentication, trusted-publisher setup, recovery |
 | 19 | [Landing-Page Brief](19-landing-page-brief.md) | Product and command reference: positioning, pipeline, install, every CLI command and flag, verdicts, configuration, outputs, CI, open-source readiness |
+| 20 | [Governance](20-governance.md) | Roles, decision process, release authority, support policy, and the maintainer settings checklist |
 | — | [Changelog](CHANGELOG.md) | Version history following Keep a Changelog |
 
 ### Archived planning material

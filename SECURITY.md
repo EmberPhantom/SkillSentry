@@ -8,7 +8,8 @@ SkillSentry is a security tool that **executes untrusted code by design** (insid
 
 | Version | Supported | Notes |
 |:---|:---|:---|
-| 2.0.x | ✅ | Current; receives security fixes |
+| 2.1.x | ✅ | Current release line (2.1.0rc1 is a pre-release); receives security fixes |
+| 2.0.x | ⚠️ | Previous release; fixes only for serious issues until 2.1.0 is final |
 | < 2.0 | ❌ | Pre-release concepts; do not use |
 
 ## Reporting a Vulnerability

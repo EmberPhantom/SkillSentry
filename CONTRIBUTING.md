@@ -2,7 +2,7 @@
 
 Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is MIT-licensed; by contributing you agree your contributions are licensed under the same terms.
 
-**Start here:** [Developer Guide](docs/10-developer-guide.md) for environment setup, the module layout, coding standards, and extension guides. Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Questions and help: [SUPPORT.md](.github/SUPPORT.md).
+**Start here:** [Developer Guide](docs/10-developer-guide.md) for environment setup, the module layout, coding standards, and extension guides. Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Questions and help: [SUPPORT.md](.github/SUPPORT.md). How decisions and releases are handled: [Governance](docs/20-governance.md).
 
 ---
 
@@ -43,6 +43,7 @@ skill-sentry-cli serve --demo-mode --port 8000
 - **Style:**
   - Python: `ruff check` and `ruff format` (configured in `pyproject.toml`), type hints, Python 3.11 or newer.
   - TypeScript: `strict: true` in `ui/tsconfig.json`. No linter or formatter is configured for `ui/` yet; contributions that add one are welcome.
+- **Gates:** CI and `scripts/check.sh` run ruff, mypy (blocking, with a short list of lenient modules in `pyproject.toml`), the unit and contract tests with a coverage floor of 86%, the schema check, and the demo smoke test.
 - **Pull requests:** the checklist is in [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Fill it in; it is applied to every pull request.
 
 ## Good First Contributions
