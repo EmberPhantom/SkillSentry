@@ -35,8 +35,17 @@ jobs:
       - name: Ruff format
         run: ruff format --check skill_sentry_cli tests scripts
 
+      - name: Type check (mypy)
+        run: mypy
+
       - name: Unit + contract tests
+        if: matrix.python-version != '3.12'
         run: pytest tests/unit tests/contract -q
+
+      - name: Unit + contract tests with coverage gate
+        # One leg measures coverage; the threshold lives in [tool.coverage.report].
+        if: matrix.python-version == '3.12'
+        run: pytest tests/unit tests/contract -q --cov=skill_sentry_cli
 
       - name: Schema export is reproducible
         run: |

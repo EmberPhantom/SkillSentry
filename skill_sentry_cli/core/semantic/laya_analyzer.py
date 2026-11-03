@@ -58,7 +58,7 @@ def deterministic_only_stage(anchors: StageResult) -> StageResult:
                 stage=Stage.SEMANTIC,
                 severity=Severity.NOTE,
                 message="Semantic decision backend disabled; deterministic evidence only",
-                type="semantic-disabled",
+                finding_type="semantic-disabled",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         ],
@@ -180,7 +180,7 @@ def analyze_semantics_laya(
                     "Per-candidate adjudication was unavailable; capability findings cite the "
                     f"first anchor candidate: {adjudication_error[:200]}"
                 ),
-                type="semantic-adjudication-unavailable",
+                finding_type="semantic-adjudication-unavailable",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )
@@ -193,7 +193,7 @@ def analyze_semantics_laya(
                     f"Semantic context was limited: {candidates_omitted} anchor candidate(s) "
                     f"and {snippets_omitted} file snippet(s) were not sent to the decision backend"
                 ),
-                type="semantic-context-truncated",
+                finding_type="semantic-context-truncated",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )
@@ -203,7 +203,7 @@ def analyze_semantics_laya(
                 stage=Stage.SEMANTIC,
                 severity=Severity.NOTE,
                 message="No instruction/behaviour contradiction found",
-                type="semantic-clean",
+                finding_type="semantic-clean",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )

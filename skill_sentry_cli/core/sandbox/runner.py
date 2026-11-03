@@ -755,7 +755,7 @@ def _setup_entries() -> list[tuple[str, bytes, int]]:
 def _net_log(observation: SinkholeObservation) -> NetLog:
     return NetLog(
         ts=observation.ts,
-        protocol=observation.protocol,  # type: ignore[arg-type]
+        protocol=observation.protocol,
         query_or_url=observation.query_or_url,
         body_b64=observation.body_b64,
         responder_action=observation.responder_action,

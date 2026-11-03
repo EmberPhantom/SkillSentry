@@ -132,7 +132,7 @@ class _Visitor(ast.NodeVisitor):
                 stage=Stage.DETERMINISTIC_ANCHOR,
                 severity=severity,
                 message=message,
-                type=kind,
+                finding_type=kind,
                 evidence=FindingEvidence(file=self.filename, line=line, code=f"line {line}"),
             )
         )

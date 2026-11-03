@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import threading
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -391,7 +391,7 @@ class LiveBackend:
         return detail
 
     # -- streaming ---------------------------------------------------------
-    async def stream(self, scan_id: UUID) -> AsyncIterator[WSMessage]:
+    async def stream(self, scan_id: UUID) -> AsyncGenerator[WSMessage, None]:
         item = self._scans.get(scan_id)
         if item is None:
             stored = await asyncio.to_thread(self.store.get_result, scan_id)

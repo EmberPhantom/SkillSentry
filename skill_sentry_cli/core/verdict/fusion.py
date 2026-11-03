@@ -279,7 +279,7 @@ def _semantic_cap_note() -> Finding:
             "Verdict capped at SUSPICIOUS: the only malicious evidence is model-reported. "
             "A MALICIOUS verdict needs a deterministic, sandbox, or vision finding."
         ),
-        type="semantic-only-capped",
+        finding_type="semantic-only-capped",
         evidence=FindingEvidence(file="SKILL.md", line=1),
     )
 

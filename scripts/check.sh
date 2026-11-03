@@ -16,10 +16,13 @@ step "ruff check"
 step "ruff format --check"
 "$PY" -m ruff format --check skill_sentry_cli tests scripts
 
+step "mypy"
+"$PY" -m mypy
+
 step "pytest"
 # tests/live needs a running local model with verdicts that are not yet stable; run it on purpose with:
 #   python -m pytest tests/live
-"$PY" -m pytest tests -q -p no:cacheprovider --ignore=tests/live
+"$PY" -m pytest tests -q -p no:cacheprovider --ignore=tests/live --cov=skill_sentry_cli
 
 step "schema drift"
 "$PY" scripts/export_schema.py >/dev/null

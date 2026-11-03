@@ -261,7 +261,7 @@ def _findings_from(
                 stage=Stage.SEMANTIC,
                 severity=severity,
                 message=f"Model-reported {item.get('type', 'suspicious pattern')}: {evidence[:300]}",
-                type=str(item.get("type") or "semantic-suspicious")[:80],
+                finding_type=str(item.get("type") or "semantic-suspicious")[:80],
                 evidence=FindingEvidence(file=relative, line=line, code=code or None),
             )
         )
@@ -354,7 +354,7 @@ def analyze_semantics(
                     f"{unverified} model-reported finding(s) quoted text that is not in the "
                     "skill and were dropped"
                 ),
-                type="semantic-unverified-claims",
+                finding_type="semantic-unverified-claims",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )
@@ -367,7 +367,7 @@ def analyze_semantics(
                     f"Semantic coverage is partial: {len(all_gaps)} range(s) not analysed: "
                     f"{_gap_text(all_gaps)}"
                 ),
-                type="semantic-partial-coverage",
+                finding_type="semantic-partial-coverage",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )
@@ -377,7 +377,7 @@ def analyze_semantics(
                 stage=Stage.SEMANTIC,
                 severity=Severity.NOTE,
                 message="No instruction/behaviour contradiction found",
-                type="semantic-clean",
+                finding_type="semantic-clean",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )
@@ -392,7 +392,7 @@ def analyze_semantics(
                     "Declared intent does not match actual behaviour: "
                     f"{package.description or package.name}"
                 ),
-                type="deception",
+                finding_type="deception",
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )

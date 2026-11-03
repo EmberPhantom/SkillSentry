@@ -315,7 +315,7 @@ class _Tracker(ast.NodeVisitor):
                 stage=Stage.DETERMINISTIC_ANCHOR,
                 severity=severity,
                 message=message,
-                type=kind,
+                finding_type=kind,
                 evidence=_evidence(self.filename, line, f"{call}(...)"),
             )
         )
@@ -430,7 +430,7 @@ def analyze_credential_flows(package: SkillPackage) -> list[Finding]:
                         stage=Stage.DETERMINISTIC_ANCHOR,
                         severity=Severity.MEDIUM,
                         message=f"Possible credential flow in {relative} (unverified pattern match)",
-                        type="credential-flow-unverified",
+                        finding_type="credential-flow-unverified",
                         evidence=_evidence(relative, 1, text_file.text[:200]),
                     )
                 )
