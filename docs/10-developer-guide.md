@@ -7,7 +7,7 @@
 ## 10.1 Environment Setup
 
 ```bash
-# 1. Prereqs: Python 3.11+, Docker, Node 20+, Ollama
+# 1. Prereqs: Python 3.11+, Docker, Node 24, Ollama
 ollama pull gemma4:e4b-it-qat                 # local model (~night-before for demos)
 
 # 2. Backend

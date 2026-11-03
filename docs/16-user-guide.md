@@ -22,7 +22,7 @@ SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any script
 | Everything | git | `git --version` |
 | Full scans | Docker, and permission to use it without sudo | `docker ps` works |
 | Full scans | Ollama, running, with the model that `skill-sentry-cli doctor` names | `ollama list` |
-| Dashboard only | Node.js 20 or newer | `node --version` |
+| Dashboard only | Node.js 24 | `node --version` |
 | Model | About 8 GB of free RAM while a scan runs | Close heavy apps first |
 
 > **Python version:** use `python3.11`, `python3.12` or `python3.13` explicitly. A default `python` of 3.14 has not been tested with SkillSentry.
