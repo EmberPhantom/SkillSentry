@@ -102,7 +102,7 @@ Live, terminal-style event stream (backs the Live Scan Console). Server → clie
 | `cache` | `cached` (⚡ instant verdict — stream closes) |
 | `spec` | `progress` (frontmatter parsed), `finding` (typosquat!) |
 | `anchor` | `finding` per AST/regex anchor (`{file, line, code}`) |
-| `semantic` | `started`, `progress` ("Gemma analyzing…"), `completed` with `declared_intent` |
+| `semantic` | `started`, `progress` ("local model analyzing…"), `completed` with `declared_intent` |
 | `vision` | `progress` per image, `finding` with bbox + OCR snippet |
 | `sandbox` | `started` (container up), `finding` (canary read / probe), `progress` (telemetry) |
 | `poisoned_well` | `override` — "canary marker decoded → CONFIRMED" (the demo money-shot) |

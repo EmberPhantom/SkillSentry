@@ -2,7 +2,7 @@
 
 > **SkillSentry v2.0** — A Context-Aware Firewall for the Agent Skill Supply Chain with "Poisoned Well" Active Defense.
 
-**One-liner:** An open-source, fully-local gatekeeper that audits Agent Skills *before* installation — fusing Gemma 4 multimodal reasoning (text + vision) with deterministic sandbox telemetry, dynamically adapting honeypots to the skill's declared intent, detecting sandbox evasion, and actively deceiving malicious skills by feeding them fake credentials to track exfiltration back to attacker infrastructure.
+**One-liner:** An open-source, fully-local gatekeeper that audits Agent Skills *before* installation — fusing local multimodal reasoning (text + vision) with deterministic sandbox telemetry, dynamically adapting honeypots to the skill's declared intent, detecting sandbox evasion, and actively deceiving malicious skills by feeding them fake credentials to track exfiltration back to attacker infrastructure.
 
 **Tagline:** *"Your proprietary skills never leave your machine for auditing. We don't just block attackers; we follow them home."*
 
@@ -39,8 +39,8 @@ Before any skill installs, SkillSentry runs an **8-stage inspection pipeline**:
 
 0. **Incremental Cache** — SHA-256 directory hash → cached SARIF verdict in < 2 s
 1. **Spec Validation + Typosquat Detection** — frontmatter rules, Levenshtein distance ≤ 2 against known skill names
-2. **Deterministic Anchor + Semantic Analysis** — AST/regex pre-scan produces *hard facts* ("anchors") fed to Gemma 4 E4B as ground truth
-3. **Multimodal Vision Scan** — Gemma 4 vision OCRs bundled images (white-on-white text, stego-style instructions; SVG scanned as text *and* rendered)
+2. **Deterministic Anchor + Semantic Analysis** — AST/regex pre-scan produces *hard facts* ("anchors") fed to the local model as ground truth
+3. **Multimodal Vision Scan** — local vision model OCRs bundled images (white-on-white text, stego-style instructions; SVG scanned as text *and* rendered)
 4. **Context-Aware Behavioral Sandbox** — Docker execution with masquerade layer, intent-matched canary filesystem, DNS sinkhole, fake HTTP responder
 4.5. **☠️ Poisoned Well** — on canary credential read: serve intent-matched *fake* secrets, harvest exfil into the sinkhole, profile the C2
 5. **Sandbox Evasion Detection** — probing for Docker/VM artifacts ⇒ auto-`MALICIOUS`
@@ -56,7 +56,7 @@ Full pipeline detail: [02-architecture.md](02-architecture.md).
 |:---|:---|:---|:---|:---|
 | **When it acts** | Runtime (post-install) | Cloud policy | Pre-scan | **Pre-install + Runtime (MCP)** |
 | **Detection method** | Network heuristics | Enterprise rules | Regex / LLM text | **LLM + Vision + Sandbox + Active Defense** |
-| **Image-hidden payloads** | ✗ | ✗ | ✗ | **✓ (Gemma 4 Vision)** |
+| **Image-hidden payloads** | ✗ | ✗ | ✗ | **✓ (local vision model)** |
 | **Context-Aware Honeypots** | ✗ | ✗ | ✗ | **✓ (Dynamic Intent Matching)** |
 | **Sandbox Evasion Detection** | ✗ | ✗ | ✗ | **✓ (Anti-Anti-Sandbox)** |
 | **Deterministic Anchoring** | ✗ | ✗ | ✗ | **✓ (AST pre-scan → LLM ground truth)** |
@@ -113,7 +113,7 @@ See [09-deployment-and-production.md](09-deployment-and-production.md).
 | **Masquerade** | The layer that hides sandbox artifacts (`/.dockerenv`, `/proc/1/cgroup`, …) so evasion-probing malware behaves normally and reveals itself. |
 | **Sandbox Evasion Probe** | A skill's attempt to detect the analysis environment; treated as hard proof of malice (auto-`MALICIOUS`). |
 | **IOC** | Indicator of Compromise (C2 domain, IP, exfil channel, encoding) harvested during a Poisoned Well engagement; exportable as STIX 2.1. |
-| **Gemma's Eye View** | UI mode showing what Gemma 4 vision actually saw in an image: OCR text + bounding-box overlay + contrast enhancement. |
+| **Eye View** | UI mode showing what local vision model actually saw in an image: OCR text + bounding-box overlay + contrast enhancement. |
 | **Verdict** | One of `SAFE` / `SUSPICIOUS` / `MALICIOUS`, with risk score 0–100 and confidence. |
 | **SARIF** | Static Analysis Results Interchange Format 2.1.0 — the standard machine-readable report SkillSentry emits. |
 
@@ -121,7 +121,7 @@ See [09-deployment-and-production.md](09-deployment-and-production.md).
 
 | Resource | URL |
 |:---|:---|
-| Gemma 4 docs | https://ai.google.dev/gemma/docs/core |
+| Local model docs | the documentation of the model you install (set under `[model]` in `skillsentry.toml`) |
 | Gemini API | https://ai.google.dev/gemini-api/docs |
 | Agent Skill Open Standard | https://agentskills.io/specification |
 | Snyk ToxicSkills audit | https://snyk.io/blog/toxicskills-malicious-ai-agent-skills-clawhub/ |

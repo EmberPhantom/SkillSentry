@@ -64,3 +64,25 @@ def test_dashboard_claims_match_tracked_files():
     ]
     if claims:
         assert tracked("ui/dist/index.html"), [str(p.relative_to(ROOT)) for p in claims]
+
+
+# Public prose says "the local model". Identifiers stay lowercase or are class names
+# (gemma4:e4b-it-qat, gemma_badge, MockGemma), so a capitalised word is what gets flagged.
+MODEL_WORD = re.compile(r"\bGEMMA\b|\bGemma\b")
+PUBLIC_TEXT = [
+    *sorted(p for p in ROOT.glob("docs/*.md") if p.name != "CHANGELOG.md"),
+    ROOT / "README.md",
+    ROOT / "CONTRIBUTING.md",
+    ROOT / "SECURITY.md",
+    ROOT / "fixtures" / "README.md",
+    ROOT / "skill_sentry_cli" / "skill" / "SKILL.md",
+]
+
+
+def test_no_model_names_in_public_docs():
+    bad = []
+    for path in PUBLIC_TEXT:
+        text = path.read_text(encoding="utf-8")
+        for match in MODEL_WORD.finditer(text):
+            bad.append(f"{path.relative_to(ROOT)}:{text.count(chr(10), 0, match.start()) + 1}")
+    assert not bad, bad

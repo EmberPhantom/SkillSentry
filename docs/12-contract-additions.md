@@ -214,7 +214,7 @@ The envelope is unchanged from §5.3. Event `detail` shapes in the demo store:
 | `cache` / `progress` (miss) | `{ message: "cache miss", hash }` |
 | `spec` / `progress` | `{ message }` |
 | `deterministicAnchor` / `finding` | `{ finding: Finding }` |
-| `semantic` / `started` | `{ message: "Gemma analyzing…" }` |
+| `semantic` / `started` | `{ message: "local model analyzing…" }` |
 | `semantic` / `progress` heartbeat | `{ heartbeat: true, message }` |
 | `semantic` / `completed` | `{ declaredIntent }` |
 | `vision` / `finding` | `{ finding, bbox, ocr }` |

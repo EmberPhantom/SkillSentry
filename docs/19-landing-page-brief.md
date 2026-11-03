@@ -579,7 +579,7 @@ Done on the branch:
 
 Still open:
 
-- **Model name in prose.** Design prose in docs 01 to 09 and 12 still says "Gemma" where it describes the model. The frozen contract field `gemma_badge` and the config defaults `gemma4:e4b-it-qat` and `gemma-4-e4b` keep their names. Decide whether the public docs should avoid the name entirely.
+- **Model name in prose.** Design prose in docs 01 to 09 and 12 still says "local model" where it describes the model. The frozen contract field `gemma_badge` and the config defaults `gemma4:e4b-it-qat` and `gemma-4-e4b` keep their names. Decide whether the public docs should avoid the name entirely.
 - **Repository settings** only a maintainer can change: private vulnerability reporting, branch protection, description and topics, CI running green on GitHub (a billing block is noted), and the PyPI and GHCR publications.
 - **Release path** is tested only by a real tag. Run a release-candidate tag to exercise it end to end.
 - **Local API** has no authentication. That is fine on loopback. Document the rule clearly.

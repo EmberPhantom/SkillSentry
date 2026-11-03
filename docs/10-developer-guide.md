@@ -33,7 +33,7 @@ Full annotated tree: [02-architecture.md](02-architecture.md) §2.6. **Authorita
 |:---|:---|:---|
 | **Dev 1 · Backend + AI Integration** | Sandbox, deception, models, verdict/reports, server | `core/sandbox/`, `core/poisoned_well/`, `core/evasion/`, `core/models/` (Ollama + Gemini clients), `core/verdict/` (fusion, SARIF), `server/`, `cli.py`, `skill/`, fixtures `cloud-sync-pro` + `slack-notif-mal` |
 | **Dev 2 · Backend (Skill Analysis)** | Malicious-instruction detection | `core/parser/` (spec validator, typosquat), `core/semantic/` (AST anchors, analyzer, prompts), `core/vision/`, `core/cache/`, fixtures (4 benign + `invoice-helper` + `g1t-translate`), eval harness |
-| **Dev 3 · Frontend (only)** | UI + demo assets | `ui/` (app shell, triage table, live console WS, IOC graph React Flow, Gemma's Eye View viewer, `--demo-mode` UI integration), README GIF, backup demo video |
+| **Dev 3 · Frontend (only)** | UI + demo assets | `ui/` (app shell, triage table, live console WS, IOC graph React Flow, Eye View viewer, `--demo-mode` UI integration), README GIF, backup demo video |
 
 ## 10.3 Workload Assignment & Milestones
 
@@ -126,7 +126,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 |:---|:---|:---|
 | Local E4B too slow on venue laptops | Medium | Q4 quantize; downscale images; cloud fallback wired from M1; pre-cache model night before |
 | Sandbox DNS interception flaky | Medium | Test sinkhole early in M1; fallback = hosts-file override + `resolv.conf` pinning |
-| Gemma vision misses subtle payload | Medium | Fixture payload tuned to be catchable (4 px → 6 px if needed); rehearse with exact model |
+| local model vision misses subtle payload | Medium | Fixture payload tuned to be catchable (4 px → 6 px if needed); rehearse with exact model |
 | Demo Wi-Fi dies | High | Everything runs offline; `--demo-mode` canned responses; backup video recorded during M4 |
 | Scope creep into "full security product" | High | Hard rule: sandbox stays simple. No syscall tracing, no real signing before Phase 2 |
 | Frontend/backend contract drift | Medium | Verdict JSON schema frozen at M0; mock server for Dev 3 until API ready |

@@ -47,7 +47,7 @@ E2E PASS (12/12 across 3 run(s))
 
 Each skill gave the same verdict and score on every run, and no stage degraded. Earlier runs before the evasion-floor fix scored `slack-notif-mal` at 95; that is the regression the fix closed.
 
-## Real model (Gemma 4 E4B, Ollama)
+## Real model (the local model, Ollama)
 
 **Pending.** The model is installed and verified (`gemma4:e4b-it-qat`, digest `ee6656371218…`), but it does not load on the development machine: the Ollama runner fails with an out-of-memory error at startup. Latency, accuracy on the real skills and the fixture E2E with the real model are measured on the test machine.
 

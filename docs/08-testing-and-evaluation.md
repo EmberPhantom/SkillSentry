@@ -15,7 +15,7 @@
 | **End-to-end** | Full pipeline over the fixture corpus | Every fixture produces the expected verdict/risk band (§8.4); citation accuracy measured against hand-annotated ground truth |
 | **Contract** | Frozen schemas | Verdict JSON v1 validated (Pydantic + JSON Schema) on both real API and mock server; WS event schema checked; SARIF validates against the official 2.1.0 schema (`tests/unit/test_sarif_schema.py`, vendored schema) |
 | **Chaos** | Failure injection | §8.6 |
-| **Model-in-the-loop** (nightly, local) | Gemma-dependent stages | Semantic + vision outputs on fixtures with the exact pinned model; flags drift after model updates |
+| **Model-in-the-loop** (nightly, local) | model-dependent stages | Semantic + vision outputs on fixtures with the exact pinned model; flags drift after model updates |
 
 **Regression policy:** any change to fusion weights, prompts, anchor patterns, or the masquerade layer must re-run the full fixture corpus; expected verdicts are checked into the repo as data (`tests/expected_verdicts.json`).
 
@@ -28,7 +28,7 @@
 | 3 | `image-resizer` | benign | File ops only | — passes |
 | 4 | `weather-fetch` | benign | **Declared** network call | — passes (proves no false positives on legitimate network use) |
 | 5 | `cloud-sync-pro` | malicious | Reads `~/.aws/credentials`, base64-encodes into DNS subdomain query | Sandbox + ☠️ Poisoned Well |
-| 6 | `invoice-helper` | malicious | Injection payload in white-on-white text inside `logo.png` | Gemma 4 Vision + Gemma's Eye View |
+| 6 | `invoice-helper` | malicious | Injection payload in white-on-white text inside `logo.png` | local vision model + Eye View |
 | 7 | `slack-notif-mal` | malicious | Probes `/.dockerenv`, then reads fake Slack token, exfils via HTTP | Sandbox Evasion + Context Honeypot |
 | 8* | `g1t-translate` | stretch | Typosquat of `git-translate` | Levenshtein detector |
 
@@ -76,7 +76,7 @@ The fixture does **not** go dormant when it sees `/.dockerenv`; touching that pa
 1. Fixtures must **never** reference real credentials or real domains — C2 hosts are fictional (`evil-collector.net`, `evil-c2.com`) and unreachable by design (sinkhole-only network).
 2. Malicious fixtures live under `fixtures/malicious/` with a `README` warning and are excluded from any packaging step.
 3. Fixtures must not run outside the sandbox: CI executes them only through `skill-sentry-cli scan`.
-4. If Gemma vision misses the payload during rehearsal, tune font size 4 px → 6 px (plan risk mitigation) — never weaken the detector to pass.
+4. If local model vision misses the payload during rehearsal, tune font size 4 px → 6 px (plan risk mitigation) — never weaken the detector to pass.
 
 **Phase 1 expansion:** grow the corpus to **20 skills** and publish a precision/recall table (plan §9.5).
 
@@ -120,7 +120,7 @@ python tests/check_expected_verdicts.py --static-only
 python tests/check_expected_verdicts.py --full
 ```
 
-In this workspace, the static pass is **8/8 PASS** with the scores above. On Docker Desktop 29.9.2 (Linux containers), the full-sandbox pass is **2/2 PASS** with real containers and the deterministic `MockGemma`: `cloud-sync-pro` risk 95 with Poisoned Well triggered over `DNS_TUNNELING`, and `slack-notif-mal` risk 100 with evasion detected. Real Ollama/Gemma, Gemini, and real-model/vision E2E remain **unverified** here; `MockGemma` and fake-Docker unit tests do not substitute for them. CI must run the full pass on a host with Docker, the `skillsentry-sandbox:local` image, and a pinned local Gemma before the unchecked model boxes above can be claimed.
+In this workspace, the static pass is **8/8 PASS** with the scores above. On Docker Desktop 29.9.2 (Linux containers), the full-sandbox pass is **2/2 PASS** with real containers and the deterministic `MockGemma`: `cloud-sync-pro` risk 95 with Poisoned Well triggered over `DNS_TUNNELING`, and `slack-notif-mal` risk 100 with evasion detected. Real Ollama/local model, Gemini, and real-model/vision E2E remain **unverified** here; `MockGemma` and fake-Docker unit tests do not substitute for them. CI must run the full pass on a host with Docker, the `skillsentry-sandbox:local` image, and a pinned local local model before the unchecked model boxes above can be claimed.
 
 ### Summary metrics for the README
 
@@ -161,9 +161,9 @@ Instead of just rehearsing, actively break the system (run twice during M4, all-
 ## 8.7 The ONE Rehearsed Demo Moment (3 minutes)
 
 1. Show the seeded 7-skill store → press **Scan All**.
-2. Live console streams stage-by-stage progress (Gemma badge visible).
+2. Live console streams stage-by-stage progress (local model badge visible).
 3. Triage table renders: 4 green, 3 red — each red row quotes the exact suspicious line.
-4. Open `invoice-helper` → vision tab → **Gemma's Eye View** toggle reveals the white-on-white payload with bounding box.
+4. Open `invoice-helper` → vision tab → **Eye View** toggle reveals the white-on-white payload with bounding box.
 5. Open `cloud-sync-pro` → Poisoned Well tab → timeline shows canary read → fake keys served → marker decoded from DNS → *"we didn't just block it, we identified its C2."*
 6. Open `slack-notif-mal` → shows **sandbox evasion detected** + context-aware Slack canary triggered.
 7. Re-scan `pdf-summarizer` → **⚡ instant cached result (< 2 s)**.
