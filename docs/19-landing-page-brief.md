@@ -566,42 +566,42 @@ These are the places where the repository's own claims or first results do not s
 - `install.sh --dry-run` prints the expected version, download URL and checksum URL (exit 0). A real install was not run here.
 - `tests/unit/test_docs_hygiene.py`: all checks pass in CI (the live count is in the CI run, not in this brief).
 
-**Open-source readiness status** (branch `chore/open-source-readiness`, to be reviewed before push):
+**Open-source readiness status** (branch `chore/open-source-readiness`, not pushed):
 
 Done on the branch:
 
-1. **SARIF organisation.** `helpUri` and `informationUri` now point at `EmberPhantom/SkillSentry`.
-2. **Install and CLI docs.** Docs 07 and 10 and the README use real commands and the real clone URL. The `<org>` placeholders are gone, and the CLI reference no longer shows output the CLI never prints.
-3. **Internal material.** Docs 11, 13, 14 and the checklists moved to `docs/internal/`, with an archive note. The README byline and the CONTRIBUTING ownership map no longer name roles.
-4. **Model badge.** The public badge text matches the CLI's badge in the README, CONTRIBUTING, the docs footers, and the bundled skill.
-5. **Changelog.** The hackathon entry has its own heading, so the 2.0.0 heading is unique.
-6. **Community files.** Code of Conduct, support guide, issue and pull request templates, CODEOWNERS, Dependabot, pre-commit, and `.editorconfig` are in place.
+1. **Community and contribution files.** Code of Conduct, support guide, bug and feature templates, a pull request template, CODEOWNERS, Dependabot for pip, npm, Actions and Docker, pre-commit, and `.editorconfig`.
+2. **Accuracy fixes.** SARIF links point at `EmberPhantom/SkillSentry`. The install and CLI docs use real commands. Exit code 4 is documented as never returned. The changelog has unique version headings.
+3. **Internal material.** Docs 11, 13, 14 and the checklists live under `docs/internal/` with an archive note. The README and CONTRIBUTING no longer name roles.
+4. **Model wording.** Public prose says "the local model". A test blocks capitalised model names in the public documents. Identifiers stay where they are functional.
+5. **Quality gates.** mypy runs in CI and in `scripts/check.sh` and blocks merges. Coverage has a floor of 86% (measured 88%). Seven modules are on a documented lenient list in `pyproject.toml`.
+6. **Container and Node.** Base images are pinned by digest. The server image has a standard-library healthcheck on `/meta`. Node 24 is used everywhere, with a dashboard job in CI.
+7. **Release supply chain.** Both images are signed keyless by digest. BuildKit SBOM and max provenance are enabled on both builds. A CycloneDX SBOM is attached to the release. Every workflow action is pinned to a commit SHA.
+8. **Governance and policy.** `docs/20-governance.md` covers roles, decisions, release authority, support policy, and a maintainer settings checklist. A non-blocking Python 3.14 job collects evidence. The local API's lack of authentication is documented as a limitation.
 
-Still open:
+Verified on this machine:
 
-- **Model name in prose.** Design prose in docs 01 to 09 and 12 still says "local model" where it describes the model. The frozen contract field `gemma_badge` and the config defaults `gemma4:e4b-it-qat` and `gemma-4-e4b` keep their names. Decide whether the public docs should avoid the name entirely.
-- **Repository settings** only a maintainer can change: private vulnerability reporting, branch protection, description and topics, CI running green on GitHub (a billing block is noted), and the PyPI and GHCR publications.
-- **Release path** is tested only by a real tag. Run a release-candidate tag to exercise it end to end.
-- **Local API** has no authentication. That is fine on loopback. Document the rule clearly.
+- `scripts/check.sh` passes end to end: ruff, mypy, 601 tests with 88% coverage, the schema check, and the demo smoke test.
+- The server image builds with the pinned digests. It runs as uid 10001, reports healthy, serves `/meta` on loopback, and mounts no Docker socket.
+- The SBOM steps were run locally against a built wheel and produced 40 components.
+- `actionlint` passes on both workflows. Every `uses:` is pinned to a 40-character SHA.
+
+Still open (cannot be finished in this repository):
+
+- **Repository settings.** A maintainer applies the checklist in [docs/20 §20.5](20-governance.md#205-maintainer-settings-checklist). Check the branch-protection status names against a real CI run before enforcing them.
+- **Release path.** The image signing, image SBOM, provenance, and wheel SBOM steps run only on a real tag. Test them with a release candidate and the commands in [docs/17](17-release-process.md#verify-a-release) before a final release.
+- **Publication.** PyPI and GHCR publication are not confirmed from this repository.
+- **Accuracy.** The benign false-positive and latency targets have not been re-measured for the current release (see 19.12).
+- **Local API authentication.** Documented as a limitation. Team-server authentication is a proposal, not implemented.
+- **Strict typing.** Tighten the lenient modules in `pyproject.toml` one at a time.
+- **Model name in identifiers.** Config defaults, the frozen contract field `gemma_badge`, and class names still contain the name by design. Renaming the contract field belongs to a future major version.
+- **Assets.** A logo, screenshots, and the 30-second demo GIF do not exist yet.
 - **Version.** The examples in this brief were captured on 2.0.0. `main` is now 2.1.0rc1.
-7. **No authentication on the local API.** Fine on loopback. Document the rule clearly and keep the container binding in 19.9 in mind.
-8. **Release path untested end to end.** The release workflow runs only on a real tag. Plan a release-candidate tag to exercise it.
-9. **CI status.** The repository notes a hosted-CI billing block. Confirm the workflows run green on GitHub before claiming CI status.
-
-**Strongly recommended for production use:**
-
-- Measure and publish accuracy on a stated benchmark, including the false-positive rate on benign skills (see 19.12).
-- Sign release artifacts and images, and publish an SBOM. Provenance is generated only for public repositories.
-- Add a coverage threshold and a type checker (`mypy` or `pyright`); neither is configured.
-- Add a health check to the server image, and pin the base images by digest. The server image uses unpinned `node` and `python` bases.
-- Align the Node version: release CI uses Node 20, while the server Dockerfile uses Node 24.
-- Confirm Python 3.14 support or state that it is unsupported. The user guide says it is untested.
-- Add a governance note. `SUPPORT.md` and the security policy are in place; `SECURITY.md` uses GitHub Security Advisories.
 
 **Documentation cleanup:**
 
 - `docs/CHANGELOG.md` keeps old `skillsentry` and `skill-sentry` command names in earlier entries. They are historical, so leave them.
-- The docs index now lists every document in order, and `audit.sh` no longer claims exit code 4.
+- The docs index lists every document in order.
 
 ---
 
