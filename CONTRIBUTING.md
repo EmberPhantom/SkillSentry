@@ -2,16 +2,16 @@
 
 Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is MIT-licensed; by contributing you agree your contributions are licensed under the same terms.
 
-**Start here:** [Developer Guide](docs/10-developer-guide.md) for environment setup, the module layout, coding standards, and extension guides. Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Questions and help: [SUPPORT.md](.github/SUPPORT.md). How decisions and releases are handled: [Governance](docs/20-governance.md).
+**Start here:** [Developer Guide](docs/developer/getting-started.md) for environment setup, the module layout, coding standards, and extension guides. Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Questions and help: [SUPPORT.md](.github/SUPPORT.md). How decisions and releases are handled: [Governance](docs/operations/governance.md).
 
 ---
 
 ## Ground Rules
 
-1. **The Verdict JSON Contract v1 is frozen.** Backward-compatible additions (new optional fields) only. Breaking changes need a `v2` with a migration path and maintainer sign-off. See [docs/05-api-reference.md](docs/05-api-reference.md) §5.5.
+1. **The Verdict JSON Contract v1 is frozen.** Backward-compatible additions (new optional fields) only. Breaking changes need a `v2` with a migration path and maintainer sign-off. See [docs/reference/api.md](docs/reference/api.md) §5.5.
 2. **Shared identifiers stay shared.** Stage names, WebSocket event names, and severity enums live in one constants module. Do not duplicate them as strings in the UI or the backend.
 3. **No error path may produce `SAFE`.** A degraded scan must carry an explicit `*-unavailable` finding (the fail-safe rule).
-4. **Fixtures are hazardous material.** Malicious fixtures run *only* through `skill-sentry-cli scan` (sandboxed). They use fictional C2 domains (`evil-collector.net`, `evil-c2.com`) and never contain real credentials. See the fixture safety rules in [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.2.
+4. **Fixtures are hazardous material.** Malicious fixtures run *only* through `skill-sentry-cli scan` (sandboxed). They use fictional C2 domains (`evil-collector.net`, `evil-c2.com`) and never contain real credentials. See the fixture safety rules in [docs/developer/testing.md](docs/developer/testing.md) §8.2.
 5. **Fusion-weight, prompt, anchor, and masquerade changes must re-run the full fixture corpus** and update `tests/expected_verdicts.json` in the same pull request.
 6. **Docs ship with behavior.** A user-visible change updates the relevant file in `docs/` in the same pull request.
 
@@ -52,8 +52,8 @@ skill-sentry-cli serve --demo-mode --port 8000
 |:---|:---|
 | **Detection** | New AST anchor patterns (PowerShell, Node skills); new evasion-probe indicators; typosquat dictionary expansion |
 | **Fixtures** | Benign and malicious fixtures, with hand-annotated ground-truth lines |
-| **Canary intents** | New context-aware canary sets (for example npm, PyPI, or OpenAI-style keys). Guide: [docs/10-developer-guide.md](docs/10-developer-guide.md) §10.7 |
-| **UI** | Empty, loading, and error state polish; accessibility passes (WCAG rules in [docs/06-ui-ux.md](docs/06-ui-ux.md) §6.6) |
+| **Canary intents** | New context-aware canary sets (for example npm, PyPI, or OpenAI-style keys). Guide: [docs/developer/getting-started.md](docs/developer/getting-started.md) §10.7 |
+| **UI** | Empty, loading, and error state polish; accessibility passes (WCAG rules in [docs/developer/ui-design.md](docs/developer/ui-design.md) §6.6) |
 | **Docs** | Tutorials, troubleshooting recipes, translations |
 | **Reports** | SARIF rule-metadata enrichment; Markdown report theming |
 
@@ -87,7 +87,7 @@ The archived build plan, which assigned work to three roles, is in [docs/interna
 
 ## Community IOC Feed (Phase 2)
 
-Contributing indicators to the community blocklist is **opt-in**, strips all skill content and user identifiers, and is governed by a signed-feed and dispute process ([docs/04-security.md](docs/04-security.md) §4.10). It is not implemented yet.
+Contributing indicators to the community blocklist is **opt-in**, strips all skill content and user identifiers, and is governed by a signed-feed and dispute process ([docs/developer/security.md](docs/developer/security.md) §4.10). It is not implemented yet.
 
 ---
 

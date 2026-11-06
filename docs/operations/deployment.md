@@ -39,7 +39,7 @@ flowchart LR
 
 ## 9.2 Local Deployment (developer machine)
 
-A step-by-step guide for a new machine is in [16-user-guide.md](16-user-guide.md).
+A step-by-step guide for a new machine is in [16-user-guide.md](../user/guide.md).
 
 **Requirements:** 8 GB+ RAM recommended (a local model at Q4, plus the Docker sandbox), ~10 GB disk for the model, Docker daemon, Python 3.11+.
 
@@ -89,7 +89,7 @@ flowchart TD
     DASH --> TEAM["Security team review queue"]
 ```
 
-- Runners execute scans (sandbox stages included); verdicts + SARIF flow to a central store (Postgres variant of the schema, [03-database.md](03-database.md) §3.9) and to GitHub's Security tab.
+- Runners execute scans (sandbox stages included); verdicts + SARIF flow to a central store (Postgres variant of the schema, [03-database.md](../developer/database.md) §3.9) and to GitHub's Security tab.
 - The dashboard is read-only over the scan DB: triage queue, confirmed-IOC leaderboard, cache hit-rate, verdict distribution.
 - **DigitalOcean sponsor angle:** the entire team-server runs on a single **$12 droplet** (dashboard + Postgres; heavy inference stays on runners or an Ollama sidecar host) — mirror this in the README.
 
@@ -120,7 +120,7 @@ Deployment: sidecar process between agent and MCP servers; configuration via the
 
 ## 9.6 Production Hardening Checklist (plan §12.5)
 
-- ☐ **Sandbox escape hardening:** `--security-opt no-new-privileges`, seccomp default profile, non-root user (see [04-security.md](04-security.md) §4.5)
+- ☐ **Sandbox escape hardening:** `--security-opt no-new-privileges`, seccomp default profile, non-root user (see [04-security.md](../developer/security.md) §4.5)
 - ☐ **Scan timeout watchdog** + per-skill resource quotas
 - ☐ **Structured logging (JSON)** + OpenTelemetry hooks
 - ☐ **Signed verdicts:** sigstore keyless signing, verifiable via `cosign verify-blob`
@@ -154,4 +154,4 @@ Logs are JSON lines with `scan_id` correlation; no skill content in logs by defa
 
 ---
 
-*Next: [10-developer-guide.md](10-developer-guide.md).*
+*Next: [10-developer-guide.md](../developer/getting-started.md).*

@@ -1,6 +1,6 @@
 """Deterministic package hashing used by the verdict cache.
 
-The algorithm is documented in ``docs/03-database.md``: every regular file is
+The algorithm is documented in ``docs/developer/database.md``: every regular file is
 visited in sorted POSIX-relative-path order and contributes its path, Unix mode
 bits and the SHA-256 of its bytes.  Directory entries are included as well so
 adding or removing an empty directory invalidates the cache.

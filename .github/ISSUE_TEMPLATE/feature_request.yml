@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before you start, read the [Verdict contract](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/05-api-reference.md) and the [Ground Rules in CONTRIBUTING.md](https://github.com/EmberPhantom/SkillSentry/blob/main/CONTRIBUTING.md#ground-rules). The Verdict JSON contract is frozen; changes must be additive.
+        Before you start, read the [Verdict contract](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/reference/api.md) and the [Ground Rules in CONTRIBUTING.md](https://github.com/EmberPhantom/SkillSentry/blob/main/CONTRIBUTING.md#ground-rules). The Verdict JSON contract is frozen; changes must be additive.
   - type: textarea
     id: problem
     attributes:

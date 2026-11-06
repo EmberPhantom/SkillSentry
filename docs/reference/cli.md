@@ -30,7 +30,7 @@ pipx install skill-sentry-cli
 | Docker daemon | sandbox, Poisoned Well, evasion detection | `docker info` |
 | Gemini API key (**opt-in**) | cloud fallback | `export GEMINI_API_KEY=…` |
 
-Without Ollama/Docker the CLI still runs in **degraded static mode** (explicitly flagged — never a silent `SAFE`; see fail-safe rule in [05-api-reference.md](05-api-reference.md) §5.8) or in `--demo-mode`.
+Without Ollama/Docker the CLI still runs in **degraded static mode** (explicitly flagged — never a silent `SAFE`; see fail-safe rule in [05-api-reference.md](api.md) §5.8) or in `--demo-mode`.
 
 ## 7.2 Commands
 
@@ -49,7 +49,7 @@ SkillSentry <version> - Fully local analysis · open weights - backend: demo/moc
    Poisoned Well: DNS_TUNNELING -> evil-collector.net (marker SKS-7f3a9c21)
 ```
 
-This is the offline demo output, captured from a real run. A sandboxed scan prints the same shape, with the evidence from each stage. The per-stage progress lines in earlier drafts of this page were never printed by the CLI; see the [user guide](16-user-guide.md) §7 for real sandboxed output.
+This is the offline demo output, captured from a real run. A sandboxed scan prints the same shape, with the evidence from each stage. The per-stage progress lines in earlier drafts of this page were never printed by the CLI; see the [user guide](../user/guide.md) §7 for real sandboxed output.
 
 | Flag | Default | Description |
 |:---|:---|:---|
@@ -88,7 +88,7 @@ Re-render the report of a stored scan without re-running it. `--format` defaults
 
 ### `skill-sentry-cli serve [--host 127.0.0.1] [--port 8000] [--demo-mode] [--speed 1.0]`
 
-Runs the FastAPI server and dashboard ([05-api-reference.md](05-api-reference.md), [06-ui-ux.md](06-ui-ux.md)). `--demo-mode` serves the canned store; `--speed` sets the demo replay speed (0 is instant). The bind address defaults to loopback.
+Runs the FastAPI server and dashboard ([05-api-reference.md](api.md), [06-ui-ux.md](../developer/ui-design.md)). `--demo-mode` serves the canned store; `--speed` sets the demo replay speed (0 is instant). The bind address defaults to loopback.
 
 ### `skill-sentry-cli self-audit`
 
@@ -169,7 +169,7 @@ upload_sarif = false             # not read in v1; roadmap with the GitHub Actio
 
 A parent folder containing a valid skill and an invalid/unscannable child returns the completed reports and exits `3`; partial success is never reported as a clean CI pass. Usage errors are checked before any scan starts.
 
-A planned GitHub Action, `skillsentry/scan@v1`, would map to this contract (see [09-deployment-and-production.md](09-deployment-and-production.md)). **It is not published.** Until it is, call the CLI directly in your workflow, as shown in the [user guide](16-user-guide.md) §11.
+A planned GitHub Action, `skillsentry/scan@v1`, would map to this contract (see [09-deployment-and-production.md](../operations/deployment.md)). **It is not published.** Until it is, call the CLI directly in your workflow, as shown in the [user guide](../user/guide.md) §11.
 
 ## 7.6 GitHub Action (planned)
 
@@ -186,4 +186,4 @@ A planned GitHub Action, `skillsentry/scan@v1`, would map to this contract (see 
 
 ---
 
-*Next: [08-testing-and-evaluation.md](08-testing-and-evaluation.md).*
+*Next: [08-testing-and-evaluation.md](../developer/testing.md).*

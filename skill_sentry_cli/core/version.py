@@ -2,7 +2,7 @@
 
 The engine version participates in the Stage-0 cache key.  Any change to the
 fusion weights is folded into the version string so cached verdicts produced
-under different scoring rules are never reused (docs/03-database.md §3.5).
+under different scoring rules are never reused (docs/developer/database.md §3.5).
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""API error model (docs/05-api-reference.md §5.8)."""
+"""API error model (docs/reference/api.md §5.8)."""
 
 from __future__ import annotations
 

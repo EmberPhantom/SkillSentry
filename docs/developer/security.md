@@ -55,7 +55,7 @@ Two classes of evidence **override** the fused risk score:
 1. **Poisoned Well correlation** — canary marker `SKS-<8hex>` observed in outbound (sinkholed) traffic within N seconds of a canary read ⇒ `MALICIOUS`, `confidence: 1.0`, risk score at least 95. This is hard proof: only code that stole the fake credential can echo its marker.
 2. **Sandbox evasion probe** — touching sandbox-detection paths ⇒ `MALICIOUS`, `confidence: 1.0`, risk score 100. Legitimate skills have no business fingerprinting their execution environment.
 
-Everything else is weighted fusion (anchors 0.15 · semantic 0.20 · vision 0.20 · sandbox telemetry 0.25 · typosquat +15), tiered `SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS` (see [02-architecture.md](02-architecture.md) §2.4). Explicit findings also impose evidence floors after fusion: CRITICAL ≥ 95, HIGH ≥ 70, MEDIUM ≥ 30; typosquat detection floors at 30. This prevents a strong deterministic or vision finding from being diluted below the tier implied by its evidence.
+Everything else is weighted fusion (anchors 0.15 · semantic 0.20 · vision 0.20 · sandbox telemetry 0.25 · typosquat +15), tiered `SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS` (see [02-architecture.md](architecture.md) §2.4). Explicit findings also impose evidence floors after fusion: CRITICAL ≥ 95, HIGH ≥ 70, MEDIUM ≥ 30; typosquat detection floors at 30. This prevents a strong deterministic or vision finding from being diluted below the tier implied by its evidence.
 
 ## 4.4 Poisoned Well — Active Defense: Ethics, Safety, Legal
 
@@ -184,4 +184,4 @@ Production hardening checklist (Phase 1–2, from plan §12.5):
 
 ---
 
-*Next: [05-api-reference.md](05-api-reference.md) — REST/WebSocket contract reference.*
+*Next: [05-api-reference.md](../reference/api.md) — REST/WebSocket contract reference.*

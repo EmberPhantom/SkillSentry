@@ -12,7 +12,7 @@
 | **Deterministic anchoring** | Static AST/regex facts are computed first and injected into every LLM prompt as ground truth; the LLM may elaborate but may not contradict them. |
 | **Hard evidence overrides soft judgment** | Poisoned Well correlation and sandbox-evasion probes force `MALICIOUS` (`confidence: 1.0`) regardless of the fused score. |
 | **Everything local** | Ollama (local model, Q4) + Docker + SQLite on one machine; cloud (Gemini API) is an explicit opt-in fallback. |
-| **Contract-first** | The Verdict JSON schema (§7.6 of the plan; [05-api-reference.md](05-api-reference.md)) freezes at M0 and does not change. |
+| **Contract-first** | The Verdict JSON schema (§7.6 of the plan; [05-api-reference.md](../reference/api.md)) freezes at M0 and does not change. |
 | **Fail-safe demo** | Every external dependency (network, Docker, model) has a degraded path: cloud fallback, `--demo-mode`, graceful UI error states. |
 
 ## 2.2 System Context
@@ -228,7 +228,7 @@ tiers:    SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS
 
 The evidence floors are **not weights**: a single critical deterministic or vision finding cannot be averaged below `MALICIOUS` by several clean-looking model scores. `FusionResult.evidence_floor` records the applied floor for auditing. A degraded stage still forces `SUSPICIOUS` at minimum and can never leave a scan `SAFE`.
 
-**Design principle:** *LLM judgment + hard deterministic evidence = credible, not vibes.* Weights live in one config module so they are tunable and testable (see fixture-regression tests in [08-testing-and-evaluation.md](08-testing-and-evaluation.md)).
+**Design principle:** *LLM judgment + hard deterministic evidence = credible, not vibes.* Weights live in one config module so they are tunable and testable (see fixture-regression tests in [08-testing-and-evaluation.md](testing.md)).
 
 ## 2.5 Data Flow
 
@@ -321,7 +321,7 @@ skill_sentry_cli/
  └── tests/
 ```
 
-**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](internal/11-team-and-workload.md).
+**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](../internal/11-team-and-workload.md).
 
 ## 2.7 Technology Stack & Rationale
 
@@ -353,7 +353,7 @@ flowchart LR
     SEL -->|"demo / both down"| DM["demo_mode.py<br/>canned responses"]
 ```
 
-Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. The active backend is recorded with every cached verdict so cache entries are invalidated when the model changes (see [03-database.md](03-database.md)).
+Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. The active backend is recorded with every cached verdict so cache entries are invalidated when the model changes (see [03-database.md](database.md)).
 
 ## 2.8 Performance Budget
 
@@ -371,11 +371,11 @@ Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. 
 |:---|:---|:---|:---|
 | `POST /scan` → `scan_id` | Dev 2/3 API | Dev 1 | JSON |
 | `WS /scan/{id}/stream` | API | LiveConsole | `{stage, skill, event, ts}` |
-| Verdict object | Verdict engine | Triage table | **JSON schema v1** (§7.6 plan / [05-api-reference.md](05-api-reference.md)) |
+| Verdict object | Verdict engine | Triage table | **JSON schema v1** (§7.6 plan / [05-api-reference.md](../reference/api.md)) |
 | SARIF report file | Verdict engine | Export button | SARIF 2.1.0-style |
 | Mock Ollama endpoint | Dev 3 | Dev 1 | Canned JSON (parallel dev) |
 
-**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](internal/11-team-and-workload.md).
+**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](../internal/11-team-and-workload.md).
 
 ## 2.10 Phase 2 — MCP Runtime Interception
 
@@ -399,8 +399,8 @@ flowchart LR
     Policy --> RG3
 ```
 
-The MCP proxy reuses the pre-install verdict as the *baseline policy* for a skill (declared intent, allowed capabilities) and enforces drift detection at tool-call time. Deployment details: [09-deployment-and-production.md](09-deployment-and-production.md) §Phase 2.
+The MCP proxy reuses the pre-install verdict as the *baseline policy* for a skill (declared intent, allowed capabilities) and enforces drift detection at tool-call time. Deployment details: [09-deployment-and-production.md](../operations/deployment.md) §Phase 2.
 
 ---
 
-*Next: [03-database.md](03-database.md) — persistence, caching, and IOC storage.*
+*Next: [03-database.md](database.md) — persistence, caching, and IOC storage.*

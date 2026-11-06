@@ -94,7 +94,7 @@ cd ..
 
 **Upgrade:** `pipx upgrade skill-sentry-cli`, or run the install script again. **Uninstall:** `sh install.sh --uninstall`, or `pipx uninstall skill-sentry-cli`. Both keep your scan history and any `skillsentry.toml` you wrote.
 
-**Verify a download.** The install script checks the wheel against `SHA256SUMS` before installing. To check a release's image or wheel yourself, see [Verify a release](17-release-process.md#verify-a-release).
+**Verify a download.** The install script checks the wheel against `SHA256SUMS` before installing. To check a release's image or wheel yourself, see [Verify a release](../operations/release-process.md#verify-a-release).
 
 ---
 
@@ -482,4 +482,4 @@ skill-sentry-cli export <scan-id> [--format markdown|sarif|stix] [-o FILE]
 skill-sentry-cli serve [--host 127.0.0.1] [--port 8000]
 ```
 
-Full reference: [07-cli-reference.md](07-cli-reference.md).
+Full reference: [07-cli-reference.md](../reference/cli.md).

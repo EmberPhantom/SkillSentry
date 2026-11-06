@@ -9,4 +9,4 @@
 | [14 · Developer handoff](14-developer2-handoff.md) | An integration log from one contributor's branch |
 | [Work checklists](checklists/README.md) | Per-task checklists for the build |
 
-For how the product works, start from the [documentation index](../README.md) and the [user guide](../16-user-guide.md). For contributing, see [CONTRIBUTING.md](../../CONTRIBUTING.md).
+For how the product works, start from the [documentation index](../README.md) and the [user guide](../user/guide.md). For contributing, see [CONTRIBUTING.md](../../CONTRIBUTING.md).

@@ -1,6 +1,6 @@
 """Mock server: ``python -m skill_sentry_cli.server.demo_mode --port 8000``.
 
-Serves every endpoint from docs/05-api-reference.md §5.2 with canned data from
+Serves every endpoint from docs/reference/api.md §5.2 with canned data from
 the 7-skill store.  No Docker, model, or database required.
 """
 

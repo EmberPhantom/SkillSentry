@@ -1,6 +1,6 @@
 # 20 · Governance
 
-> How SkillSentry is maintained, who decides what, how releases are cut, and what is supported. Contributors should read this with [CONTRIBUTING.md](../CONTRIBUTING.md); participation is covered by the [Code of Conduct](../.github/CODE_OF_CONDUCT.md).
+> How SkillSentry is maintained, who decides what, how releases are cut, and what is supported. Contributors should read this with [CONTRIBUTING.md](../../CONTRIBUTING.md); participation is covered by the [Code of Conduct](../../.github/CODE_OF_CONDUCT.md).
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Role | Who | Can do |
 |:---|:---|:---|
-| **Maintainer** | The repository owner, `@EmberPhantom` (see [CODEOWNERS](../.github/CODEOWNERS)) | Merge pull requests, push release tags, approve the `pypi` publishing environment, handle security reports, make decisions in 20.2 |
+| **Maintainer** | The repository owner, `@EmberPhantom` (see [CODEOWNERS](../../.github/CODEOWNERS)) | Merge pull requests, push release tags, approve the `pypi` publishing environment, handle security reports, make decisions in 20.2 |
 | **Contributor** | Anyone who opens an issue or pull request | Propose changes; review; discuss |
 | **Community** | Users and reporters | File issues, join discussions, report vulnerabilities privately |
 
@@ -16,15 +16,15 @@ SkillSentry has one maintainer account today. Adding maintainers means adding th
 
 ## 20.2 How decisions are made
 
-**Routine changes** (bug fixes, documentation, new detections that do not change scoring) need one maintainer review, green CI, and the checklist in the [pull request template](../.github/PULL_REQUEST_TEMPLATE.md).
+**Routine changes** (bug fixes, documentation, new detections that do not change scoring) need one maintainer review, green CI, and the checklist in the [pull request template](../../.github/PULL_REQUEST_TEMPLATE.md).
 
 **Decisions that need an explicit maintainer decision**, recorded in the pull request or an issue before merge:
 
-- the Verdict JSON contract and the schemas in `schemas/` (see [docs/05](05-api-reference.md) §5.5)
+- the Verdict JSON contract and the schemas in `schemas/` (see [docs/05](../reference/api.md) §5.5)
 - fusion weights, tier thresholds, and the list of stages
 - sandbox hardening and the network sinkhole
 - Poisoned Well canary formats and marker rules
-- the community IOC feed (opt-in, not implemented yet; see [docs/04](04-security.md) §4.10)
+- the community IOC feed (opt-in, not implemented yet; see [docs/04](../developer/security.md) §4.10)
 - any change that makes a verdict less strict, such as a new path to `SAFE`
 
 A breaking contract change needs a new contract version, a migration path, and a changelog entry. Additive changes (new optional fields) are the default route.
@@ -33,16 +33,16 @@ A breaking contract change needs a new contract version, a migration path, and a
 
 ## 20.3 Releases
 
-- Only maintainers push tags that match `v*`. The release workflow ([docs/17](17-release-process.md)) builds, tests, signs the images, and attaches the SBOM.
+- Only maintainers push tags that match `v*`. The release workflow ([docs/17](release-process.md)) builds, tests, signs the images, and attaches the SBOM.
 - Release candidates (`vX.Y.ZrcN`) publish to TestPyPI and to a GitHub pre-release.
 - Final tags publish to PyPI only after a reviewer approves the `pypi` environment.
-- Every release is checked with the commands in [docs/17 §4, Verify a release](17-release-process.md#verify-a-release) before its notes are published.
+- Every release is checked with the commands in [docs/17 §4, Verify a release](release-process.md#verify-a-release) before its notes are published.
 
 ## 20.4 Support policy
 
 | Item | Policy |
 |:---|:---|
-| Security fixes | The current release line, as listed in [SECURITY.md](../SECURITY.md#supported-versions). |
+| Security fixes | The current release line, as listed in [SECURITY.md](../../SECURITY.md#supported-versions). |
 | Python | 3.11, 3.12, and 3.13 are supported. 3.14 is tested in CI as a non-blocking check and is not supported yet. |
 | Linux | Supported. Ubuntu-class systems are what CI and the release build use. |
 | WSL 2 | Best-effort. Requires Docker Desktop with WSL integration for sandbox scans. |
@@ -50,7 +50,7 @@ A breaking contract change needs a new contract version, a migration path, and a
 | Local model backend (Ollama) | Supported. Verdicts depend on the model you install, so pin it in your configuration. |
 | Cloud model backend | Opt-in and outside the support commitment. Skill content leaves your machine when it is used. |
 
-Response times are targets, not guarantees. [SUPPORT.md](../.github/SUPPORT.md) describes where to ask for help.
+Response times are targets, not guarantees. [SUPPORT.md](../../.github/SUPPORT.md) describes where to ask for help.
 
 ## 20.5 Maintainer settings checklist
 

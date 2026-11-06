@@ -1,4 +1,4 @@
-"""SARIF 2.1.0 report writer (docs/05-api-reference.md §5.6)."""
+"""SARIF 2.1.0 report writer (docs/reference/api.md §5.6)."""
 
 from __future__ import annotations
 

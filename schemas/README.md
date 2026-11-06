@@ -25,7 +25,7 @@ schema update must land in the same PR.
 - Canonical stage values are the §5.4 spellings (`deterministicAnchor`,
   `poisonedWell`), not the descriptive labels in §5.3.
 - Every response body is camelCase; request bodies are snake_case. See
-  `docs/12-contract-additions.md` §12.5.
+  `docs/internal/contract-additions.md` §12.5.
 
 For TypeScript generation, point your generator at `api.v1.json` and treat the
 top-level keys as named schemas. `verdict.v1.json` is self-contained and can be

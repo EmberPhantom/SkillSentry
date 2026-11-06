@@ -6,33 +6,33 @@
 
 This directory contains the documentation for **SkillSentry v2.0**, an open-source, fully-local gatekeeper that audits AI Agent Skills before installation. It combines local multimodal model reasoning (text and vision) with deterministic sandbox telemetry, context-aware honeypots, sandbox-evasion detection, and active deception (Poisoned Well).
 
-> 📌 **Provenance:** The design documents were first written as a plan for the MLH Hacktoberfest Hack Day. Where a document extends the plan with concrete engineering detail, the additions are marked **Spec (proposed)**. Parts of the plan changed during the build; the code and the [user guide](16-user-guide.md) are the current reference.
+> 📌 **Provenance:** The design documents were first written as a plan for the MLH Hacktoberfest Hack Day. Where a document extends the plan with concrete engineering detail, the additions are marked **Spec (proposed)**. Parts of the plan changed during the build; the code and the [user guide](user/guide.md) are the current reference.
 
 ---
 
 ## 📚 Document Index
 
-Start with the [User Guide](16-user-guide.md) if you use SkillSentry, or the [Developer Guide](10-developer-guide.md) if you contribute.
+Start with the [User Guide](user/guide.md) if you use SkillSentry, or the [Developer Guide](developer/getting-started.md) if you contribute.
 
 | # | Document | Contents |
 |:--|:---------|:---------|
-| 1 | [Project Overview](01-project-overview.md) | Problem statement, market validation, solution summary, feature matrix, competitive positioning, success metrics, glossary |
-| 2 | [Architecture](02-architecture.md) | System context, the 8-stage inspection pipeline, risk scoring model, data flow, module map, tech stack, integration contracts, Phase-2 MCP proxy |
-| 3 | [Database](03-database.md) | SQLite schema (cache, scans, findings, canary events, IOCs, attacker profiles), directory hashing spec, cache invalidation, migrations, Postgres team-server variant |
-| 4 | [Security](04-security.md) | Supply-chain threat model, SkillSentry's own attack surface, sandbox hardening, Poisoned Well ethics and safety, prompt-injection defense, privacy, known limitations |
-| 5 | [API Reference](05-api-reference.md) | REST endpoints, WebSocket live-scan stream, frozen Verdict JSON Contract v1, SARIF 2.1.0 extension schema, STIX export mapping, error model |
-| 6 | [UI/UX Design](06-ui-ux.md) | Design language and tokens, screen architecture, wireframes (Triage Table, Poisoned Well IOC view, Eye View), component tree, UX rules, accessibility |
-| 7 | [CLI Reference](07-cli-reference.md) | `skill-sentry-cli` command reference, configuration file, environment variables, exit codes for CI, examples |
-| 8 | [Testing & Evaluation](08-testing-and-evaluation.md) | Test strategy, the fixture corpus, evaluation plan and metrics, Chaos Run procedure, demo script, CI pipeline |
-| 9 | [Deployment & Production](09-deployment-and-production.md) | Distribution (pip, Docker, GitHub Action), self-hosted team-server topology, MCP runtime interception (Phase 2), hardening, observability |
-| 10 | [Developer Guide](10-developer-guide.md) | Environment setup, repository layout, development workflow, coding standards, extension guides (new stage, fixture, canary intent), roadmap |
-| 12 | [Contract Additions](12-contract-additions.md) | Additive contract fields, API clarifications, batch semantics |
-| 15 | [v1 Test Results](15-v1-test-results.md) | Recorded results of the v1 test run |
-| 16 | [User Guide](16-user-guide.md) | Install, check readiness, scan skills, read verdicts, reports, dashboard, CI use, troubleshooting |
-| 17 | [Release Process](17-release-process.md) | Tag-driven release runbook: TestPyPI and PyPI publishing, sandbox and server images, provenance |
-| 18 | [Registry Accounts](18-registry-accounts.md) | Creating PyPI and TestPyPI accounts with two-factor authentication, trusted-publisher setup, recovery |
-| 19 | [Landing-Page Brief](19-landing-page-brief.md) | Product and command reference: positioning, pipeline, install, every CLI command and flag, verdicts, configuration, outputs, CI, open-source readiness |
-| 20 | [Governance](20-governance.md) | Roles, decision process, release authority, support policy, and the maintainer settings checklist |
+| 1 | [Project Overview](user/overview.md) | Problem statement, market validation, solution summary, feature matrix, competitive positioning, success metrics, glossary |
+| 2 | [Architecture](developer/architecture.md) | System context, the 8-stage inspection pipeline, risk scoring model, data flow, module map, tech stack, integration contracts, Phase-2 MCP proxy |
+| 3 | [Database](developer/database.md) | SQLite schema (cache, scans, findings, canary events, IOCs, attacker profiles), directory hashing spec, cache invalidation, migrations, Postgres team-server variant |
+| 4 | [Security](developer/security.md) | Supply-chain threat model, SkillSentry's own attack surface, sandbox hardening, Poisoned Well ethics and safety, prompt-injection defense, privacy, known limitations |
+| 5 | [API Reference](reference/api.md) | REST endpoints, WebSocket live-scan stream, frozen Verdict JSON Contract v1, SARIF 2.1.0 extension schema, STIX export mapping, error model |
+| 6 | [UI/UX Design](developer/ui-design.md) | Design language and tokens, screen architecture, wireframes (Triage Table, Poisoned Well IOC view, Eye View), component tree, UX rules, accessibility |
+| 7 | [CLI Reference](reference/cli.md) | `skill-sentry-cli` command reference, configuration file, environment variables, exit codes for CI, examples |
+| 8 | [Testing & Evaluation](developer/testing.md) | Test strategy, the fixture corpus, evaluation plan and metrics, Chaos Run procedure, demo script, CI pipeline |
+| 9 | [Deployment & Production](operations/deployment.md) | Distribution (pip, Docker, GitHub Action), self-hosted team-server topology, MCP runtime interception (Phase 2), hardening, observability |
+| 10 | [Developer Guide](developer/getting-started.md) | Environment setup, repository layout, development workflow, coding standards, extension guides (new stage, fixture, canary intent), roadmap |
+| 12 | [Contract Additions](internal/contract-additions.md) | Additive contract fields, API clarifications, batch semantics |
+| 15 | [v1 Test Results](internal/v1-test-results.md) | Recorded results of the v1 test run |
+| 16 | [User Guide](user/guide.md) | Install, check readiness, scan skills, read verdicts, reports, dashboard, CI use, troubleshooting |
+| 17 | [Release Process](operations/release-process.md) | Tag-driven release runbook: TestPyPI and PyPI publishing, sandbox and server images, provenance |
+| 18 | [Registry Accounts](operations/registry-accounts.md) | Creating PyPI and TestPyPI accounts with two-factor authentication, trusted-publisher setup, recovery |
+| 19 | [Landing-Page Brief](internal/landing-page-brief.md) | Product and command reference: positioning, pipeline, install, every CLI command and flag, verdicts, configuration, outputs, CI, open-source readiness |
+| 20 | [Governance](operations/governance.md) | Roles, decision process, release authority, support policy, and the maintainer settings checklist |
 | — | [Changelog](CHANGELOG.md) | Version history following Keep a Changelog |
 
 ### Archived planning material
@@ -54,7 +54,7 @@ The following files live at the **repository root**, not inside this folder:
 |:-----|:--------|
 | `README.md` | Public repository readme: pitch, threat model, architecture, how to run, evaluation |
 | `LICENSE` | MIT |
-| `SECURITY.md` | Vulnerability disclosure policy (mirrors [04-security.md](04-security.md) §4.12) |
+| `SECURITY.md` | Vulnerability disclosure policy (mirrors [04-security.md](developer/security.md) §4.12) |
 | `CONTRIBUTING.md` | Contributor workflow, contract rules, and where to find the pull request checklist |
 | `.github/CODE_OF_CONDUCT.md`, `.github/SUPPORT.md` | Community standards and where to get help |
 | `skill_sentry_cli/skill/SKILL.md` | SkillSentry's **own** Agent Skill, which it can audit with `self-audit` |

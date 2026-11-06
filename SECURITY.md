@@ -2,7 +2,7 @@
 
 SkillSentry is a security tool that **executes untrusted code by design** (inside a hardened, sinkhole-only Docker sandbox). We take its own security seriously and welcome responsible disclosure.
 
-> Full security architecture — threat model, sandbox hardening, Poisoned Well ethics, prompt-injection defenses, and known limitations: **[docs/04-security.md](docs/04-security.md)**.
+> Full security architecture — threat model, sandbox hardening, Poisoned Well ethics, prompt-injection defenses, and known limitations: **[docs/developer/security.md](docs/developer/security.md)**.
 
 ## Supported Versions
 
@@ -56,6 +56,6 @@ Good-faith research against **your own** installations and the `fixtures/` corpu
 
 ## Secure Distribution
 
-- Release images are keyless-signed with cosign by digest, and the wheel has a build provenance attestation. The commands to check them are in [docs/17-release-process.md](docs/17-release-process.md#verify-a-release).
+- Release images are keyless-signed with cosign by digest, and the wheel has a build provenance attestation. The commands to check them are in [docs/operations/release-process.md](docs/operations/release-process.md#verify-a-release).
 - Phase 2: **sigstore keyless-signed verdicts** (`cosign verify-blob`). Until then, prefer installing from source at a reviewed commit or the published Docker image digest.
-- Verify Ollama model digests (`model_version` is recorded with every verdict — see [docs/03-database.md](docs/03-database.md)).
+- Verify Ollama model digests (`model_version` is recorded with every verdict — see [docs/developer/database.md](docs/developer/database.md)).

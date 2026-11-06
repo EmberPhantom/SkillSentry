@@ -1,4 +1,4 @@
-"""CLI exit codes (docs/07-cli-reference.md §7.5)."""
+"""CLI exit codes (docs/reference/cli.md §7.5)."""
 
 from __future__ import annotations
 

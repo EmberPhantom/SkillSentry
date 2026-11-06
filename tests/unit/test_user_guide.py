@@ -15,7 +15,7 @@ from skill_sentry_cli import cli
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[2]
-GUIDE = ROOT / "docs" / "16-user-guide.md"
+GUIDE = ROOT / "docs" / "user" / "guide.md"
 runner = CliRunner()
 
 SUBCOMMAND_GROUPS = {"cache", "sandbox"}

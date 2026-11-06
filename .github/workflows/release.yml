@@ -3,7 +3,7 @@
 # Pre-releases (rc) go to TestPyPI and a GitHub pre-release.  Final tags go to
 # PyPI, which only runs after a reviewer approves the `pypi` environment.
 # Publishing uses PyPI trusted publishing: no API tokens are stored in the repo.
-# Third-party actions are pinned by commit SHA.  See docs/17-release-process.md.
+# Third-party actions are pinned by commit SHA.  See docs/operations/release-process.md.
 name: release
 
 on:

@@ -5,7 +5,7 @@ API calls small methods through ``asyncio.to_thread``.  A single connection is
 guarded by a re-entrant lock, which keeps in-memory test databases and SQLite's
 ``check_same_thread`` rules simple.
 
-Schema version 1 mirrors ``docs/03-database.md``.  Two additive columns/tables
+Schema version 1 mirrors ``docs/developer/database.md``.  Two additive columns/tables
 are used to keep the live API fully functional without mutating the frozen
 verdict contract:
 
