@@ -14,7 +14,7 @@
 # On native Windows, use install.ps1 instead (this script runs in Git Bash or WSL).
 set -eu
 
-VERSION="2.1.0rc2"
+VERSION="2.1.0"
 REPO="EmberPhantom/SkillSentry"
 HOME_DIR="${SKILL_SENTRY_HOME:-$HOME/.local/share/skill-sentry-cli}"
 BIN_DIR="$HOME/.local/bin"
