@@ -12,7 +12,7 @@
 #   docker buildx imagetools inspect python:3.12-slim
 # and replace the digests below.  Dependabot's docker updates open the pull requests.
 
-FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS ui
+FROM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS ui
 WORKDIR /src
 COPY ui ./ui
 RUN mkdir -p skill_sentry_cli/ui \
