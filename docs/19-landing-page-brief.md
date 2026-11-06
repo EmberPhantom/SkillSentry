@@ -586,17 +586,19 @@ Verified on this machine:
 - The SBOM steps were run locally against a built wheel and produced 40 components.
 - `actionlint` passes on both workflows. Every `uses:` is pinned to a 40-character SHA.
 
-Still open (cannot be finished in this repository):
+Completed since the first readiness pass:
 
-- **Repository settings.** A maintainer applies the checklist in [docs/20 §20.5](20-governance.md#205-maintainer-settings-checklist). Check the branch-protection status names against a real CI run before enforcing them.
-- **Release path.** The image signing, image SBOM, provenance, and wheel SBOM steps run only on a real tag. Test them with a release candidate and the commands in [docs/17](17-release-process.md#verify-a-release) before a final release.
-- **Publication.** PyPI and GHCR publication are not confirmed from this repository.
+- **Repository settings.** Applied and read back: private vulnerability reporting, description and topics, Discussions, branch cleanup, secret scanning with push protection, Dependabot alerts and security updates, branch protection on `main`, and the `pypi` and `testpypi` environments.
+- **Release path.** Verified with `v2.1.0rc2` and `v2.1.0`: the release workflow passed, both images are signed with valid signatures, the wheel attestation verifies, and the wheel matches `SHA256SUMS` and the PyPI digest.
+- **Publication.** `skill-sentry-cli` 2.1.0 is on PyPI and 2.1.0rc2 is on TestPyPI. The sandbox and server images are public on GHCR.
+
+Still open:
+
 - **Accuracy.** The benign false-positive and latency targets have not been re-measured for the current release (see 19.12).
 - **Local API authentication.** Documented as a limitation. Team-server authentication is a proposal, not implemented.
 - **Strict typing.** Tighten the lenient modules in `pyproject.toml` one at a time.
 - **Model name in identifiers.** Config defaults, the frozen contract field `gemma_badge`, and class names still contain the name by design. Renaming the contract field belongs to a future major version.
 - **Assets.** A logo, screenshots, and the 30-second demo GIF do not exist yet.
-- **Version.** The examples in this brief were captured on 2.0.0. `main` is now 2.1.0rc1.
 
 **Documentation cleanup:**
 
