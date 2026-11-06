@@ -46,7 +46,7 @@ Read `install.sh` before running it, as you would any script you download. Usefu
 |:---|:---|
 | `--no-setup` | Install only; run `skill-sentry-cli setup` yourself later |
 | `--dry-run` | Print the download URL and steps; change nothing |
-| `--version 2.1.0rc1` | Install a specific published version |
+| `--version 2.1.0` | Install a specific published version |
 | `--upgrade` | Reinstall over an existing install |
 | `--uninstall` | Remove the command; your scan history is kept |
 
@@ -79,7 +79,7 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.1.0rc1 - Fully local analysis · open weights` (the version number matches the release you installed).
+Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.1.0 - Fully local analysis · open weights` (the version number matches the release you installed).
 
 **Build the dashboard** only when you install from a checkout (B and A ship it built):
 
@@ -187,7 +187,7 @@ skill-sentry-cli scan fixtures/benign/pdf-summarizer
 Expected (the first time; a repeat is marked `(cached)`):
 
 ```text
-SkillSentry 2.0.0 - Fully local analysis · open weights - backend: auto (local -> cloud -> unavailable)
+SkillSentry 2.1.0 - Fully local analysis · open weights - backend: auto (local -> cloud -> unavailable)
 [OK] pdf-summarizer - SAFE - risk 0 - confidence 0.75
 ```
 
