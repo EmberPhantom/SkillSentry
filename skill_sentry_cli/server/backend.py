@@ -6,7 +6,7 @@ this protocol, so the contract-parity tests exercise identical handlers.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
@@ -48,7 +48,7 @@ class ScanBackend(Protocol):
 
     async def get_skill(self, skill_id: UUID) -> SkillDetail: ...
 
-    async def stream(self, scan_id: UUID) -> AsyncIterator[WSMessage]: ...
+    def stream(self, scan_id: UUID) -> AsyncGenerator[WSMessage, None]: ...
 
     async def cancel(self, scan_id: UUID) -> None: ...
 

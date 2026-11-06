@@ -2,73 +2,93 @@
 
 Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is MIT-licensed; by contributing you agree your contributions are licensed under the same terms.
 
-**Start here:** [Developer Guide](docs/10-developer-guide.md) — environment setup, module ownership, coding standards, and extension guides.
+**Start here:** [Developer Guide](docs/10-developer-guide.md) for environment setup, the module layout, coding standards, and extension guides. Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Questions and help: [SUPPORT.md](.github/SUPPORT.md). How decisions and releases are handled: [Governance](docs/20-governance.md).
 
 ---
 
 ## Ground Rules
 
-1. **The Verdict JSON Contract v1 is frozen.** Backward-compatible additions (new optional fields) only; breaking changes require a `v2` + migration path and sign-off from all maintainers. See [docs/05-api-reference.md](docs/05-api-reference.md) §5.5.
-2. **Shared identifiers stay shared.** Stage names, WS event names, and severity enums live in one constants module — no stringly-typed duplicates in UI or backend.
-3. **No error path may produce `SAFE`.** Any degraded scan must carry explicit `*-unavailable` findings (fail-safe rule).
-4. **Fixtures are hazardous material.** Malicious fixtures run *only* through `skill-sentry-cli scan` (sandboxed), use fictional C2 domains (`evil-collector.net`, `evil-c2.com`), and never reference real credentials. See fixture safety rules in [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.2.
-5. **Fusion-weight / prompt / anchor / masquerade changes must re-run the full fixture corpus** and update `tests/expected_verdicts.json` in the same PR.
-6. **Docs ship with behavior.** Public-facing changes update the relevant `docs/` file in the same PR.
+1. **The Verdict JSON Contract v1 is frozen.** Backward-compatible additions (new optional fields) only. Breaking changes need a `v2` with a migration path and maintainer sign-off. See [docs/05-api-reference.md](docs/05-api-reference.md) §5.5.
+2. **Shared identifiers stay shared.** Stage names, WebSocket event names, and severity enums live in one constants module. Do not duplicate them as strings in the UI or the backend.
+3. **No error path may produce `SAFE`.** A degraded scan must carry an explicit `*-unavailable` finding (the fail-safe rule).
+4. **Fixtures are hazardous material.** Malicious fixtures run *only* through `skill-sentry-cli scan` (sandboxed). They use fictional C2 domains (`evil-collector.net`, `evil-c2.com`) and never contain real credentials. See the fixture safety rules in [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md) §8.2.
+5. **Fusion-weight, prompt, anchor, and masquerade changes must re-run the full fixture corpus** and update `tests/expected_verdicts.json` in the same pull request.
+6. **Docs ship with behavior.** A user-visible change updates the relevant file in `docs/` in the same pull request.
 
 ## Development Workflow
 
 ```bash
-git clone https://github.com/<org>/skillsentry && cd skillsentry
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-skill-sentry-cli init
-# frontend:
-cd ui && npm install && npm run dev
-# no backend yet? build against the mock server:
-python -m skill_sentry_cli.server.demo_mode --port 8000
+git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
+python3.12 -m venv .venv && source .venv/bin/activate
+python -m pip install -e ".[dev]"
+pre-commit install                      # optional: runs the lint hooks before each commit
+skill-sentry-cli init                   # writes skillsentry.toml (not committed)
+scripts/check.sh                        # lint, format, tests, schema drift, demo smoke
 ```
 
-- **Branches:** `feat/<topic>`, `fix/<topic>`, `docs/<topic>` off `main`.
+**Dashboard (frontend):**
+
+```bash
+cd ui && npm ci && npm run dev
+```
+
+**Work without a model or Docker:** serve the canned demo store.
+
+```bash
+skill-sentry-cli serve --demo-mode --port 8000
+```
+
+- **Branches:** `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, or `chore/<topic>`, off `main`.
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
-- **Style:** Python — `ruff check` + `ruff format`, type hints, 3.11+ · TypeScript — `strict: true`, ESLint + Prettier.
-- **PR checklist:**
-  - [ ] Unit tests for new logic; contract tests pass against **both** real API and mock server
-  - [ ] Fixture regression green (`pytest tests/` + `tests/check_expected_verdicts.py`)
-  - [ ] No new dependencies without rationale (minimal-dep principle; pinned lockfile)
-  - [ ] Docs updated (or `docs:` follow-up issue linked)
-  - [ ] No secrets, no real credential formats in tests/fixtures
+- **Style:**
+  - Python: `ruff check` and `ruff format` (configured in `pyproject.toml`), type hints, Python 3.11 or newer.
+  - TypeScript: `strict: true` in `ui/tsconfig.json`. No linter or formatter is configured for `ui/` yet; contributions that add one are welcome.
+- **Gates:** CI and `scripts/check.sh` run ruff, mypy (blocking, with a short list of lenient modules in `pyproject.toml`), the unit and contract tests with a coverage floor of 86%, the schema check, and the demo smoke test.
+- **Pull requests:** the checklist is in [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Fill it in; it is applied to every pull request.
 
 ## Good First Contributions
 
 | Area | Ideas |
 |:---|:---|
 | **Detection** | New AST anchor patterns (PowerShell, Node skills); new evasion-probe indicators; typosquat dictionary expansion |
-| **Fixtures** | Add benign/malicious fixtures toward the 20-skill Phase-1 corpus (with hand-annotated ground-truth lines) |
-| **Canary intents** | New context-aware canary sets (e.g., npm, PyPI, OpenAI keys) — guide: [docs/10-developer-guide.md](docs/10-developer-guide.md) §10.7 |
-| **UI** | Empty/loading/error state polish; accessibility passes (WCAG rules in [docs/06-ui-ux.md](docs/06-ui-ux.md) §6.6) |
+| **Fixtures** | Benign and malicious fixtures, with hand-annotated ground-truth lines |
+| **Canary intents** | New context-aware canary sets (for example npm, PyPI, or OpenAI-style keys). Guide: [docs/10-developer-guide.md](docs/10-developer-guide.md) §10.7 |
+| **UI** | Empty, loading, and error state polish; accessibility passes (WCAG rules in [docs/06-ui-ux.md](docs/06-ui-ux.md) §6.6) |
 | **Docs** | Tutorials, troubleshooting recipes, translations |
 | **Reports** | SARIF rule-metadata enrichment; Markdown report theming |
 
-## Ownership Map (core team)
+Look for the `good first issue` label on the issue tracker.
 
-Authoritative assignment: **[docs/11-team-and-workload.md](docs/11-team-and-workload.md)**.
+## Maintainers and Decisions
 
-| Area | Owner | Modules |
-|:---|:---|:---|
-| Sandbox, deception, models, verdict/reports, server | Dev 1 · Backend + AI Integration | `core/sandbox/`, `core/poisoned_well/`, `core/evasion/`, `core/models/`, `core/verdict/`, `server/`, `cli.py` |
-| Malicious-instruction analysis | Dev 2 · Backend (Skill Analysis) | `core/parser/`, `core/semantic/`, `core/vision/`, `core/cache/`, analysis + benign fixtures |
-| UI + demo assets | Dev 3 · Frontend | `ui/`, README GIF, backup demo video |
+The repository owner is the current maintainer. Review requests are assigned automatically through [.github/CODEOWNERS](.github/CODEOWNERS).
 
-Cross-cutting changes (schemas, weights, stage list) need sign-off from all three owners.
+Changes to these need a maintainer decision before they are merged, not only a passing build:
+
+- the Verdict JSON contract and its schemas in `schemas/`
+- the fusion weights, tier thresholds, and the list of stages
+- the sandbox hardening (`core/sandbox/`) and the network sinkhole
+- the Poisoned Well canary formats
+
+Module areas, for orientation:
+
+| Area | Modules |
+|:---|:---|
+| Sandbox and deception | `core/sandbox/`, `core/poisoned_well/`, `core/evasion/` |
+| Models and verdict | `core/models/`, `core/verdict/`, `core/semantic/`, `core/vision/` |
+| Analysis and cache | `core/parser/`, `core/anchors/`, `core/cache/` |
+| Server, CLI, and UI | `server/`, `cli.py`, `ui/` |
+
+The archived build plan, which assigned work to three roles, is in [docs/internal/](docs/internal/README.md). It is history and no longer assigns ownership.
 
 ## Security Issues
 
-**Do not open public issues for vulnerabilities.** Follow [SECURITY.md](SECURITY.md) (private GitHub Security Advisory, 90-day embargo, safe harbor for good-faith research).
+**Do not open public issues for vulnerabilities.** Follow [SECURITY.md](SECURITY.md). Reports go through a private GitHub Security Advisory.
 
 ## Community IOC Feed (Phase 2)
 
-Contributing indicators to the community blocklist is **opt-in**, strips all skill content/user identifiers, and is governed by a signed-feed + dispute process ([docs/04-security.md](docs/04-security.md) §4.10).
+Contributing indicators to the community blocklist is **opt-in**, strips all skill content and user identifiers, and is governed by a signed-feed and dispute process ([docs/04-security.md](docs/04-security.md) §4.10). It is not implemented yet.
 
 ---
 
-*Powered by Gemma 4 · open weights.*
+*Fully local analysis · open weights.*

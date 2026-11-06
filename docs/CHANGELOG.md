@@ -7,6 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+- Type checking: mypy runs in CI and `scripts/check.sh`, using the pydantic plugin. Seven modules are on a documented lenient list in `pyproject.toml`.
+- Coverage gate: the unit and contract tests must cover at least 86% of `skill_sentry_cli` (measured 88%).
+- Server image healthcheck on `/meta`, using only the Python standard library.
+- Release images are signed keyless with cosign, and both images carry a BuildKit SBOM and max provenance.
+- A CycloneDX 1.6 SBOM of the installed wheel is attached to each GitHub release and listed in `SHA256SUMS`.
+- Dashboard build job in CI (Node 24).
+- Non-blocking Python 3.14 CI job. Python 3.14 is not supported yet.
+- Community files: Code of Conduct, support guide, issue and pull request templates, CODEOWNERS, Dependabot, pre-commit, and `.editorconfig`.
+- `docs/20-governance.md`: roles, decisions, release authority, support policy, and a maintainer settings checklist.
+- Documentation gate that blocks capitalised model names in public documents.
+
+### Changed
+- Every GitHub Actions workflow action is pinned to a commit SHA.
+- Base images in the server Dockerfile are pinned by digest.
+- Node 24 is used for the dashboard build, the release build, and the server image.
+- Public prose says "the local model" instead of naming the model. Configuration defaults and the frozen contract field names are unchanged.
+- The local API's lack of authentication is documented in the security limitations and the user guide.
+- Internal planning documents moved to `docs/internal/` with an archive note.
+
+### Fixed
+- SARIF `helpUri` and `informationUri` point at the repository, not an organisation that does not own it.
+- The WebSocket `stream` protocol matches its implementations. Its return type is an async generator.
+- The `Finding` keyword is spelled `finding_type` in Python code. The wire name is still `type`.
+- The CLI reference no longer lists `--watch`, a Docker tag that does not exist, or per-stage output the CLI never prints.
+- `audit.sh` no longer lists exit code 4, which the CLI does not return.
+- The second `2.0.0` heading is renamed to `2.0.0-hackathon`, so version headings are unique.
+
 ## [2.1.0rc1] — 2026-11-02
 
 ### Added
@@ -120,7 +148,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - MCP server manifest scanning support
 - Versioned verdict schema with migration path; signed release tags
 
-## [2.0.0] — 2026-10 (MLH Hacktoberfest Hack Day)
+## [2.0.0-hackathon] — 2026-10 (MLH Hacktoberfest Hack Day)
 
 ### Added
 - **8-stage inspection pipeline**: cache → spec/typosquat → deterministic anchor + semantic → multimodal vision → context-aware sandbox → Poisoned Well → evasion detection → verdict fusion

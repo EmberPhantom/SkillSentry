@@ -8,7 +8,8 @@ SkillSentry is a security tool that **executes untrusted code by design** (insid
 
 | Version | Supported | Notes |
 |:---|:---|:---|
-| 2.0.x | ✅ | Current; receives security fixes |
+| 2.1.x | ✅ | Current release line (2.1.0rc1 is a pre-release); receives security fixes |
+| 2.0.x | ⚠️ | Previous release; fixes only for serious issues until 2.1.0 is final |
 | < 2.0 | ❌ | Pre-release concepts; do not use |
 
 ## Reporting a Vulnerability
@@ -55,5 +56,6 @@ Good-faith research against **your own** installations and the `fixtures/` corpu
 
 ## Secure Distribution
 
-- Phase 2: signed release tags and **sigstore keyless-signed verdicts** (`cosign verify-blob`); until then, prefer installing from source at a reviewed commit or the published Docker image digest.
+- Release images are keyless-signed with cosign by digest, and the wheel has a build provenance attestation. The commands to check them are in [docs/17-release-process.md](docs/17-release-process.md#verify-a-release).
+- Phase 2: **sigstore keyless-signed verdicts** (`cosign verify-blob`). Until then, prefer installing from source at a reviewed commit or the published Docker image digest.
 - Verify Ollama model digests (`model_version` is recorded with every verdict — see [docs/03-database.md](docs/03-database.md)).

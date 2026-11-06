@@ -94,7 +94,7 @@ def _svg_scan(asset: ImageAsset) -> tuple[list[Finding], str]:
                 stage=Stage.VISION,
                 severity=Severity.HIGH,
                 message="Active content detected in SVG asset",
-                type="svg-active-content",
+                finding_type="svg-active-content",
                 evidence=FindingEvidence(
                     file=asset.relative,
                     line=1,
@@ -109,7 +109,7 @@ def _svg_scan(asset: ImageAsset) -> tuple[list[Finding], str]:
                 stage=Stage.VISION,
                 severity=Severity.CRITICAL,
                 message="Instruction injection detected in SVG asset",
-                type="hidden-image-instruction",
+                finding_type="hidden-image-instruction",
                 evidence=FindingEvidence(
                     file=asset.relative,
                     line=1,
@@ -195,7 +195,7 @@ def scan_vision(
                     stage=Stage.VISION,
                     severity=severity,
                     message=f"Image payload detected in {asset.relative}: {message[:400]}",
-                    type=str(item.get("type") or "hidden-image-instruction")[:80],
+                    finding_type=str(item.get("type") or "hidden-image-instruction")[:80],
                     evidence=FindingEvidence(
                         file=asset.relative,
                         line=1,
@@ -214,7 +214,7 @@ def scan_vision(
                     stage=Stage.VISION,
                     severity=Severity.CRITICAL,
                     message=f"Hidden instruction in image OCR: {asset.relative}",
-                    type="hidden-image-instruction",
+                    finding_type="hidden-image-instruction",
                     evidence=FindingEvidence(
                         file=asset.relative,
                         line=1,

@@ -22,10 +22,10 @@ SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any script
 | Everything | git | `git --version` |
 | Full scans | Docker, and permission to use it without sudo | `docker ps` works |
 | Full scans | Ollama, running, with the model that `skill-sentry-cli doctor` names | `ollama list` |
-| Dashboard only | Node.js 20 or newer | `node --version` |
+| Dashboard only | Node.js 24 | `node --version` |
 | Model | About 8 GB of free RAM while a scan runs | Close heavy apps first |
 
-> **Python version:** use `python3.11`, `python3.12` or `python3.13` explicitly. A default `python` of 3.14 has not been tested with SkillSentry.
+> **Python version:** use `python3.11`, `python3.12` or `python3.13` explicitly. Python 3.14 is not supported yet. CI runs the unit tests on it as a non-blocking check, so its status is visible before support is announced.
 
 ---
 
@@ -79,7 +79,7 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.0.0 - Fully local analysis · open weights`.
+Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.1.0rc1 - Fully local analysis · open weights` (the version number matches the release you installed).
 
 **Build the dashboard** only when you install from a checkout (B and A ship it built):
 
@@ -93,6 +93,8 @@ cd ..
 > **Windows and macOS status:** the installers and Windows support are new in 2.1 and are being verified on real machines. Until then, treat a failed sandbox step on these systems as expected and run `skill-sentry-cli doctor` to see what is missing.
 
 **Upgrade:** `pipx upgrade skill-sentry-cli`, or run the install script again. **Uninstall:** `sh install.sh --uninstall`, or `pipx uninstall skill-sentry-cli`. Both keep your scan history and any `skillsentry.toml` you wrote.
+
+**Verify a download.** The install script checks the wheel against `SHA256SUMS` before installing. To check a release's image or wheel yourself, see [Verify a release](17-release-process.md#verify-a-release).
 
 ---
 
@@ -322,6 +324,8 @@ skill-sentry-cli serve
 ```
 
 Open <http://127.0.0.1:8000> in a browser. The server listens only on your own machine.
+
+The dashboard has no login. Anyone who can reach the port can see your scans and start new ones, so keep the server on `127.0.0.1` and do not expose it to a network.
 
 - `/` serves the dashboard page.
 - `/health` reports whether Ollama, Docker and the database are ready (`"ok"` or `"down"`).

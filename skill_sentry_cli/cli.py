@@ -226,7 +226,7 @@ def scan(
 
     options = ScanOptions(
         no_cache=no_cache,
-        backend=backend,  # type: ignore[arg-type]
+        backend=backend,
         sandbox=sandbox,
         timeout_s=timeout_s,
     )
@@ -299,7 +299,7 @@ def self_audit(
             skill_dir,
             options=ScanOptions(
                 no_cache=no_cache,
-                backend=backend,  # type: ignore[arg-type]
+                backend=backend,
                 sandbox=sandbox,
                 timeout_s=timeout_s,
             ),
@@ -426,7 +426,7 @@ def _emit_outcomes(
             typer.echo(f"wrote {sarif_out}")
 
     if output_format == "json":
-        payload = outcomes[0].verdict.model_dump(by_alias=True, mode="json")
+        payload: object = outcomes[0].verdict.model_dump(by_alias=True, mode="json")
         if len(outcomes) > 1:
             payload = [
                 outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes

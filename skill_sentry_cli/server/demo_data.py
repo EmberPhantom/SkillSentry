@@ -71,7 +71,7 @@ def _finding(
         stage=stage,
         severity=severity,
         message=message,
-        type=finding_type,
+        finding_type=finding_type,
         evidence=FindingEvidence(file=file, line=line, code=code, **evidence),
     )
 

@@ -16,7 +16,7 @@ flowchart LR
     end
     subgraph BOUNDARY["🛡️ SkillSentry trust boundary"]
         PARSE["Parsers (frontmatter, AST, image)"]
-        LLM["Gemma analyzers (text + vision)"]
+        LLM["local-model analyzers (text + vision)"]
         SBX["Docker sandbox + sinkhole network"]
     end
     subgraph TRUSTED["✅ Trusted zone"]
@@ -41,7 +41,7 @@ Everything from a skill package is **untrusted input**, including text shown to 
 | Compromised dev account | Malicious update to a benign skill | Full pipeline on every version; content-hash cache means *any* change forces re-scan (0) |
 | Typosquatter | `g1t-translate` vs `git-translate` | Levenshtein ≤ 2 against known-skill names ⇒ +15 risk bonus (1) |
 | Tool poisoner | Malicious instructions in descriptions/frontmatter | Semantic analysis of declared vs. actual behavior (2) |
-| Image-payload smuggler | White-on-white / 4–6 px / stego text in bundled images, SVG scripts | Gemma 4 vision OCR; SVG scanned as text **and** rendered (3) |
+| Image-payload smuggler | White-on-white / 4–6 px / stego text in bundled images, SVG scripts | local vision model OCR; SVG scanned as text **and** rendered (3) |
 | Obfuscator | base64 payloads, `eval()` bombs, dynamic imports | Deterministic AST/regex anchors — model cannot miss what regex found (2) |
 | Credential thief | Reads `~/.aws/credentials`, `~/.ssh/id_rsa`, env vars | Context-aware canary FS + Poisoned Well correlation ⇒ auto-MALICIOUS (4, 4.5) |
 | Exfiltrator | DNS tunneling, HTTP POST to C2 | DNS sinkhole + fake HTTP responder; marker decoded from traffic (4, 4.5) |
@@ -170,6 +170,7 @@ Production hardening checklist (Phase 1–2, from plan §12.5):
 7. **Poisoned Well requires the thief to steal.** A malicious skill that harms without reading credential-shaped files won't trigger active defense (other stages still apply).
 8. **TLS is not intercepted in M1.** The sinkhole answers arbitrary DNS names and plain HTTP, but HTTPS bodies are opaque. Fixtures use HTTP for exfiltration evidence; HTTPS payloads remain explicitly unverified rather than being claimed as captured. Installing a custom trust anchor inside every scanned skill image would change the threat model, so it is deferred.
 9. **Shim log authenticity.** The in-container `/tmp/skillsentry/events.jsonl` is writable by the untrusted skill. Probe and canary-read events from it are corroborating indicators, not cryptographically attested proof; a hostile skill can forge or truncate them. Poisoned Well confirmation still requires the separate sidecar traffic capture, which the skill cannot write into, and scans never turn a missing/failed shim log into a clean result.
+10. **The local API has no authentication.** The server (`skill-sentry-cli serve`) and its REST and WebSocket endpoints accept requests without credentials. The default bind address is loopback, so only processes on the same machine can reach it. Anyone who can reach the port can read stored scans and start new ones. Do not bind it to a network interface, and publish the container port only as `127.0.0.1:8000:8000`. Team-server mode with bearer tokens is a proposal, not implemented.
 
 ## 4.12 Vulnerability Disclosure Policy
 

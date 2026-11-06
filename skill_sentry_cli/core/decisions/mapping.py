@@ -121,7 +121,7 @@ def map_decisions(
                     f"Laya reports capability {question_id} (p={probability:.2f}): "
                     f"{CAPABILITY_QUESTIONS[question_id]}"
                 ),
-                type=question_id,
+                finding_type=question_id,
                 evidence=FindingEvidence(
                     file=evidence_candidate.file,
                     line=evidence_candidate.line,
@@ -143,7 +143,7 @@ def map_decisions(
                     stage=Stage.SEMANTIC,
                     severity=Severity.HIGH,
                     message="Laya reports declared intent contradicted by the implementation",
-                    type="deception",
+                    finding_type="deception",
                     evidence=FindingEvidence(
                         file=_CODE_OWNED_LOCATION[0], line=_CODE_OWNED_LOCATION[1]
                     ),
@@ -155,7 +155,7 @@ def map_decisions(
                     stage=Stage.SEMANTIC,
                     severity=Severity.NOTE,
                     message="Laya could not decide whether the implementation matches its intent",
-                    type="semantic-unclear-deception",
+                    finding_type="semantic-unclear-deception",
                     evidence=FindingEvidence(
                         file=_CODE_OWNED_LOCATION[0], line=_CODE_OWNED_LOCATION[1]
                     ),
@@ -171,7 +171,7 @@ def map_decisions(
                     "Laya reported capabilities with no deterministic location to cite: "
                     + ", ".join(sorted(unanchored))
                 ),
-                type="semantic-unanchored-capability",
+                finding_type="semantic-unanchored-capability",
                 evidence=FindingEvidence(
                     file=_CODE_OWNED_LOCATION[0], line=_CODE_OWNED_LOCATION[1]
                 ),
@@ -183,7 +183,7 @@ def map_decisions(
                 stage=Stage.SEMANTIC,
                 severity=Severity.NOTE,
                 message="Laya answered with low confidence; treat semantic results as review hints",
-                type="semantic-low-confidence",
+                finding_type="semantic-low-confidence",
                 evidence=FindingEvidence(
                     file=_CODE_OWNED_LOCATION[0], line=_CODE_OWNED_LOCATION[1]
                 ),

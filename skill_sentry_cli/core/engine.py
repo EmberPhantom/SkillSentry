@@ -510,7 +510,7 @@ class ScanEngine:
                     stage=Stage.SPEC,
                     severity=severity,
                     message=issue.message,
-                    type="manifest-issue",
+                    finding_type="manifest-issue",
                     evidence=FindingEvidence(
                         file=issue.file,
                         line=max(1, issue.line),
@@ -524,7 +524,7 @@ class ScanEngine:
                     stage=Stage.SPEC,
                     severity=Severity.NOTE,
                     message="Frontmatter valid - typosquat check clean",
-                    type="spec-valid",
+                    finding_type="spec-valid",
                     evidence=FindingEvidence(file="SKILL.md", line=1),
                 )
             )
@@ -556,7 +556,7 @@ class ScanEngine:
             stage=Stage.TYPOSQUAT,
             severity=Severity.MEDIUM,
             message=match.message,
-            type="typosquat",
+            finding_type="typosquat",
             evidence=FindingEvidence(
                 file="SKILL.md",
                 line=1,
@@ -593,7 +593,7 @@ class ScanEngine:
                         stage=Stage.SANDBOX,
                         severity=Severity.NOTE,
                         message="Sandbox execution disabled for this scan (static-only mode).",
-                        type="sandbox-disabled",
+                        finding_type="sandbox-disabled",
                     )
                 ],
                 telemetry={"skipped": True, "reason": "disabled by request or config"},
@@ -656,7 +656,7 @@ class ScanEngine:
                         stage=Stage.SANDBOX,
                         severity=Severity.NOTE,
                         message="Sandbox unavailable; no execution evidence was collected.",
-                        type="sandbox-unavailable",
+                        finding_type="sandbox-unavailable",
                     )
                 ],
             )
@@ -670,7 +670,7 @@ class ScanEngine:
                         stage=Stage.SANDBOX,
                         severity=Severity.NOTE,
                         message=f"Sandbox failed; scan is degraded: {exc}",
-                        type="sandbox-unavailable",
+                        finding_type="sandbox-unavailable",
                     )
                 ],
             )
@@ -809,7 +809,7 @@ class ScanEngine:
                     stage=Stage.EVASION,
                     severity=Severity.CRITICAL,
                     message="Sandbox evasion probe(s) detected: " + ", ".join(ctx.evasion.targets),
-                    type="evasion-probe",
+                    finding_type="evasion-probe",
                     evidence=FindingEvidence(
                         path=ctx.evasion.targets[0] if ctx.evasion.targets else None,
                         **{"probes": list(ctx.evasion.targets)},
@@ -1088,7 +1088,7 @@ class ScanEngine:
                     f"Canary marker exfiltrated via {ctx.correlation.channel.value} "
                     f"to {', '.join(ctx.correlation.c2_indicators) or 'unknown'}"
                 ),
-                type="exfil-confirmed",
+                finding_type="exfil-confirmed",
                 evidence=FindingEvidence(
                     marker=ctx.correlation.marker,
                     channel=ctx.correlation.channel.value,
@@ -1104,7 +1104,7 @@ class ScanEngine:
                 stage=Stage.EVASION,
                 severity=Severity.CRITICAL,
                 message="Sandbox evasion probe detected",
-                type="evasion-probe",
+                finding_type="evasion-probe",
                 evidence=FindingEvidence(
                     path=ctx.evasion.targets[0] if ctx.evasion.targets else None,
                     **{"probes": list(ctx.evasion.targets)},

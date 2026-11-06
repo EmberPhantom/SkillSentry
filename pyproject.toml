@@ -58,6 +58,8 @@ dev = [
   "hypothesis>=6.100,<7.0",
   "jsonschema>=4.22,<5.0",
   "ruff>=0.6,<1.0",
+  "mypy>=1.11,<2.0",
+  "types-PyYAML>=6.0,<7.0",
 ]
 
 [project.scripts]
@@ -119,3 +121,35 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["skill_sentry_cli"]
+
+[tool.coverage.report]
+# Measured at 88% when the gate was added; the floor sits 2 points below so it only fails on a real drop.
+fail_under = 86
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+python_version = "3.11"
+files = ["skill_sentry_cli"]
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["docker", "docker.*"]
+ignore_missing_imports = true
+
+# Lenient modules: each reports annotation clashes, not runtime defects (a variable reused
+# for two shapes in different branches, or a protocol narrower than its implementation).
+# They are the first targets for tightening; remove a module from this list once it is clean.
+[[tool.mypy.overrides]]
+module = [
+  "skill_sentry_cli.core.decisions.selector",
+  "skill_sentry_cli.core.decisions.mock",
+  "skill_sentry_cli.core.decisions.laya",
+  "skill_sentry_cli.core.models.selector",
+  "skill_sentry_cli.core.models.gemma_cloud",
+  "skill_sentry_cli.core.parser.skill_parser",
+  "skill_sentry_cli.core.cache.sqlite_store",
+]
+ignore_errors = true

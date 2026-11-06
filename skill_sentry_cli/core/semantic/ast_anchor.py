@@ -232,7 +232,7 @@ def _scan_file(
                     stage=Stage.DETERMINISTIC_ANCHOR,
                     severity=rule.severity,
                     message=rule.message,
-                    type=rule.type,
+                    finding_type=rule.type,
                     evidence=FindingEvidence(
                         file=text_file.relative,
                         line=line_number,

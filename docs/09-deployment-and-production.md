@@ -41,7 +41,7 @@ flowchart LR
 
 A step-by-step guide for a new machine is in [16-user-guide.md](16-user-guide.md).
 
-**Requirements:** 8 GB+ RAM recommended (Gemma 4 E4B Q4 + Docker sandbox), ~10 GB disk for the model, Docker daemon, Python 3.11+.
+**Requirements:** 8 GB+ RAM recommended (a local model at Q4, plus the Docker sandbox), ~10 GB disk for the model, Docker daemon, Python 3.11+.
 
 ```bash
 ollama pull gemma4:e4b-it-qat        # pre-cache the model (do this the night before demos)

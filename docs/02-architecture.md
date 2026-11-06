@@ -11,7 +11,7 @@
 | **Pre-install gate first** | All analysis happens *before* a skill touches the agent runtime; runtime enforcement (MCP proxy) is Phase 2. |
 | **Deterministic anchoring** | Static AST/regex facts are computed first and injected into every LLM prompt as ground truth; the LLM may elaborate but may not contradict them. |
 | **Hard evidence overrides soft judgment** | Poisoned Well correlation and sandbox-evasion probes force `MALICIOUS` (`confidence: 1.0`) regardless of the fused score. |
-| **Everything local** | Ollama (Gemma 4 E4B, Q4) + Docker + SQLite on one machine; cloud (Gemini API) is an explicit opt-in fallback. |
+| **Everything local** | Ollama (local model, Q4) + Docker + SQLite on one machine; cloud (Gemini API) is an explicit opt-in fallback. |
 | **Contract-first** | The Verdict JSON schema (§7.6 of the plan; [05-api-reference.md](05-api-reference.md)) freezes at M0 and does not change. |
 | **Fail-safe demo** | Every external dependency (network, Docker, model) has a degraded path: cloud fallback, `--demo-mode`, graceful UI error states. |
 
@@ -63,11 +63,11 @@ flowchart TD
     C --> D
 
     subgraph S2["STAGE 2 · Deterministic Anchor + Semantic"]
-        D["AST/Regex pre-scan → hard 'anchors'<br/>fed to Gemma 4 E4B text analysis"]
+        D["AST/Regex pre-scan → hard 'anchors'<br/>fed to the local model for text analysis"]
     end
     D --> E
 
-    subgraph S3["STAGE 3 · Multimodal Scan — Gemma 4 Vision"]
+    subgraph S3["STAGE 3 · Multimodal Scan — local vision model"]
         E["Bundled images → OCR hidden text ·<br/>white-on-white · stego instructions ·<br/>SVG: text + rendered scan"]
     end
     E --> F
@@ -101,8 +101,8 @@ flowchart TD
 |:--|:---|:---|:---|:---|
 | **0** | Incremental Cache | SHA-256 hash of the skill directory; on hit, return the cached SARIF verdict instantly (< 2 s) | `hashlib` + SQLite (`scan_cache` table) | Hash mismatch on engine/model version ⇒ re-scan |
 | **1** | Spec Validation + Typosquat | Enforce frontmatter rules (name; description 1–1024 chars with trigger keywords); Levenshtein distance ≤ 2 vs. known-skill names ⇒ typosquat flag (+15 risk bonus) | `python-frontmatter` + regex | Malformed package ⇒ `SUSPICIOUS` finding, pipeline continues |
-| **2** | Deterministic Anchor + Semantic | AST/regex pre-scan (`eval()`, `subprocess…shell=True`, `os.system()`, `base64.b64decode()`, credential paths, network calls…) → anchors injected as ground truth into the Gemma 4 E4B structured-JSON analysis | Python `ast` + regex → prompt template (§5.3 of plan) | Model unavailable ⇒ semantic stage degraded (fail closed; never SAFE from a missing model). Cloud is used only when opted in |
-| **3** | Multimodal Vision Scan | Enumerate bundled images; Gemma 4 vision OCR for hidden text (white-on-white, 4–6 px, stego-style); SVG scanned **as text and rendered**; at most 3 raster images per scan, each downscaled to 768 px (images beyond the budget ⇒ partial coverage, degraded); bounding boxes extracted for *Gemma's Eye View* | Vision scanner pipeline | No images ⇒ stage skipped (logged as `no-assets`) |
+| **2** | Deterministic Anchor + Semantic | AST/regex pre-scan (`eval()`, `subprocess…shell=True`, `os.system()`, `base64.b64decode()`, credential paths, network calls…) → anchors injected as ground truth into the the local model structured-JSON analysis | Python `ast` + regex → prompt template (§5.3 of plan) | Model unavailable ⇒ semantic stage degraded (fail closed; never SAFE from a missing model). Cloud is used only when opted in |
+| **3** | Multimodal Vision Scan | Enumerate bundled images; local vision model OCR for hidden text (white-on-white, 4–6 px, stego-style); SVG scanned **as text and rendered**; at most 3 raster images per scan, each downscaled to 768 px (images beyond the budget ⇒ partial coverage, degraded); bounding boxes extracted for *Eye View* | Vision scanner pipeline | No images ⇒ stage skipped (logged as `no-assets`) |
 | **4** | Context-Aware Behavioral Sandbox | Execute the skill in Docker (`skillsentry-sandbox:local`) with: masquerade layer, canary FS seeded from `declared_intent`, DNS sinkhole, fake HTTP responder; limits: 60 s timeout, 512 MB RAM, 1 CPU; egress restricted to the sinkhole network | Docker SDK; `LD_PRELOAD`; watchdog/inotify | Docker down ⇒ UI error state; verdict from static stages only, flagged `sandbox-unavailable` |
 | **4.5** | ☠️ Poisoned Well | On canary-path read: serve intent-matched fake credentials (marker `SKS-<8hex>`); log all DNS queries + HTTP bodies; correlate marker (raw/base64/hex/subdomain labels); fake HTTP responds `200 OK` + secondary canary to keep multi-stage malware talking; build attacker profile | Canary gen + sinkhole correlation engine | No canary read ⇒ stage inert (no deception events) |
 | **5** | Sandbox Evasion Detection | inotify on sensitive paths; detect probes for `/.dockerenv`, `/proc/1/cgroup`, disk checks (`df -h`), VM artifacts (`/proc/bus/input`); any probe ⇒ auto-`MALICIOUS`, `confidence: 1.0` | Masquerade hides artifacts so probes are observable and malware doesn't go dormant | Masquerade failure ⇒ treat as engine error, do **not** auto-pass |
@@ -242,9 +242,9 @@ flowchart TD
         CACHE_CHECK -->|Yes| CACHED["Return cached verdict"]
         CACHE_CHECK -->|No| PARSE["Parse SKILL.md + scripts + assets"]
         PARSE --> AST["AST/Regex Anchor Scan"]
-        AST --> LLM["Gemma 4 E4B Semantic Analysis"]
+        AST --> LLM["Local model semantic analysis"]
         PARSE --> IMG["Image Extractor"]
-        IMG --> VISION["Gemma 4 Vision OCR + Payload Detect"]
+        IMG --> VISION["local vision model OCR + Payload Detect"]
         PARSE --> SANDBOX["Docker Sandbox + Context Honeypots"]
         SANDBOX --> MONITOR["inotify + DNS Sinkhole + Fake HTTP"]
         MONITOR --> PW["☠️ Poisoned Well Correlation Engine"]
@@ -282,11 +282,11 @@ skill_sentry_cli/
  │   │   │   └── typosquat.py         # Levenshtein vs known-skill names
  │   │   ├── semantic/
  │   │   │   ├── ast_anchor.py        # Deterministic regex/AST pre-scan
- │   │   │   ├── analyzer.py          # Gemma text analysis orchestrator
+ │   │   │   ├── analyzer.py          # local model text analysis orchestrator
  │   │   │   └── prompts.py           # Structured-output prompt templates
  │   │   ├── vision/
  │   │   │   ├── image_extractor.py   # Find images in skill bundle
- │   │   │   └── vision_scanner.py    # Gemma vision OCR + payload detect
+ │   │   │   └── vision_scanner.py    # local model vision OCR + payload detect
  │   │   ├── sandbox/
  │   │   │   ├── runner.py            # Docker lifecycle + Masquerade
  │   │   │   ├── masquerade.py        # Hide Docker artifacts
@@ -321,14 +321,14 @@ skill_sentry_cli/
  └── tests/
 ```
 
-**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](11-team-and-workload.md).
+**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](internal/11-team-and-workload.md).
 
 ## 2.7 Technology Stack & Rationale
 
 | Layer | Choice | Rationale |
 |:---|:---|:---|
 | Core language | **Python 3.11+** | Docker SDK, inotify/watchdog, SARIF, FastAPI ecosystem |
-| Local model | **Gemma 4 E4B via Ollama (Q4)** | Laptop-feasible; latency tested night before; images downscaled if slow |
+| Local model | **a local model via Ollama (Q4)** | Laptop-feasible; latency tested night before; images downscaled if slow |
 | Cloud fallback | **Gemini API** (wired from M1) | Safety net per catalog rules; opt-in only |
 | Caching | **SQLite + `hashlib` (SHA-256)** | Instant < 2 s scans for unchanged skills |
 | Sandbox | **Docker** (`skillsentry-sandbox:local` base) | Portable, demonstrable, simple |
@@ -348,7 +348,7 @@ skill_sentry_cli/
 ```mermaid
 flowchart LR
     AN["Analyzer / Vision Scanner"] --> SEL{"Backend selector"}
-    SEL -->|"default"| OL["Ollama · Gemma 4 E4B (Q4)<br/>localhost:11434 · 100% local"]
+    SEL -->|"default"| OL["Ollama · local model (Q4)<br/>localhost:11434 · 100% local"]
     SEL -->|"opt-in / local down"| GC["Gemini API<br/>(gemma_cloud.py)"]
     SEL -->|"demo / both down"| DM["demo_mode.py<br/>canned responses"]
 ```
@@ -375,7 +375,7 @@ Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. 
 | SARIF report file | Verdict engine | Export button | SARIF 2.1.0-style |
 | Mock Ollama endpoint | Dev 3 | Dev 1 | Canned JSON (parallel dev) |
 
-**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](11-team-and-workload.md).
+**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](internal/11-team-and-workload.md).
 
 ## 2.10 Phase 2 — MCP Runtime Interception
 

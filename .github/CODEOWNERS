@@ -1,0 +1,8 @@
+# Code owners are requested for review on every pull request.
+# Owner: the repository owner account. Add team or co-maintainer handles here when they exist.
+*                       @EmberPhantom
+
+# Contract and schema changes need an explicit maintainer decision (see CONTRIBUTING.md).
+/schemas/              @EmberPhantom
+/skill_sentry_cli/core/contracts.py  @EmberPhantom
+/skill_sentry_cli/core/verdict/      @EmberPhantom

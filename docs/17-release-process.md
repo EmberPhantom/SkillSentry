@@ -52,10 +52,28 @@ The `checks` and `build` jobs run. The `publish-pypi` job then waits for a revie
 | `install.sh` | GitHub release |
 | `SHA256SUMS` | GitHub release; `install.sh` verifies the wheel against it |
 | Build provenance attestations | Attached to the wheel and sdist |
+| `sbom.cdx.json` (CycloneDX 1.6) | GitHub release. Lists every package the wheel installs. |
 | Sandbox image, both architectures | `ghcr.io/emberphantom/skillsentry-sandbox:<v>`; its digest is written into the wheel |
 | Server image, both architectures | `ghcr.io/emberphantom/skill-sentry-server:<v>` |
+| Image signatures and provenance | Both images, signed keyless by digest; BuildKit SBOM and provenance are attached to the images |
 
 The sandbox digest is written into `skill_sentry_cli/data/sandbox_image.json` before the wheel is built. `skill-sentry-cli setup` pulls that exact digest, so an installed version uses the image it shipped with. Source checkouts have no digest and build the image locally.
+
+### Verify a release
+
+Signatures are keyless: the certificate names the release workflow and the tag it ran from, so no key has to be trusted in advance.
+
+```bash
+# Server image: the signature must come from a release tag of this repository's workflow.
+cosign verify ghcr.io/emberphantom/skill-sentry-server:<v> \
+  --certificate-identity-regexp '^https://github.com/EmberPhantom/SkillSentry/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# Wheel: the provenance attestation names the repository and the commit it was built from.
+gh attestation verify skill_sentry_cli-<v>-py3-none-any.whl --repo EmberPhantom/SkillSentry
+```
+
+The same identity check applies to the sandbox image. Compare the SBOM with the installed environment with any SBOM reader, for example `cyclonedx-py environment` run against your own venv.
 
 ## 5. Checks before tagging
 
@@ -71,6 +89,7 @@ python scripts/check_wheel.py dist/*.whl
 
 ## 6. Limits
 
-- The workflow itself runs only on GitHub. A real tag is the only full test of it.
-- Windows is not a supported install target yet; the install script covers Linux and macOS only, and macOS has not been verified.
+- The workflow itself runs only on GitHub. A real tag is the only full test of it. The image signing, image SBOM and provenance steps have not run on GitHub yet, so the first release candidate must be checked with the commands in "Verify a release" before a final tag.
+- The SBOM steps were reproduced locally against a built wheel, not in CI.
+- Windows has an installer (`install.ps1`) that has not been verified on real machines. macOS has not been verified.
 - Hardware for the ARM image is built in CI and not exercised here.

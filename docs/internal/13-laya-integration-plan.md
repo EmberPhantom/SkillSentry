@@ -194,6 +194,7 @@ class DecisionQuestion(BaseModel):
     instructions: str
     criteria: dict[str, str] | list[str] | None = None
 
+
 class DecisionAnswer(BaseModel):
     choice: str | None = None
     score: float | None = None
@@ -201,6 +202,7 @@ class DecisionAnswer(BaseModel):
     probabilities: dict[str, float] | list[float] | None = None
     confidence: float | None = None
     abstention: bool = False
+
 
 class DecisionResult(BaseModel):
     answers: dict[str, DecisionAnswer]
@@ -774,7 +776,7 @@ Exit codes:
 - `tests/eval/` or `tests/fixtures/decisions/`
 - `scripts/calibrate_laya.py`
 - `docs/08-testing-and-evaluation.md`
-- `docs/13-laya-integration-plan.md` (results appendix)
+- `docs/internal/13-laya-integration-plan.md` (results appendix)
 
 **Evaluation set**
 

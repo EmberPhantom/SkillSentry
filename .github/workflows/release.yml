@@ -83,7 +83,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Build the dashboard
         working-directory: ui
         run: |
@@ -106,6 +106,8 @@ jobs:
           file: skill_sentry_cli/core/sandbox/assets/Dockerfile.sandbox
           platforms: linux/amd64,linux/arm64
           push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ env.IMAGE_OWNER }}/skillsentry-sandbox:${{ steps.version.outputs.version }}
 
       - name: Record the sandbox digest in the package
@@ -121,13 +123,27 @@ jobs:
           PY
 
       - name: Build and push the server image (multi-architecture)
+        id: server
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ env.IMAGE_OWNER }}/skill-sentry-server:${{ steps.version.outputs.version }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign both images by digest (keyless, through this workflow's OIDC identity)
+        env:
+          SANDBOX_IMAGE: ${{ env.IMAGE_OWNER }}/skillsentry-sandbox@${{ steps.sandbox.outputs.digest }}
+          SERVER_IMAGE: ${{ env.IMAGE_OWNER }}/skill-sentry-server@${{ steps.server.outputs.digest }}
+        run: |
+          cosign sign --yes "$SANDBOX_IMAGE"
+          cosign sign --yes "$SERVER_IMAGE"
 
       - name: Build the wheel and sdist
         run: |
@@ -149,6 +165,16 @@ jobs:
           sed -E 's/\[string\]\$Version = "[^"]*"/[string]$Version = "'"${VERSION}"'"/' install.ps1 > release/install.ps1
           grep -qF "[string]\$Version = \"${VERSION}\"" release/install.ps1
           (cd dist && sha256sum *.whl *.tar.gz) > release/SHA256SUMS
+
+          # CycloneDX SBOM of exactly what the wheel installs. It is built in clean
+          # virtual environments so the tool itself is not listed as a dependency.
+          python -m venv "$RUNNER_TEMP/sbom-install"
+          "$RUNNER_TEMP/sbom-install/bin/pip" install --quiet dist/*.whl
+          python -m venv "$RUNNER_TEMP/sbom-tool"
+          "$RUNNER_TEMP/sbom-tool/bin/pip" install --quiet "cyclonedx-bom==7.6.0"
+          "$RUNNER_TEMP/sbom-tool/bin/cyclonedx-py" environment --of JSON \
+            -o release/sbom.cdx.json "$RUNNER_TEMP/sbom-install/bin/python"
+          (cd release && sha256sum sbom.cdx.json) >> release/SHA256SUMS
           cat release/SHA256SUMS
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -232,3 +258,4 @@ jobs:
             release/install.sh
             release/install.ps1
             release/SHA256SUMS
+            release/sbom.cdx.json

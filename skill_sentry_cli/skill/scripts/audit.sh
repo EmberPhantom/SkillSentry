@@ -14,7 +14,6 @@
 #   1  verdict above threshold found  -> DO NOT INSTALL
 #   2  usage error
 #   3  operational error (Docker down, DB locked) — not a verdict
-#   4  model unavailable and no fallback enabled
 set -euo pipefail
 
 SKILL_DIR="${1:-}"

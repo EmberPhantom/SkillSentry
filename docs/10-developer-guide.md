@@ -1,17 +1,17 @@
 # 10 · Developer Guide
 
-> Environment setup, repository layout, integration workflow, coding standards, extension guides, and the roadmap. Written for the 3-developer core team — Dev 1 (Backend + AI Integration) · Dev 2 (Backend — Skill Analysis) · Dev 3 (Frontend) — and future contributors. Roles & workload: [11-team-and-workload.md](11-team-and-workload.md).
+> Environment setup, repository layout, integration workflow, coding standards, extension guides, and the roadmap. Written for the 3-developer core team — Dev 1 (Backend + AI Integration) · Dev 2 (Backend — Skill Analysis) · Dev 3 (Frontend) — and future contributors. Roles & workload: [11-team-and-workload.md](internal/11-team-and-workload.md).
 
 ---
 
 ## 10.1 Environment Setup
 
 ```bash
-# 1. Prereqs: Python 3.11+, Docker, Node 20+, Ollama
+# 1. Prereqs: Python 3.11+, Docker, Node 24, Ollama
 ollama pull gemma4:e4b-it-qat                 # local model (~night-before for demos)
 
 # 2. Backend
-git clone https://github.com/<org>/skillsentry && cd skillsentry
+git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"                   # ruff, pytest, etc.
 skill-sentry-cli init                          # skillsentry.toml with defaults
@@ -27,21 +27,21 @@ python -m skill_sentry_cli.server.demo_mode --port 8000   # mock server, canned 
 
 ## 10.2 Repository Structure & Ownership
 
-Full annotated tree: [02-architecture.md](02-architecture.md) §2.6. **Authoritative ownership: [11-team-and-workload.md](11-team-and-workload.md)** — summary:
+Full annotated tree: [02-architecture.md](02-architecture.md) §2.6. **Authoritative ownership: [11-team-and-workload.md](internal/11-team-and-workload.md)** — summary:
 
 | Area | Owner | Modules |
 |:---|:---|:---|
 | **Dev 1 · Backend + AI Integration** | Sandbox, deception, models, verdict/reports, server | `core/sandbox/`, `core/poisoned_well/`, `core/evasion/`, `core/models/` (Ollama + Gemini clients), `core/verdict/` (fusion, SARIF), `server/`, `cli.py`, `skill/`, fixtures `cloud-sync-pro` + `slack-notif-mal` |
 | **Dev 2 · Backend (Skill Analysis)** | Malicious-instruction detection | `core/parser/` (spec validator, typosquat), `core/semantic/` (AST anchors, analyzer, prompts), `core/vision/`, `core/cache/`, fixtures (4 benign + `invoice-helper` + `g1t-translate`), eval harness |
-| **Dev 3 · Frontend (only)** | UI + demo assets | `ui/` (app shell, triage table, live console WS, IOC graph React Flow, Gemma's Eye View viewer, `--demo-mode` UI integration), README GIF, backup demo video |
+| **Dev 3 · Frontend (only)** | UI + demo assets | `ui/` (app shell, triage table, live console WS, IOC graph React Flow, Eye View viewer, `--demo-mode` UI integration), README GIF, backup demo video |
 
 ## 10.3 Workload Assignment & Milestones
 
-See **[11-team-and-workload.md](11-team-and-workload.md)** for the full work breakdown: work packages per developer, milestones **M0–M5** with entry/exit criteria, stage-level RACI, interface contracts I1–I5, definitions of done, and swing tasks for rebalancing. (This replaces the plan's original hour-by-hour 3-dev division.)
+See **[11-team-and-workload.md](internal/11-team-and-workload.md)** for the full work breakdown: work packages per developer, milestones **M0–M5** with entry/exit criteria, stage-level RACI, interface contracts I1–I5, definitions of done, and swing tasks for rebalancing. (This replaces the plan's original hour-by-hour 3-dev division.)
 
 ## 10.4 Integration Contracts & Workflow Rules
 
-Full interface spec (I1–I5) with producers, consumers, and delivery milestones: [11-team-and-workload.md](11-team-and-workload.md) §11.6.
+Full interface spec (I1–I5) with producers, consumers, and delivery milestones: [11-team-and-workload.md](internal/11-team-and-workload.md) §11.6.
 
 | Contract | Producer | Consumer | Format |
 |:---|:---|:---|:---|
@@ -63,7 +63,7 @@ Full interface spec (I1–I5) with producers, consumers, and delivery milestones
 
 ## 10.5 Build Plan (Milestones)
 
-Work is organized as milestones **M0–M5** with entry/exit criteria instead of fixed hours — full breakdown per developer in [11-team-and-workload.md](11-team-and-workload.md) §11.4.
+Work is organized as milestones **M0–M5** with entry/exit criteria instead of fixed hours — full breakdown per developer in [11-team-and-workload.md](internal/11-team-and-workload.md) §11.4.
 
 | Milestone | Theme | Exit gate (abridged) |
 |:---|:---|:---|
@@ -126,7 +126,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 |:---|:---|:---|
 | Local E4B too slow on venue laptops | Medium | Q4 quantize; downscale images; cloud fallback wired from M1; pre-cache model night before |
 | Sandbox DNS interception flaky | Medium | Test sinkhole early in M1; fallback = hosts-file override + `resolv.conf` pinning |
-| Gemma vision misses subtle payload | Medium | Fixture payload tuned to be catchable (4 px → 6 px if needed); rehearse with exact model |
+| local model vision misses subtle payload | Medium | Fixture payload tuned to be catchable (4 px → 6 px if needed); rehearse with exact model |
 | Demo Wi-Fi dies | High | Everything runs offline; `--demo-mode` canned responses; backup video recorded during M4 |
 | Scope creep into "full security product" | High | Hard rule: sandbox stays simple. No syscall tracing, no real signing before Phase 2 |
 | Frontend/backend contract drift | Medium | Verdict JSON schema frozen at M0; mock server for Dev 3 until API ready |
@@ -146,7 +146,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 ## 10.11 Compliance Checklist (judges will verify)
 
 - ☐ Public GitHub repo + MIT LICENSE
-- ☐ Gemma 4 load-bearing: **"Powered by Gemma 4 · open weights"** in UI header + README
+- ☐ Badge text matches the CLI: **"Fully local analysis · open weights"** in the UI header and README
 - ☐ SkillSentry ships its own spec-compliant `SKILL.md` (name, description 1–1024 chars with trigger keywords, bundled scripts)
 - ☐ Original harness called out in README: *"The sandbox runner, canary filesystem, DNS sinkhole, context-aware honeypot system, sandbox evasion detector, and Poisoned Well correlation engine are original code"*
 - ☐ README order: 30-sec GIF → threat model → architecture diagram → how-to-run → eval table

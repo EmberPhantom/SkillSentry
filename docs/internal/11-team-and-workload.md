@@ -1,6 +1,6 @@
 # 11 · Team & Workload Assignment
 
-> **Authoritative role and workload split for SkillSentry v2.0.** This document supersedes the plan's original team division (Frontend / Backend-Systems / Backend-Agentic-AI) and the ownership tables previously shown in [10-developer-guide.md](10-developer-guide.md) §10.2–10.5.
+> **Authoritative role and workload split for SkillSentry v2.0.** This document supersedes the plan's original team division (Frontend / Backend-Systems / Backend-Agentic-AI) and the ownership tables previously shown in [10-developer-guide.md](../10-developer-guide.md) §10.2–10.5.
 
 ---
 
@@ -24,7 +24,7 @@
 
 ## 11.2 Module Ownership Map
 
-Owner tags on the repository tree (full annotated structure: [02-architecture.md](02-architecture.md) §2.6):
+Owner tags on the repository tree (full annotated structure: [02-architecture.md](../02-architecture.md) §2.6):
 
 ```text
 skill_sentry_cli/
@@ -82,7 +82,7 @@ skill_sentry_cli/
                                         contract tests [shared, D1 hosts]
 ```
 
-**Database table ownership** ([03-database.md](03-database.md)): `scan_cache` + migrations infra → **D2**; `scans`, `findings`, `active_defense`, `canary_events`, `sandbox_net_logs`, `iocs`, `attacker_profiles` → **D1**.
+**Database table ownership** ([03-database.md](../03-database.md)): `scan_cache` + migrations infra → **D2**; `scans`, `findings`, `active_defense`, `canary_events`, `sandbox_net_logs`, `iocs`, `attacker_profiles` → **D1**.
 
 ## 11.3 Work Packages per Developer
 
@@ -98,7 +98,7 @@ Personal sequence per D4: **sandbox → deception → model plumbing → report 
 | **W1.3 Deception & evasion** | `dns_sinkhole.py`, `fake_http.py` (200 + secondary canary), `exfil_tracker.py` correlation engine, `attacker_profile.py`, `evasion/detector.py`; telemetry tables | M2 |
 | **W1.4 Verdict + report generation** | `fusion.py` (weights + overrides), `sarif_report.py` (SARIF 2.1.0 + `activeDefense` extension, Markdown, STIX), cache consumption/writes, orchestrator E2E, CLI exit-code contract | M3 |
 | **W1.5 Server & streaming** | `app.py` / `routes.py` real pipeline behind the M0 contract; WS live events with ≤ 2 s heartbeat; export endpoints; `self-audit` | M2–M3 |
-| **W1.6 Fixtures** | `cloud-sync-pro`, `slack-notif-mal` (+ safety rules, [08-testing-and-evaluation.md](08-testing-and-evaluation.md) §8.2) | M2 |
+| **W1.6 Fixtures** | `cloud-sync-pro`, `slack-notif-mal` (+ safety rules, [08-testing-and-evaluation.md](../08-testing-and-evaluation.md) §8.2) | M2 |
 
 ### Dev 2 — Backend (Skill Analysis)
 
@@ -112,7 +112,7 @@ Mission: **find malicious instructions in skills** — every static, semantic, a
 | **W2.4 Vision pipeline** | `image_extractor.py`, `vision_scanner.py` (1024 px downscale, OCR, bbox for Gemma's Eye View, SVG text + rendered) | M2 |
 | **W2.5 Cache store** | `hash_utils.py` (docs/03 §3.2 spec), `sqlite_store.py` (repository interface: `get_cached/put/prune`), invalidation on engine/model version, migrations infra | M1 |
 | **W2.6 Fixtures & ground truth** | 4 benign + `invoice-helper` (white-on-white payload image) + `g1t-translate`; hand-annotated ground-truth lines; `tests/expected_verdicts.json`; citation-accuracy harness | M2–M3 |
-| **W2.7 Eval measurement** | Run the eval sheet ([08-testing-and-evaluation.md](08-testing-and-evaluation.md) §8.4), produce README metrics table, regression gate in CI | M3–M4 |
+| **W2.7 Eval measurement** | Run the eval sheet ([08-testing-and-evaluation.md](../08-testing-and-evaluation.md) §8.4), produce README metrics table, regression gate in CI | M3–M4 |
 
 ### Dev 3 — Frontend (only)
 
@@ -120,7 +120,7 @@ Builds against Dev 1's mock server from day one; switches to the real API by bas
 
 | WP | Deliverables | Milestone |
 |:---|:---|:---|
-| **W3.1 App shell** | Vite + TS + Tailwind + shadcn scaffold, routing, `<Header>` with Gemma badge + backend toggle, design tokens ([06-ui-ux.md](06-ui-ux.md) §6.1) | M0 |
+| **W3.1 App shell** | Vite + TS + Tailwind + shadcn scaffold, routing, `<Header>` with Gemma badge + backend toggle, design tokens ([06-ui-ux.md](../06-ui-ux.md) §6.1) | M0 |
 | **W3.2 Triage table** | Verdict pills, Recharts risk gauges, ⚡ cache indicator, key-finding column, filters/sort/export buttons, install gating rules (UX rule 8) | M1 |
 | **W3.3 Evidence tabs I** | Static Findings (code viewer, red line highlights, `file:line` links), contract types generated from Verdict v1 | M1–M2 |
 | **W3.4 Live console** | WS terminal view, per-stage progress, heartbeat handling, degraded-mode banner from `GET /health` | M2 |
@@ -203,7 +203,7 @@ R = Responsible (builds it) · A = Accountable (owns correctness) · C = Consult
 
 | # | Interface | Producer → Consumer | Delivered | Contract |
 |:--|:---|:---|:---|:---|
-| **I1** | Verdict JSON v1 · stage identifiers · WS event schema · severity enums | Dev 1 → all | M0 (frozen) | [05-api-reference.md](05-api-reference.md) §5.4–5.5; single shared constants module; backward-compatible additions only |
+| **I1** | Verdict JSON v1 · stage identifiers · WS event schema · severity enums | Dev 1 → all | M0 (frozen) | [05-api-reference.md](../05-api-reference.md) §5.4–5.5; single shared constants module; backward-compatible additions only |
 | **I2** | Model client API — `generate_json(system, user, schema)` · `analyze_image(path, prompt) → {ocr, bboxes, findings}` · backend selector | Dev 1 → Dev 2 | M1 | Typed protocol + mock implementation (`MockGemma`) so Dev 2 is never blocked; model/version reported for cache invalidation |
 | **I3** | `StageResult` struct — `{stage, findings[], signals{}, telemetry?}` returned by every analysis stage | Dev 2 → Dev 1 orchestrator | M1 | Findings match contract enums; signals normalized 0–100 for fusion |
 | **I4** | Demo canned payloads (fixture-derived verdicts, PW timeline, vision bbox) | Dev 2 → Dev 1 `demo_mode` → Dev 3 | M2 | Schema-identical to production responses |
@@ -239,7 +239,7 @@ Rough surface area: **Dev 1 ≈ 20 modules · Dev 2 ≈ 9 modules + 6 fixtures �
 - **Daily 15-min standup** against milestone exit criteria (not tasks) — blockers on I1–I5 get same-day resolution.
 - **Integration checkpoints** at every milestone boundary: run the full fixture corpus through the real pipeline; contract tests against both mock and real server.
 - **Freeze windows:** I1 frozen at M0 exit (additions only, ever); prompts frozen at M2 exit (changes require fixture-regression re-run).
-- **Chaos Run** at M4 is all-hands ([08-testing-and-evaluation.md](08-testing-and-evaluation.md) §8.6).
+- **Chaos Run** at M4 is all-hands ([08-testing-and-evaluation.md](../08-testing-and-evaluation.md) §8.6).
 
 ## 11.10 Task-Level Checklists
 

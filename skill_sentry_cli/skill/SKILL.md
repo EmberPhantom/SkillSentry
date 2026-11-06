@@ -2,11 +2,11 @@
 name: skillsentry-audit
 description: >-
   Audit AI Agent Skills for malware before installation with SkillSentry, a
-  fully-local open-source scanner powered by Gemma 4. Use when the user asks to
+  fully-local open-source scanner that runs a local model. Use when the user asks to
   audit a skill, scan a skill, check if a skill is safe, detect malicious
   skills, review a SKILL.md package, or verify a skill from a registry such as
   ClawHub before installing it. Runs an 8-stage inspection: SHA-256 incremental
-  cache, spec validation with typosquat detection, AST anchors fused with Gemma
+  cache, spec validation with typosquat detection, AST anchors fused with local-model
   semantic analysis, vision scanning for image-hidden prompt injection,
   sandboxed execution with context-aware honeypots, Poisoned Well active
   defense (fake credentials, exfil tracked to C2), sandbox-evasion detection,
@@ -55,7 +55,7 @@ Always surface to the user: the verdict, risk score, top findings with `file:lin
 ## Requirements
 
 - `skill-sentry-cli` CLI installed (`pip install skill-sentry-cli`)
-- Ollama running with Gemma 4 E4B (Q4) pulled — or `--backend cloud` with `GEMINI_API_KEY`, or `--demo-mode`
+- Ollama running with the local model pulled (`skill-sentry-cli doctor` names it) — or `--backend cloud` with `GEMINI_API_KEY`, or `--demo-mode`
 - Docker daemon available for sandbox stages (Stage 4/4.5/5); without it the scan degrades to static-only analysis and says so explicitly
 
 ## Safety notes
@@ -64,4 +64,4 @@ Always surface to the user: the verdict, risk score, top findings with `file:lin
 - All canary credentials served during analysis are fake by construction (marker `SKS-<8hex>`).
 - Audited packages are executed **only** inside the hardened sandbox (60 s, 512 MB, 1 CPU, sinkhole-only egress).
 
-*Powered by Gemma 4 · open weights.*
+*Fully local analysis · open weights.*

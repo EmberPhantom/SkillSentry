@@ -1,0 +1,80 @@
+name: Bug report
+description: Something does not work the way the documentation says it should.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Do not use this form for security vulnerabilities**; follow [SECURITY.md](https://github.com/EmberPhantom/SkillSentry/blob/main/SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: SkillSentry version
+      description: Output of `skill-sentry-cli --version`
+      placeholder: "SkillSentry 2.0.0 - ..."
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `skill-sentry-cli doctor`
+      description: Paste the lines. Remove any personal paths you do not want public.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - WSL
+        - macOS
+        - Windows (native)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: sandbox
+    attributes:
+      label: How were you running the scan?
+      options:
+        - Full scan with the Docker sandbox
+        - "--no-sandbox"
+        - "Dashboard (serve)"
+        - "Not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact command, and the skill or fixture you used. If the skill is private, describe its shape instead.
+      placeholder: |
+        1. skill-sentry-cli scan fixtures/benign/pdf-summarizer
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Paste the full output, including any `error:` or `hint:` lines.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and the troubleshooting table in the user guide.
+          required: true
+        - label: I removed real credentials and private skill contents from this report.
+          required: true

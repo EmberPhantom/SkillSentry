@@ -10,8 +10,6 @@
 
 **⚡ Runs fully on your machine · open weights ⚡**
 
-<!-- Record the 30-sec demo GIF during M4 (docs/08-testing-and-evaluation.md §8.7) -->
-
 </div>
 
 ---
@@ -78,7 +76,7 @@ Deep-dives: [Architecture](docs/02-architecture.md) · [Database](docs/03-databa
 
 ## 🚀 How to Run
 
-Install with `pipx install skill-sentry-cli`, or with the install script in the latest release. Then run `skill-sentry-cli setup`. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
+Install from a checkout (below), or with the install script in the latest release. Then run `skill-sentry-cli setup`. Once the PyPI release is published, `pipx install skill-sentry-cli` works too. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
 
 **Prereqs:** Python 3.11 to 3.13 · Docker (for the sandbox) · [Ollama](https://ollama.com) with a local model. `skill-sentry-cli setup` checks all of these and asks before anything is downloaded.
 
@@ -101,8 +99,8 @@ skill-sentry-cli export <scan_id> --format sarif   # re-render a stored report
 skill-sentry-cli cache stats              # inspect the verdict cache
 ```
 
-**Server image:** `docker build -t skillsentry/server:2.0.0 .` then
-`docker run -p 127.0.0.1:8000:8000 skillsentry/server:2.0.0`. The container does not
+**Server image:** `docker build -t skill-sentry-server:local .` then
+`docker run -p 127.0.0.1:8000:8000 skill-sentry-server:local`. The container does not
 mount the Docker socket, so the sandbox is unavailable inside it by default. Mounting
 `/var/run/docker.sock` gives the container root-equivalent control of the host, so only do
 that deliberately.
@@ -140,7 +138,7 @@ Full CLI reference: [docs/07-cli-reference.md](docs/07-cli-reference.md) · Depl
 | `slack-notif-mal` | probes `/.dockerenv`, steals Slack token | 🚫 MALICIOUS 100 | Evasion detection + context honeypot |
 | `g1t-translate`* | typosquat of `git-translate` | ⚠️ SUSPICIOUS 30–70 | Levenshtein detector |
 
-**Targets:** malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md).
+**Targets** (not yet re-measured for the current release; see [docs/08](docs/08-testing-and-evaluation.md)): malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md).
 
 ## 📚 Documentation
 
@@ -151,9 +149,9 @@ Full CLI reference: [docs/07-cli-reference.md](docs/07-cli-reference.md) · Depl
 | [Database](docs/03-database.md) | SQLite schema, caching | [CLI Reference](docs/07-cli-reference.md) | commands, config, exit codes |
 | [Security](docs/04-security.md) | threat model, hardening | [Testing & Evaluation](docs/08-testing-and-evaluation.md) | fixtures, Chaos Run, demo script |
 | [Deployment & Production](docs/09-deployment-and-production.md) | pip/Docker/Action, MCP proxy | [Developer Guide](docs/10-developer-guide.md) | setup, contracts, roadmap |
-| [Team & Workload](docs/11-team-and-workload.md) | roles, ownership, milestones M0–M5 | | |
+| [Build history (archived)](docs/internal/README.md) | hackathon planning, milestones M0–M5 | | |
 
-Also: [CHANGELOG](docs/CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md)
+Also: [CHANGELOG](docs/CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md) · [Code of Conduct](.github/CODE_OF_CONDUCT.md) · [Support](.github/SUPPORT.md) · [SECURITY](SECURITY.md)
 
 ## 🙏 Prior Art (honest citations)
 
@@ -165,7 +163,7 @@ Also: [CHANGELOG](docs/CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md) · [SECU
 
 ## 📄 License
 
-MIT — see [LICENSE](LICENSE). Built by Team SkillSentry — Dev 1 (Backend + AI Integration) · Dev 2 (Backend — Skill Analysis) · Dev 3 (Frontend). Roles & workload: [docs/11-team-and-workload.md](docs/11-team-and-workload.md).
+MIT — see [LICENSE](LICENSE). Maintained by Team SkillSentry. Contributions are welcome: start with [CONTRIBUTING.md](CONTRIBUTING.md), and follow the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 <div align="center">
 
