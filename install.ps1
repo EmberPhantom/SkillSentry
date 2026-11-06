@@ -15,7 +15,7 @@ param(
     [switch]$NoSetup,
     [switch]$Uninstall,
     [switch]$DryRun,
-    [string]$Version = "2.1.0rc1",
+    [string]$Version = "2.1.0rc2",
     [string]$Wheel = ""
 )
 
