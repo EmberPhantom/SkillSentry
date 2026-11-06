@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [2.1.0rc2] — 2026-11-06
+
 ### Added
 - Type checking: mypy runs in CI and `scripts/check.sh`, using the pydantic plugin. Seven modules are on a documented lenient list in `pyproject.toml`.
 - Coverage gate: the unit and contract tests must cover at least 86% of `skill_sentry_cli` (measured 88%).
