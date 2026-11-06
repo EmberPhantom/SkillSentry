@@ -12,16 +12,20 @@ In the repository settings, the following is also needed:
 
 - **Environments:** `testpypi` (no protection rules) and `pypi` (required reviewer, so no one can publish alone).
 - **Packages:** after the first image push, set `skillsentry-sandbox` and `skill-sentry-server` to public, so anyone can pull them.
-- **Branch protection on `main`:** pull request reviews required, and the `CI` and `checks` jobs required before merge.
+- **Branch protection on `main`:** the pull request needs one approving review from a code owner, and these checks must pass before merge: `Lint + contract tests (Python 3.11)`, `Lint + contract tests (Python 3.12)`, `Lint + contract tests (Python 3.13)`, `Demo server smoke test`, and `Dashboard build (Node 24)`. The Windows, macOS, installer, and Python 3.14 jobs are informational. The maintainer may bypass the review requirement; see [docs/20 §20.5](20-governance.md#205-maintainer-settings-checklist).
 
 ## 2. Cutting a pre-release (dry run)
 
 ```bash
 # On main, after the change set is merged:
-#   1. set __version__ in skill_sentry_cli/core/version.py to e.g. 2.0.0rc1
+#   1. set __version__ in skill_sentry_cli/core/version.py, and VERSION in install.sh
+#      and the default -Version in install.ps1, to the new version, e.g. 2.1.0rc3
 #   2. move the matching notes into docs/CHANGELOG.md under a new version heading
-git tag v2.0.0rc1
-git push origin v2.0.0rc1
+#   3. merge that pull request, then tag the merge commit
+#
+# A version tag is never moved or reused. Check first with `git tag -l 'v*'`.
+git tag -a v2.1.0rc3 -m "SkillSentry 2.1.0rc3"
+git push origin v2.1.0rc3
 ```
 
 The workflow then publishes to TestPyPI and creates a GitHub pre-release. Install it in a clean environment to check it:
@@ -29,7 +33,7 @@ The workflow then publishes to TestPyPI and creates a GitHub pre-release. Instal
 ```bash
 python3.12 -m venv /tmp/rc-check && . /tmp/rc-check/bin/activate
 python -m pip install --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ skill-sentry-cli==2.0.0rc1
+  --extra-index-url https://pypi.org/simple/ skill-sentry-cli==2.1.0rc3
 skill-sentry-cli --version
 ```
 
@@ -38,11 +42,11 @@ skill-sentry-cli --version
 Only after the release candidate checks out:
 
 ```bash
-git tag v2.0.0
-git push origin v2.0.0
+git tag -a v2.1.0 -m "SkillSentry 2.1.0"
+git push origin v2.1.0
 ```
 
-The `checks` and `build` jobs run. The `publish-pypi` job then waits for a reviewer to approve the `pypi` environment. Approve it only after you have checked the build's artifacts and the release notes. Once published, a version can never be re-uploaded, so a broken release gets a new version number.
+The `Checks` and `Build artifacts` jobs run. The `Publish to PyPI (approval required)` job then waits for a reviewer to approve the `pypi` environment. Approve it only after you have checked the build's artifacts and the release notes. Once published, a version can never be re-uploaded, so a broken release gets a new version number.
 
 ## 4. What the workflow produces
 
