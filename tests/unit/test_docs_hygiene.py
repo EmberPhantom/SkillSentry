@@ -17,7 +17,7 @@ PASS_COUNT = re.compile(r"\b\d+\s+passed\b")
 # Adjust to the root markdown files that exist on origin/main.
 ROOT_MD_ALLOWED = {"README.md", "CONTRIBUTING.md", "SECURITY.md"}
 # Measured counts are recorded on purpose in these two places.
-PASS_COUNT_ALLOWED = ("docs/evidence/", "docs/15-v1-test-results.md")
+PASS_COUNT_ALLOWED = ("docs/evidence/", "docs/internal/v1-test-results.md")
 
 
 def tracked(*patterns):
@@ -70,7 +70,11 @@ def test_dashboard_claims_match_tracked_files():
 # (gemma4:e4b-it-qat, gemma_badge, MockGemma), so a capitalised word is what gets flagged.
 MODEL_WORD = re.compile(r"\bGEMMA\b|\bGemma\b")
 PUBLIC_TEXT = [
-    *sorted(p for p in ROOT.glob("docs/*.md") if p.name != "CHANGELOG.md"),
+    *sorted(
+        p
+        for p in ROOT.glob("docs/**/*.md")
+        if p.name != "CHANGELOG.md" and "internal" not in p.parts
+    ),
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "SECURITY.md",

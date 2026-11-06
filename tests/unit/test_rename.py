@@ -20,7 +20,6 @@ ROOT = Path(__file__).resolve().parents[2]
 # Files that record history or contract data, not the current name.
 HISTORICAL = (
     "docs/internal/",
-    "docs/15-",
     "docs/CHANGELOG.md",
     "skill_sentry_cli/data/known_skills_v1.json",
     "tests/ground_truth/anchor_citations.json",

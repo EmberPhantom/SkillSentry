@@ -242,4 +242,4 @@ Dev 3 ships a mock Ollama endpoint + canned Verdict JSON fixtures so Dev 1 never
 
 ---
 
-*Next: [06-ui-ux.md](06-ui-ux.md) — design language, screens, and interaction specs.*
+*Next: [06-ui-ux.md](../developer/ui-design.md) — design language, screens, and interaction specs.*

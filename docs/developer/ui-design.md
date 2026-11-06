@@ -162,8 +162,8 @@ flowchart LR
 
 ## 6.7 Demo-Mode UX
 
-`--demo-mode` renders identically but from canned data: the 7-skill store pre-populated, WS replay with realistic timing, Poisoned Well timeline and Eye View pre-baked. A subtle `DEMO DATA` chip appears in the header so no one mistakes canned results for live scans. This guarantees the rehearsed demo survives venue Wi-Fi failure (Chaos Run doctrine, [08-testing-and-evaluation.md](08-testing-and-evaluation.md)).
+`--demo-mode` renders identically but from canned data: the 7-skill store pre-populated, WS replay with realistic timing, Poisoned Well timeline and Eye View pre-baked. A subtle `DEMO DATA` chip appears in the header so no one mistakes canned results for live scans. This guarantees the rehearsed demo survives venue Wi-Fi failure (Chaos Run doctrine, [08-testing-and-evaluation.md](testing.md)).
 
 ---
 
-*Next: [07-cli-reference.md](07-cli-reference.md).*
+*Next: [07-cli-reference.md](../reference/cli.md).*

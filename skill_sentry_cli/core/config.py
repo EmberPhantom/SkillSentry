@@ -1,6 +1,6 @@
 """Configuration loading for SkillSentry.
 
-Precedence (docs/07-cli-reference.md §7.3): CLI flags > environment > file >
+Precedence (docs/reference/cli.md §7.3): CLI flags > environment > file >
 defaults.  The file is ``skillsentry.toml`` in the working directory, or the
 path supplied via ``--config`` / ``SKILLSENTRY_CONFIG``.
 """

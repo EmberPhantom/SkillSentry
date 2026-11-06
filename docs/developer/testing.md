@@ -138,7 +138,7 @@ In this workspace, the static pass is **8/8 PASS** with the scores above. On Doc
 
 ## 8.5 Verification Schedule (Milestone Gates)
 
-Work is organized as milestones **M0–M5** with entry/exit criteria — full breakdown in [11-team-and-workload.md](internal/11-team-and-workload.md). Verification gates:
+Work is organized as milestones **M0–M5** with entry/exit criteria — full breakdown in [11-team-and-workload.md](../internal/11-team-and-workload.md). Verification gates:
 
 | Milestone | Verification activity |
 |:---|:---|
@@ -200,4 +200,4 @@ Contract tests run against **both** the real API and the mock/demo server so the
 
 ---
 
-*Next: [09-deployment-and-production.md](09-deployment-and-production.md).*
+*Next: [09-deployment-and-production.md](../operations/deployment.md).*

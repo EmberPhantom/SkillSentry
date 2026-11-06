@@ -6,13 +6,13 @@ This is the runbook for publishing a version of SkillSentry. It has two parts: t
 
 ## 1. One-time setup (maintainer)
 
-Create the accounts and register the trusted publishers as described in [18-registry-accounts.md](18-registry-accounts.md). That manual covers both indexes, two-factor setup, the pending publisher values, and recovery.
+Create the accounts and register the trusted publishers as described in [18-registry-accounts.md](registry-accounts.md). That manual covers both indexes, two-factor setup, the pending publisher values, and recovery.
 
 In the repository settings, the following is also needed:
 
 - **Environments:** `testpypi` (no protection rules) and `pypi` (required reviewer, so no one can publish alone).
 - **Packages:** after the first image push, set `skillsentry-sandbox` and `skill-sentry-server` to public, so anyone can pull them.
-- **Branch protection on `main`:** the pull request needs one approving review from a code owner, and these checks must pass before merge: `Lint + contract tests (Python 3.11)`, `Lint + contract tests (Python 3.12)`, `Lint + contract tests (Python 3.13)`, `Demo server smoke test`, and `Dashboard build (Node 24)`. The Windows, macOS, installer, and Python 3.14 jobs are informational. The maintainer may bypass the review requirement; see [docs/20 §20.5](20-governance.md#205-maintainer-settings-checklist).
+- **Branch protection on `main`:** the pull request needs one approving review from a code owner, and these checks must pass before merge: `Lint + contract tests (Python 3.11)`, `Lint + contract tests (Python 3.12)`, `Lint + contract tests (Python 3.13)`, `Demo server smoke test`, and `Dashboard build (Node 24)`. The Windows, macOS, installer, and Python 3.14 jobs are informational. The maintainer may bypass the review requirement; see [docs/20 §20.5](governance.md#205-maintainer-settings-checklist).
 
 ## 2. Cutting a pre-release (dry run)
 

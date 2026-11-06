@@ -577,7 +577,7 @@ Done on the branch:
 5. **Quality gates.** mypy runs in CI and in `scripts/check.sh` and blocks merges. Coverage has a floor of 86% (measured 88%). Seven modules are on a documented lenient list in `pyproject.toml`.
 6. **Container and Node.** Base images are pinned by digest. The server image has a standard-library healthcheck on `/meta`. Node 24 is used everywhere, with a dashboard job in CI.
 7. **Release supply chain.** Both images are signed keyless by digest. BuildKit SBOM and max provenance are enabled on both builds. A CycloneDX SBOM is attached to the release. Every workflow action is pinned to a commit SHA.
-8. **Governance and policy.** `docs/20-governance.md` covers roles, decisions, release authority, support policy, and a maintainer settings checklist. A non-blocking Python 3.14 job collects evidence. The local API's lack of authentication is documented as a limitation.
+8. **Governance and policy.** `docs/operations/governance.md` covers roles, decisions, release authority, support policy, and a maintainer settings checklist. A non-blocking Python 3.14 job collects evidence. The local API's lack of authentication is documented as a limitation.
 
 Verified on this machine:
 

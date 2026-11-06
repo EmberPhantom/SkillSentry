@@ -4,8 +4,8 @@ Thanks for using SkillSentry. Pick the channel that matches what you need.
 
 | You want to | Go here |
 |:---|:---|
-| Learn how to install, scan, read verdicts, or set up CI | [User guide](../docs/16-user-guide.md) and the [CLI reference](../docs/07-cli-reference.md) |
-| Fix a setup problem | Run `skill-sentry-cli doctor` and read the [troubleshooting table](../docs/16-user-guide.md#14-troubleshooting) |
+| Learn how to install, scan, read verdicts, or set up CI | [User guide](../docs/user/guide.md) and the [CLI reference](../docs/reference/cli.md) |
+| Fix a setup problem | Run `skill-sentry-cli doctor` and read the [troubleshooting table](../docs/user/guide.md#14-troubleshooting) |
 | Report a bug | [Open a bug report](https://github.com/EmberPhantom/SkillSentry/issues/new?template=bug_report.yml) |
 | Request a feature | [Open a feature request](https://github.com/EmberPhantom/SkillSentry/issues/new?template=feature_request.yml) |
 | Ask a usage or design question | [GitHub Discussions](https://github.com/EmberPhantom/SkillSentry/discussions) if enabled, otherwise an issue labelled `question` |

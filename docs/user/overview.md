@@ -48,7 +48,7 @@ Before any skill installs, SkillSentry runs an **8-stage inspection pipeline**:
 
 Clean skills install with **zero friction**; malicious skills are blocked with **hard evidence**, and their C2 infrastructure is mapped and exportable as STIX IOCs.
 
-Full pipeline detail: [02-architecture.md](02-architecture.md).
+Full pipeline detail: [02-architecture.md](../developer/architecture.md).
 
 ## 1.4 Key Differentiators (Competitive Positioning)
 
@@ -81,7 +81,7 @@ Full pipeline detail: [02-architecture.md](02-architecture.md).
 | Citation accuracy (right source line) | ≥ 80% |
 | Local scan time per skill (E4B, Q4, uncached) | < 90 s |
 
-Evaluation procedure and fixture corpus: [08-testing-and-evaluation.md](08-testing-and-evaluation.md).
+Evaluation procedure and fixture corpus: [08-testing-and-evaluation.md](../developer/testing.md).
 
 ## 1.6 Design Principles
 
@@ -99,7 +99,7 @@ Evaluation procedure and fixture corpus: [08-testing-and-evaluation.md](08-testi
 - `skillsentry/scan@v1` GitHub Action — PR gates, SARIF upload to GitHub Code Scanning, scheduled registry re-scans
 - Phase 2: **MCP runtime proxy** for post-install behavioral enforcement
 
-See [09-deployment-and-production.md](09-deployment-and-production.md).
+See [09-deployment-and-production.md](../operations/deployment.md).
 
 ## 1.8 Glossary
 

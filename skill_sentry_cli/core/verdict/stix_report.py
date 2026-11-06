@@ -1,4 +1,4 @@
-"""STIX 2.1 IOC bundle writer (docs/05-api-reference.md §5.7)."""
+"""STIX 2.1 IOC bundle writer (docs/reference/api.md §5.7)."""
 
 from __future__ import annotations
 

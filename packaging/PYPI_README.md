@@ -23,9 +23,9 @@ Exit codes: `0` below the gate, `1` at or above it, `2` a usage error, `3` an op
 
 ## Documentation
 
-- [User guide](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/16-user-guide.md): install, first scans, reports, dashboard, CI, troubleshooting.
-- [CLI reference](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/07-cli-reference.md)
-- [Security model](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/04-security.md)
+- [User guide](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/user/guide.md): install, first scans, reports, dashboard, CI, troubleshooting.
+- [CLI reference](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/reference/cli.md)
+- [Security model](https://github.com/EmberPhantom/SkillSentry/blob/main/docs/developer/security.md)
 - [Source and issues](https://github.com/EmberPhantom/SkillSentry)
 
 MIT licensed.

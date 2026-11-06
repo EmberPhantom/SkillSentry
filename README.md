@@ -44,7 +44,7 @@ flowchart LR
     L1 -->|"2. Audit"| L2
 ```
 
-Attack vectors covered: credential theft · image-hidden prompt injection (white-on-white payloads) · typosquatting · tool poisoning · obfuscation (`eval`, base64 bombs) · sandbox evasion · post-install supply-chain poisoning. Full model: [docs/04-security.md](docs/04-security.md).
+Attack vectors covered: credential theft · image-hidden prompt injection (white-on-white payloads) · typosquatting · tool poisoning · obfuscation (`eval`, base64 bombs) · sandbox evasion · post-install supply-chain poisoning. Full model: [docs/developer/security.md](docs/developer/security.md).
 
 ## 🏗️ Architecture — the 8-Stage Pipeline
 
@@ -70,13 +70,13 @@ flowchart TD
 | **100% local** | A quantized local model via Ollama; opt-in cloud fallback; no telemetry |
 | **Fights back** | Poisoned Well deception + C2 tracking + STIX IOC export |
 
-Deep-dives: [Architecture](docs/02-architecture.md) · [Database](docs/03-database.md) · [Security](docs/04-security.md) · [API](docs/05-api-reference.md) · [UI/UX](docs/06-ui-ux.md).
+Deep-dives: [Architecture](docs/developer/architecture.md) · [Database](docs/developer/database.md) · [Security](docs/developer/security.md) · [API](docs/reference/api.md) · [UI/UX](docs/developer/ui-design.md).
 
 > **Original code:** the sandbox runner, canary filesystem, DNS sinkhole, context-aware honeypot system, sandbox evasion detector, and Poisoned Well correlation engine are original code.
 
 ## 🚀 How to Run
 
-Install from a checkout (below), or with the install script in the latest release. Then run `skill-sentry-cli setup`. Once the PyPI release is published, `pipx install skill-sentry-cli` works too. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/16-user-guide.md](docs/16-user-guide.md)**.
+Install from a checkout (below), or with the install script in the latest release. Then run `skill-sentry-cli setup`. Once the PyPI release is published, `pipx install skill-sentry-cli` works too. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/user/guide.md](docs/user/guide.md)**.
 
 **Prereqs:** Python 3.11 to 3.13 · Docker (for the sandbox) · [Ollama](https://ollama.com) with a local model. `skill-sentry-cli setup` checks all of these and asks before anything is downloaded.
 
@@ -123,7 +123,7 @@ scripts/build_release.sh  # dashboard, wheel, and a fresh-venv install check
     cache: true             # incremental re-scans
 ```
 
-Full CLI reference: [docs/07-cli-reference.md](docs/07-cli-reference.md) · Deployment: [docs/09-deployment-and-production.md](docs/09-deployment-and-production.md) (the whole team server fits a **$12 DigitalOcean droplet**).
+Full CLI reference: [docs/reference/cli.md](docs/reference/cli.md) · Deployment: [docs/operations/deployment.md](docs/operations/deployment.md) (the whole team server fits a **$12 DigitalOcean droplet**).
 
 ## 📊 Evaluation (7+1 fixture corpus)
 
@@ -138,17 +138,17 @@ Full CLI reference: [docs/07-cli-reference.md](docs/07-cli-reference.md) · Depl
 | `slack-notif-mal` | probes `/.dockerenv`, steals Slack token | 🚫 MALICIOUS 100 | Evasion detection + context honeypot |
 | `g1t-translate`* | typosquat of `git-translate` | ⚠️ SUSPICIOUS 30–70 | Levenshtein detector |
 
-**Targets** (not yet re-measured for the current release; see [docs/08](docs/08-testing-and-evaluation.md)): malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/08-testing-and-evaluation.md](docs/08-testing-and-evaluation.md).
+**Targets** (not yet re-measured for the current release; see [docs/08](docs/developer/testing.md)): malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/developer/testing.md](docs/developer/testing.md).
 
 ## 📚 Documentation
 
 | Doc | | Doc | |
 |:---|:---|:---|:---|
-| [Project Overview](docs/01-project-overview.md) | problem, positioning, glossary | [API Reference](docs/05-api-reference.md) | REST/WS, verdict contract v1 |
-| [Architecture](docs/02-architecture.md) | 8-stage pipeline, scoring | [UI/UX Design](docs/06-ui-ux.md) | screens, wireframes, UX rules |
-| [Database](docs/03-database.md) | SQLite schema, caching | [CLI Reference](docs/07-cli-reference.md) | commands, config, exit codes |
-| [Security](docs/04-security.md) | threat model, hardening | [Testing & Evaluation](docs/08-testing-and-evaluation.md) | fixtures, Chaos Run, demo script |
-| [Deployment & Production](docs/09-deployment-and-production.md) | pip/Docker/Action, MCP proxy | [Developer Guide](docs/10-developer-guide.md) | setup, contracts, roadmap |
+| [Project Overview](docs/user/overview.md) | problem, positioning, glossary | [API Reference](docs/reference/api.md) | REST/WS, verdict contract v1 |
+| [Architecture](docs/developer/architecture.md) | 8-stage pipeline, scoring | [UI/UX Design](docs/developer/ui-design.md) | screens, wireframes, UX rules |
+| [Database](docs/developer/database.md) | SQLite schema, caching | [CLI Reference](docs/reference/cli.md) | commands, config, exit codes |
+| [Security](docs/developer/security.md) | threat model, hardening | [Testing & Evaluation](docs/developer/testing.md) | fixtures, Chaos Run, demo script |
+| [Deployment & Production](docs/operations/deployment.md) | pip/Docker/Action, MCP proxy | [Developer Guide](docs/developer/getting-started.md) | setup, contracts, roadmap |
 | [Build history (archived)](docs/internal/README.md) | hackathon planning, milestones M0–M5 | | |
 
 Also: [CHANGELOG](docs/CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md) · [Code of Conduct](.github/CODE_OF_CONDUCT.md) · [Support](.github/SUPPORT.md) · [SECURITY](SECURITY.md)

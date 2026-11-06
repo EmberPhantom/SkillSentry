@@ -775,7 +775,7 @@ Exit codes:
 
 - `tests/eval/` or `tests/fixtures/decisions/`
 - `scripts/calibrate_laya.py`
-- `docs/08-testing-and-evaluation.md`
+- `docs/developer/testing.md`
 - `docs/internal/13-laya-integration-plan.md` (results appendix)
 
 **Evaluation set**
@@ -816,12 +816,12 @@ Exact numeric thresholds are set after the baseline evaluation; they are not ass
 - `pyproject.toml`
 - `skillsentry/cli.py`
 - `skillsentry/core/config.py`
-- `docs/02-architecture.md`
-- `docs/04-security.md`
-- `docs/05-api-reference.md`
-- `docs/07-cli-reference.md`
-- `docs/08-testing-and-evaluation.md`
-- `docs/10-developer-guide.md`
+- `docs/developer/architecture.md`
+- `docs/developer/security.md`
+- `docs/reference/api.md`
+- `docs/reference/cli.md`
+- `docs/developer/testing.md`
+- `docs/developer/getting-started.md`
 - `docs/CHANGELOG.md`
 
 **Acceptance**

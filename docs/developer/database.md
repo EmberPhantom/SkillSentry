@@ -354,7 +354,7 @@ GROUP BY ioc_type, value ORDER BY hits DESC;
 
 ## 3.9 Team-Server Variant (Postgres) — Spec (proposed)
 
-The self-hosted topology ([09-deployment-and-production.md](09-deployment-and-production.md)) replaces SQLite with Postgres using the **same logical schema**, plus:
+The self-hosted topology ([09-deployment-and-production.md](../operations/deployment.md)) replaces SQLite with Postgres using the **same logical schema**, plus:
 
 | Addition | Purpose |
 |:---|:---|
@@ -373,4 +373,4 @@ Migration path: `sqlite_store.py` speaks a thin repository interface (`get_cache
 
 ---
 
-*Next: [04-security.md](04-security.md) — threat model, sandbox hardening, and SkillSentry's own security posture.*
+*Next: [04-security.md](security.md) — threat model, sandbox hardening, and SkillSentry's own security posture.*

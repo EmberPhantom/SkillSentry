@@ -11,7 +11,7 @@ This module is the **single source of truth** for:
 
 Python field names are snake_case; API responses are serialised in camelCase
 by ``APIModel``.  ``POST /scan`` request bodies intentionally stay snake_case
-because that is what docs/05-api-reference.md §5.2 specifies.
+because that is what docs/reference/api.md §5.2 specifies.
 """
 
 from __future__ import annotations

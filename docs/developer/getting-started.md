@@ -1,6 +1,6 @@
 # 10 · Developer Guide
 
-> Environment setup, repository layout, integration workflow, coding standards, extension guides, and the roadmap. Written for the 3-developer core team — Dev 1 (Backend + AI Integration) · Dev 2 (Backend — Skill Analysis) · Dev 3 (Frontend) — and future contributors. Roles & workload: [11-team-and-workload.md](internal/11-team-and-workload.md).
+> Environment setup, repository layout, integration workflow, coding standards, extension guides, and the roadmap. Written for the 3-developer core team — Dev 1 (Backend + AI Integration) · Dev 2 (Backend — Skill Analysis) · Dev 3 (Frontend) — and future contributors. Roles & workload: [11-team-and-workload.md](../internal/11-team-and-workload.md).
 
 ---
 
@@ -27,7 +27,7 @@ python -m skill_sentry_cli.server.demo_mode --port 8000   # mock server, canned 
 
 ## 10.2 Repository Structure & Ownership
 
-Full annotated tree: [02-architecture.md](02-architecture.md) §2.6. **Authoritative ownership: [11-team-and-workload.md](internal/11-team-and-workload.md)** — summary:
+Full annotated tree: [02-architecture.md](architecture.md) §2.6. **Authoritative ownership: [11-team-and-workload.md](../internal/11-team-and-workload.md)** — summary:
 
 | Area | Owner | Modules |
 |:---|:---|:---|
@@ -37,11 +37,11 @@ Full annotated tree: [02-architecture.md](02-architecture.md) §2.6. **Authorita
 
 ## 10.3 Workload Assignment & Milestones
 
-See **[11-team-and-workload.md](internal/11-team-and-workload.md)** for the full work breakdown: work packages per developer, milestones **M0–M5** with entry/exit criteria, stage-level RACI, interface contracts I1–I5, definitions of done, and swing tasks for rebalancing. (This replaces the plan's original hour-by-hour 3-dev division.)
+See **[11-team-and-workload.md](../internal/11-team-and-workload.md)** for the full work breakdown: work packages per developer, milestones **M0–M5** with entry/exit criteria, stage-level RACI, interface contracts I1–I5, definitions of done, and swing tasks for rebalancing. (This replaces the plan's original hour-by-hour 3-dev division.)
 
 ## 10.4 Integration Contracts & Workflow Rules
 
-Full interface spec (I1–I5) with producers, consumers, and delivery milestones: [11-team-and-workload.md](internal/11-team-and-workload.md) §11.6.
+Full interface spec (I1–I5) with producers, consumers, and delivery milestones: [11-team-and-workload.md](../internal/11-team-and-workload.md) §11.6.
 
 | Contract | Producer | Consumer | Format |
 |:---|:---|:---|:---|
@@ -63,7 +63,7 @@ Full interface spec (I1–I5) with producers, consumers, and delivery milestones
 
 ## 10.5 Build Plan (Milestones)
 
-Work is organized as milestones **M0–M5** with entry/exit criteria instead of fixed hours — full breakdown per developer in [11-team-and-workload.md](internal/11-team-and-workload.md) §11.4.
+Work is organized as milestones **M0–M5** with entry/exit criteria instead of fixed hours — full breakdown per developer in [11-team-and-workload.md](../internal/11-team-and-workload.md) §11.4.
 
 | Milestone | Theme | Exit gate (abridged) |
 |:---|:---|:---|
@@ -100,7 +100,7 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 ### Add a new fixture
 
 1. Place under `fixtures/benign/` or `fixtures/malicious/` following the existing structure (`SKILL.md` + scripts/assets).
-2. Obey the fixture safety rules ([08-testing-and-evaluation.md](08-testing-and-evaluation.md) §8.2): fictional C2 domains only, no real secrets, README warning for malicious ones.
+2. Obey the fixture safety rules ([08-testing-and-evaluation.md](testing.md) §8.2): fictional C2 domains only, no real secrets, README warning for malicious ones.
 3. Hand-annotate ground-truth lines; add the expected verdict/risk band to the eval run sheet and `expected_verdicts.json`.
 
 ### Add a new context-aware canary intent
@@ -156,4 +156,4 @@ Work is organized as milestones **M0–M5** with entry/exit criteria instead of 
 
 ---
 
-*See also: [CHANGELOG.md](CHANGELOG.md).*
+*See also: [CHANGELOG.md](../CHANGELOG.md).*

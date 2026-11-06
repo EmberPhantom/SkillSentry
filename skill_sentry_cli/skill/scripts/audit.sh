@@ -9,7 +9,7 @@
 #   scripts/audit.sh ./some-downloaded-skill --sarif-out report.sarif
 #   scripts/audit.sh ./some-downloaded-skill --demo-mode
 #
-# Exit codes (CI contract, docs/07-cli-reference.md §7.5):
+# Exit codes (CI contract, docs/reference/cli.md §7.5):
 #   0  all skills within --fail-on threshold (default: no MALICIOUS)
 #   1  verdict above threshold found  -> DO NOT INSTALL
 #   2  usage error

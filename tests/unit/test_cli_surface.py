@@ -1,4 +1,4 @@
-"""CLI surface matches docs/07-cli-reference.md.
+"""CLI surface matches docs/reference/cli.md.
 
 Every command and flag the reference documents must appear in ``--help``, the
 ``--fail-on`` default must be the one documented, and each exit code must mean
@@ -89,7 +89,7 @@ def test_fail_on_defaults_to_suspicious_for_scan_and_self_audit() -> None:
 
 
 def test_exit_codes_match_the_reference_table() -> None:
-    # docs/07-cli-reference.md §7.5
+    # docs/reference/cli.md §7.5
     assert int(ExitCode.OK) == 0
     assert int(ExitCode.VERDICT) == 1
     assert int(ExitCode.USAGE) == 2
