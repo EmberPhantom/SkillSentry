@@ -1,10 +1,6 @@
-# 8 · Testing & Evaluation
+# Testing and evaluation
 
-> Test strategy, the demo fixture corpus (7 + 1 stretch), the evaluation plan with measurable success criteria, the Chaos Run procedure, the rehearsed 3-minute demo script, and CI.
-
-*"Professionals measure; students demo vibes. This alone beats 80% of the room."*
-
----
+How SkillSentry is tested, which gates a change must pass, and what the evaluation measures. The fixture corpus is described in section 8.2.
 
 ## 8.1 Test Strategy
 
@@ -136,68 +132,67 @@ In this workspace, the static pass is **8/8 PASS** with the scores above. On Doc
 
 **Citation accuracy method:** hand-annotate the ground-truth suspicious line(s) per malicious fixture; a finding counts as accurate if its `evidence.file` matches and `evidence.line` is within ±1 of an annotated line.
 
-## 8.5 Verification Schedule (Milestone Gates)
+## 8.5 Gates a change must pass
 
-Work is organized as milestones **M0–M5** with entry/exit criteria — full breakdown in [11-team-and-workload.md](../internal/11-team-and-workload.md). Verification gates:
+Run `scripts/check.sh` before you push. CI runs the same checks:
 
-| Milestone | Verification activity |
-|:---|:---|
-| M0 | Verdict JSON schema frozen; mock-server contract agreed; contract tests green against mock |
-| M1 | DNS sinkhole tested standalone early (flaky interception caught here; fallback: hosts-file override + `resolv.conf` pinning); per-stage self-tests land with each component |
-| M2 | Poisoned Well correlation reproduces on `cloud-sync-pro`; evasion auto-fails `slack-notif-mal`; vision flags `invoice-helper` |
-| M3 | E2E: all stages over all fixtures; eval sheet targets met; citation accuracy measured |
-| **M4** | **CHAOS RUN ×2** (§8.6) · rehearsal ×3 + backup demo video · eval table into README |
+| Gate | What it checks | Where it runs |
+|:---|:---|:---|
+| Ruff lint and format | Style and common errors | Local gate; CI lint job |
+| mypy | Types in `skill_sentry_cli`, using the pydantic plugin | Local gate; CI lint job |
+| Unit and contract tests | Behaviour, and that the CLI, API, and reports match their contracts | Local gate; CI on Python 3.11, 3.12, and 3.13 |
+| Coverage floor (86%) | The unit and contract tests cover at least 86% of the package (measured 88%) | Local gate; CI on Python 3.12 |
+| Schema drift | The schemas in `schemas/` match the code | Local gate; CI lint job |
+| Demo smoke test | The offline demo server starts and serves seven skills with the expected verdicts | Local gate; CI demo job |
+| Dashboard build | The UI type-checks and builds on Node 24 | CI dashboard job |
+| Docs hygiene | Doc conventions: no hand-typed test counts, no machine-specific paths, no capitalised model names in public docs, no stray root Markdown | Unit tests |
 
-## 8.6 The CHAOS RUN (Milestone M4)
+The fixture regression needs the expected verdicts to match. Changes to fusion weights, prompts, anchors, or the masquerade layer must re-run the corpus and update `tests/expected_verdicts.json` in the same pull request. `tests/check_expected_verdicts.py` checks a results file against that record.
 
-Instead of just rehearsing, actively break the system (run twice during M4, all-hands):
+Live tests need a running local model server and are skipped otherwise:
 
-1. **Unplug the ethernet** → verifies offline Ollama path (everything runs local).
-2. **Kill the Docker daemon** → verifies UI error states and degraded static-only verdicts (graceful degradation, never a silent SAFE).
-3. **Corrupt a fixture** → verifies parser error handling (malformed frontmatter, truncated image).
-4. **Run with `--demo-mode`** → verifies canned responses are schema-identical and the demo can complete offline.
-5. **Rule:** *never let a live LLM call dictate the success of the demo.*
-
-## 8.7 The ONE Rehearsed Demo Moment (3 minutes)
-
-1. Show the seeded 7-skill store → press **Scan All**.
-2. Live console streams stage-by-stage progress (local model badge visible).
-3. Triage table renders: 4 green, 3 red — each red row quotes the exact suspicious line.
-4. Open `invoice-helper` → vision tab → **Eye View** toggle reveals the white-on-white payload with bounding box.
-5. Open `cloud-sync-pro` → Poisoned Well tab → timeline shows canary read → fake keys served → marker decoded from DNS → *"we didn't just block it, we identified its C2."*
-6. Open `slack-notif-mal` → shows **sandbox evasion detected** + context-aware Slack canary triggered.
-7. Re-scan `pdf-summarizer` → **⚡ instant cached result (< 2 s)**.
-8. Install `pdf-summarizer` cleanly → runs normally. **Defense without friction.**
-
-Backup: unlisted YouTube video recorded during M4 (compliance requirement).
-
-## 8.8 CI Pipeline (Phase 1, GitHub Actions)
-
-```yaml
-name: ci
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install -e ".[dev]"
-      - run: ruff check . && ruff format --check .
-      - run: pytest tests/unit tests/contract -x -q          # no Docker/model needed
-      - run: pytest tests/integration -q                      # services: docker
-        env: { SKILLSENTRY_BACKEND: "local" }
-  fixtures-e2e:
-    needs: test
-    runs-on: [self-hosted, gpu-optional]                      # Ollama available
-    steps:
-      - run: skill-sentry-cli scan fixtures/ --format json --fail-on malicious --sarif-out results.sarif || true
-      - run: python tests/check_expected_verdicts.py results.sarif   # regression gate
+```bash
+pytest tests/live
 ```
 
-Contract tests run against **both** the real API and the mock/demo server so the two can never drift.
+## 8.6 What the failure tests check
 
----
+These are the rules that must hold when something breaks. Each one has a test:
 
-*Next: [09-deployment-and-production.md](../operations/deployment.md).*
+- **A missing dependency degrades the scan; it does not pass it.** If Docker is unreachable, the sandbox stage reports itself as degraded and the verdict is `UNSCANNED`. It is never `SAFE`.
+- **A missing model degrades the scan.** The semantic and vision stages report unavailability, and the verdict says so.
+- **A malformed input affects only the skill that contains it.** Bad `SKILL.md` frontmatter gives an `INVALID SKILL` status, and a symlink in a skill package makes that skill `UNSCANNED`. The rest of a folder still scans.
+- **Demo responses match the live contract.** The demo server's responses are checked against the same schemas as live output.
+
+## 8.7 Continuous integration
+
+The workflow is `.github/workflows/ci.yml`. Its jobs are:
+
+| Job | Runs |
+|:---|:---|
+| Lint and contract tests | Ruff, mypy, unit and contract tests, and the schema drift check, on Python 3.11, 3.12, and 3.13 (coverage on 3.12). |
+| Python 3.14 | Unit and contract tests, non-blocking. Not a support claim. |
+| Demo server smoke test | Starts the demo server and checks the seven canned verdicts. |
+| Dashboard build | `npm ci` and `npm run build` on Node 24. |
+| Windows and macOS | Unit tests and the installer checks, non-blocking. |
+| Installer scripts | `shellcheck` on `install.sh`. |
+
+Branch protection on `main` requires the lint and contract checks on all three Python versions, the demo smoke test, and the dashboard build.
+
+The release workflow is `.github/workflows/release.yml`. It runs its own checks and builds, and it is described in [release process](../operations/release-process.md).
+
+## 8.8 Evaluation targets
+
+The evaluation measures how well the pipeline finds the fixture corpus's malicious skills and clears its benign ones. These are targets, not guarantees:
+
+| Measure | Target |
+|:---|:---|
+| Malicious fixtures detected | 2 of 2 (stretch: 3 of 3) |
+| Benign fixtures wrongly flagged | 0 of 4 |
+| Cached re-scan | under 2 seconds |
+| Uncached scan on a typical laptop | under 90 seconds |
+| Citation accuracy | at least 80% of cited lines match the annotated ground truth |
+
+**Citation accuracy method:** hand-annotate the suspicious line or lines in each malicious fixture. A finding counts as accurate when its file matches and its line is within one line of an annotated line.
+
+The last measurement recorded in this repository is in [v1 test results](../internal/v1-test-results.md), which is archived. Re-measure before quoting any figure.

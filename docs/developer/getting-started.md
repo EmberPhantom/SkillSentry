@@ -1,159 +1,139 @@
-# 10 · Developer Guide
+# Developer setup and workflow
 
-> Environment setup, repository layout, integration workflow, coding standards, extension guides, and the roadmap. Written for the 3-developer core team — Dev 1 (Backend + AI Integration) · Dev 2 (Backend — Skill Analysis) · Dev 3 (Frontend) — and future contributors. Roles & workload: [11-team-and-workload.md](../internal/11-team-and-workload.md).
+This page gets a contributor from a fresh clone to a passing local gate, and explains how the repository is organised. For the contribution rules, read [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
----
+## 1. Prerequisites
 
-## 10.1 Environment Setup
+| Tool | Needed for | Check |
+|:---|:---|:---|
+| Python 3.11, 3.12, or 3.13 | Everything | `python3.12 --version` |
+| Git | Everything | `git --version` |
+| Node.js 24 | The dashboard (`ui/`) | `node --version` |
+| Docker, usable without sudo | Full sandboxed scans, and the Docker-backed tests | `docker ps` |
+| Ollama with the configured local model | Model-backed scans and `tests/live` | `ollama list` |
+
+Python 3.14 is not supported yet. CI runs the unit tests on it as a non-blocking check.
+
+## 2. Clone and install
 
 ```bash
-# 1. Prereqs: Python 3.11+, Docker, Node 24, Ollama
-ollama pull gemma4:e4b-it-qat                 # local model (~night-before for demos)
-
-# 2. Backend
 git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"                   # ruff, pytest, etc.
-skill-sentry-cli init                          # skillsentry.toml with defaults
-
-# 3. Frontend (ui/)
-cd ui && npm install && npm run dev       # Vite dev server → proxies to :8000
-
-# 4. Parallel development without the real API
-python -m skill_sentry_cli.server.demo_mode --port 8000   # mock server, canned verdicts
+python3.12 -m venv .venv && . .venv/bin/activate
+python -m pip install -e ".[dev]"
+pre-commit install            # optional: lint hooks before each commit
 ```
 
-**Verify your setup:** `skill-sentry-cli scan fixtures/benign/pdf-summarizer` → SAFE; `skill-sentry-cli scan fixtures/malicious/cloud-sync-pro` → MALICIOUS with Poisoned Well correlation.
+The `dev` extra installs the test, lint, and type-check tools: pytest, ruff, mypy, and coverage.
 
-## 10.2 Repository Structure & Ownership
+Build the dashboard once, so the server can serve it:
 
-Full annotated tree: [02-architecture.md](architecture.md) §2.6. **Authoritative ownership: [11-team-and-workload.md](../internal/11-team-and-workload.md)** — summary:
+```bash
+cd ui && npm ci && npm run build && cd ..
+```
 
-| Area | Owner | Modules |
-|:---|:---|:---|
-| **Dev 1 · Backend + AI Integration** | Sandbox, deception, models, verdict/reports, server | `core/sandbox/`, `core/poisoned_well/`, `core/evasion/`, `core/models/` (Ollama + Gemini clients), `core/verdict/` (fusion, SARIF), `server/`, `cli.py`, `skill/`, fixtures `cloud-sync-pro` + `slack-notif-mal` |
-| **Dev 2 · Backend (Skill Analysis)** | Malicious-instruction detection | `core/parser/` (spec validator, typosquat), `core/semantic/` (AST anchors, analyzer, prompts), `core/vision/`, `core/cache/`, fixtures (4 benign + `invoice-helper` + `g1t-translate`), eval harness |
-| **Dev 3 · Frontend (only)** | UI + demo assets | `ui/` (app shell, triage table, live console WS, IOC graph React Flow, Eye View viewer, `--demo-mode` UI integration), README GIF, backup demo video |
+Create a configuration file in your working copy. It is not committed:
 
-## 10.3 Workload Assignment & Milestones
+```bash
+skill-sentry-cli init
+```
 
-See **[11-team-and-workload.md](../internal/11-team-and-workload.md)** for the full work breakdown: work packages per developer, milestones **M0–M5** with entry/exit criteria, stage-level RACI, interface contracts I1–I5, definitions of done, and swing tasks for rebalancing. (This replaces the plan's original hour-by-hour 3-dev division.)
+Check what your machine can do:
 
-## 10.4 Integration Contracts & Workflow Rules
+```bash
+skill-sentry-cli doctor
+```
 
-Full interface spec (I1–I5) with producers, consumers, and delivery milestones: [11-team-and-workload.md](../internal/11-team-and-workload.md) §11.6.
+## 3. The local gate
 
-| Contract | Producer | Consumer | Format |
-|:---|:---|:---|:---|
-| `POST /scan` → `scan_id` | Dev 1 (server) | Dev 3 | JSON |
-| `WS /scan/{id}/stream` | Dev 1 (server) | Dev 3 LiveConsole | `{stage, skill, event, ts}` |
-| Verdict object | Dev 1 (verdict engine) | Dev 3 triage table | JSON schema v1 (frozen at M0) |
-| SARIF report file | Dev 1 (verdict engine) | Dev 3 export button | SARIF 2.1.0-style |
-| Model client (I2) + mock Ollama | Dev 1 | Dev 2 (semantic/vision) | Typed protocol + canned JSON |
-| `StageResult` (I3) | Dev 2 (analysis stages) | Dev 1 (orchestrator) | Shared dataclass |
-| Demo canned payloads (I4) | Dev 2 (from fixtures) | Dev 1 `demo_mode` → Dev 3 | Schema-identical JSON |
+Run this before you push. It is the same gate CI runs.
 
-**Rules that prevent merge hell:**
+```bash
+scripts/check.sh
+```
 
-1. Dev 3 builds against Dev 1's **mock server** (`demo_mode`) returning canned Verdict JSON until the real API is ready; switch is base-URL only.
-2. The verdict schema **freezes at M0 exit** and does not change — backward-compatible additions only, ever.
-3. Stage identifiers, WS event names, and severity enums are shared constants (single source of truth module) — no stringly-typed duplicates.
-4. Cross-cutting changes (schema, weights, stage list) require sign-off from all three devs in the PR description.
-5. Every interface ships with its mock before its real implementation; contract tests validate producer **and** consumer sides in CI.
+It runs, in order: ruff lint, ruff format check, mypy, the unit and contract tests with a coverage floor of 86%, the schema drift check, and the demo smoke test. It prints `ALL CHECKS PASSED` on success.
 
-## 10.5 Build Plan (Milestones)
+Individual steps:
 
-Work is organized as milestones **M0–M5** with entry/exit criteria instead of fixed hours — full breakdown per developer in [11-team-and-workload.md](../internal/11-team-and-workload.md) §11.4.
+```bash
+ruff check skill_sentry_cli tests scripts
+ruff format --check skill_sentry_cli tests scripts
+mypy
+pytest tests/unit tests/contract -q --cov=skill_sentry_cli
+python scripts/export_schema.py && git diff --exit-code -- schemas/
+```
 
-| Milestone | Theme | Exit gate (abridged) |
-|:---|:---|:---|
-| **M0** | Contracts & scaffold | Verdict v1 frozen; mock server streaming canned WS; all devs unblocked |
-| **M1** | Sandbox base + deterministic analysis | Benign fixture runs clean in sandbox; anchors + semantic emit valid JSON; cache < 2 s |
-| **M2** | Deception, vision, live pipeline | Poisoned Well confirms on `cloud-sync-pro`; evasion auto-fails `slack-notif-mal`; vision flags `invoice-helper` |
-| **M3** | Verdict, reports, E2E | Eval sheet targets met; SARIF validates; STIX export works |
-| **M4** | Hardening & rehearsal | Chaos Run ×2 clean; demo script runs 3× back-to-back |
-| **M5** | Stabilization (Phase 1) | pip/Docker packaging, 20-skill corpus, precision/recall published |
+The live tests need a running local model server. They are skipped unless you run them on purpose:
 
-**Scope rule (hard):** the sandbox stays simple — no syscall tracing, no real signing until Phase 2.
+```bash
+pytest tests/live
+```
 
-## 10.6 Coding Standards — Spec (proposed)
+## 4. Repository layout
 
-| Area | Standard |
+| Path | Contents |
 |:---|:---|
-| Python | 3.11+, type hints everywhere, `ruff check` + `ruff format`, docstrings on public functions |
-| TypeScript | `strict: true`, ESLint + Prettier, no `any` in contract types (generated from the frozen schema) |
-| Tests | pytest (backend) colocated under `tests/`; Vitest + React Testing Library (UI); contract tests validate real API **and** mock server |
-| Commits | Conventional commits (`feat:`, `fix:`, `docs:`, `test:`); PRs require one review + green CI |
-| Secrets | Never commit canary *formats* that resemble real keys beyond the documented fake patterns; `GEMINI_API_KEY` via env only; pre-commit secret scan |
-| Docs | Public behavior changes ship with doc updates in the same PR |
+| `skill_sentry_cli/` | The Python package. |
+| `skill_sentry_cli/cli.py` | The `skill-sentry-cli` command. |
+| `skill_sentry_cli/core/` | Analysis engine, parsers, anchors, semantic and vision analysis, sandbox, Poisoned Well, evasion detection, model clients, verdict fusion, reports, cache, configuration. |
+| `skill_sentry_cli/server/` | FastAPI server, REST and WebSocket routes, and the demo backend. |
+| `skill_sentry_cli/skill/` | The Agent Skill that ships with SkillSentry (`self-audit`). |
+| `skill_sentry_cli/rules/` | Credential rules as data. |
+| `skill_sentry_cli/data/` | Packaged data: the typosquat name list and the pinned sandbox image record. |
+| `ui/` | The React and TypeScript dashboard. |
+| `schemas/` | JSON Schemas of the public contracts. They are generated, and CI fails if they drift. |
+| `tests/unit/` | Unit tests, one module per area. |
+| `tests/contract/` | Tests that the API, CLI, and reports match the contracts. |
+| `tests/live/` | Tests that need a live model server. |
+| `tests/expected_verdicts.json` | The expected verdict for each fixture. |
+| `fixtures/` | Sample skills: benign, malicious, and a stretch case. Read [fixtures/README.md](../../fixtures/README.md) before you touch them. |
+| `scripts/` | Local gate, release build, schema export, demo smoke test, and evaluation helpers. |
+| `packaging/` | The PyPI long description. |
+| `docs/` | This documentation. See the [index](../README.md). |
 
-## 10.7 Extension Guides
+## 5. How a change moves through the code
 
-### Add a new pipeline stage
+- **Analysis stages** live in `skill_sentry_cli/core/`. Each stage returns a result that the engine collects. A degraded stage must say so; it may not return a clean result.
+- **Verdict fusion** is in `core/verdict/`. Changing a weight, a threshold, or the list of stages changes scores for every skill. Such a change needs a full fixture run and an update to `tests/expected_verdicts.json` in the same pull request.
+- **Contracts** are the JSON shapes that other programs depend on: the verdict, the API, and the report formats. They are versioned, and the schemas in `schemas/` are generated from the code. Regenerate them with `python scripts/export_schema.py` and commit the result.
+- **The CLI and the server** share the same engine. The CLI's help text and its exit codes are tested against [the CLI reference](../reference/cli.md).
 
-1. Create `core/<stage>/` with a single entry point `run(context: ScanContext) -> StageResult`.
-2. Register the stage identifier in the shared constants module (WS events, DB CHECK constraint, findings `stage` enum) + add a DB migration if the CHECK changes.
-3. Emit WS events (`started/progress/finding/completed`) — the LiveConsole renders unknown stages generically.
-4. Add a fusion weight in `verdict/fusion.py` (weights are config; renormalization is automatic) **or** document it as an override signal.
-5. Add unit tests + at least one fixture that exercises the stage; update `tests/expected_verdicts.json`.
+## 6. Extending SkillSentry
 
-### Add a new fixture
+### A new anchor (deterministic check)
 
-1. Place under `fixtures/benign/` or `fixtures/malicious/` following the existing structure (`SKILL.md` + scripts/assets).
-2. Obey the fixture safety rules ([08-testing-and-evaluation.md](testing.md) §8.2): fictional C2 domains only, no real secrets, README warning for malicious ones.
-3. Hand-annotate ground-truth lines; add the expected verdict/risk band to the eval run sheet and `expected_verdicts.json`.
+Add the rule where the other anchors live in `skill_sentry_cli/core/anchors/`. Add a fixture that triggers it and a unit test that checks the finding and its line number. Run the fixture regression.
 
-### Add a new context-aware canary intent
+### A new canary intent
 
-1. Add the intent keyword match + canary generator in `sandbox/context_honeypot.py` / `poisoned_well/canary_gen.py` (marker must embed `SKS-<8hex>` so correlation works unchanged).
-2. Extend the `contextAwareCanary` enum in the verdict contract (backward-compatible addition) and the DB CHECK constraint via migration.
-3. Add a fixture whose `declared_intent` triggers it; verify the UI context banner shows the intent → canary mapping.
+Decoy credentials are generated per scan in `skill_sentry_cli/core/poisoned_well/canary_gen.py`, and every value carries a `SKS-<8 hex>` marker. Add the new intent there, and add a test that the marker is planted and that the exfiltration tracker in `exfil_tracker.py` detects it.
 
-## 10.8 Debugging Tips
+### A new fixture
 
-| Symptom | First moves |
-|:---|:---|
-| Semantic stage empty/odd JSON | Check Ollama up (`GET /health`); inspect the anchored prompt (logged at debug); retry once is automatic — parse failure ⇒ `semantic-unavailable` finding |
-| No canary events | Confirm sandbox enabled, inotify mounted, skill actually reads a seeded path; check `canary_events` table for `canary_seeded` rows |
-| Sinkhole misses DNS | Fallback per plan: hosts-file override + `resolv.conf` pinning inside the container |
-| Evasion fixture passes | Masquerade not applied? Verify `/dev/null:/.dockerenv:ro` mount and `LD_PRELOAD` env in the container spec |
-| UI shows stale verdicts | Query cache keys: engine/model version bump invalidates; `skill-sentry-cli cache stats` |
-| Demo jeopardy | `--demo-mode` is always the answer (Chaos Run doctrine) |
+Put it under `fixtures/benign/` or `fixtures/malicious/`. Malicious fixtures use only fictional domains (`evil-collector.net`, `evil-c2.com`) and fake credentials. Record the expected verdict in `tests/expected_verdicts.json`.
 
-## 10.9 Risks & Mitigations (plan §13)
+### A new report format
 
-| Risk | Likelihood | Mitigation |
-|:---|:---|:---|
-| Local E4B too slow on venue laptops | Medium | Q4 quantize; downscale images; cloud fallback wired from M1; pre-cache model night before |
-| Sandbox DNS interception flaky | Medium | Test sinkhole early in M1; fallback = hosts-file override + `resolv.conf` pinning |
-| local model vision misses subtle payload | Medium | Fixture payload tuned to be catchable (4 px → 6 px if needed); rehearse with exact model |
-| Demo Wi-Fi dies | High | Everything runs offline; `--demo-mode` canned responses; backup video recorded during M4 |
-| Scope creep into "full security product" | High | Hard rule: sandbox stays simple. No syscall tracing, no real signing before Phase 2 |
-| Frontend/backend contract drift | Medium | Verdict JSON schema frozen at M0; mock server for Dev 3 until API ready |
-| Poisoned Well false-trigger on benign skill | Low | Benign fixtures never touch canary paths; correlation requires marker-in-outbound-traffic |
-| LLM hallucination (false positive) | Medium | Deterministic AST Anchors provide hard ground-truth; LLM cannot contradict them |
-| Sandbox evasion by malware | Medium | Masquerade layer hides Docker artifacts; probing triggers auto-fail |
-| Docker daemon crash during demo | Medium | Chaos Run (M4) tests this; UI shows graceful error state |
+Add a writer in `core/verdict/`, route it from `render_report` in `core/reports.py`, and validate its output against the official schema in a contract test, as the SARIF tests do.
 
-## 10.10 Roadmap
+## 7. Working with the dashboard
 
-| Phase | Window | Highlights |
-|:---|:---|:---|
-| **0 — Core Build (M0–M4)** | milestone-based | Full pipeline, 7+1 fixtures, dashboard, Chaos Run, rehearsed demo |
-| **1 — Stabilization (M5)** | after M4 | Pytest suite (parser, typosquat, fusion weights, cache); fixture regression; CI; `pip install skill-sentry-cli`; published Docker image; `scan --watch`; `skill-sentry-cli init`; model auto-download helper; CLI progress bars; 20-skill eval corpus + precision/recall; docs deep-dives |
-| **2 — Production** | after M5 | MCP runtime proxy; signed verdicts (sigstore/cosign); community IOC feed; OpenTelemetry; Postgres team server; MCP server manifest scanning |
+```bash
+cd ui && npm run dev          # Vite development server
+cd ui && npm run build        # type check and production build
+skill-sentry-cli serve --demo-mode --port 8000
+```
 
-## 10.11 Compliance Checklist (judges will verify)
+The demo mode serves seven canned skills, so you can work on the interface without Docker or a model.
 
-- ☐ Public GitHub repo + MIT LICENSE
-- ☐ Badge text matches the CLI: **"Fully local analysis · open weights"** in the UI header and README
-- ☐ SkillSentry ships its own spec-compliant `SKILL.md` (name, description 1–1024 chars with trigger keywords, bundled scripts)
-- ☐ Original harness called out in README: *"The sandbox runner, canary filesystem, DNS sinkhole, context-aware honeypot system, sandbox evasion detector, and Poisoned Well correlation engine are original code"*
-- ☐ README order: 30-sec GIF → threat model → architecture diagram → how-to-run → eval table
-- ☐ Backup demo video (unlisted YouTube) in submission
-- ☐ Honest prior-art citations: Snyk ToxicSkills audit, Pipelock, AIR Security, MCP prompt-injection research
-- ☐ Supply Chain Threat Model diagram included in README
+## 8. Branches, commits, and pull requests
 
----
+- Branch names: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, or `chore/<topic>`, from `main`.
+- Commit messages: [Conventional Commits](https://www.conventionalcommits.org/).
+- Pull requests: the checklist is in the [pull request template](../../.github/PULL_REQUEST_TEMPLATE.md). `main` requires the CI checks and a code-owner review. See [governance](../operations/governance.md) for who decides what.
 
-*See also: [CHANGELOG.md](../CHANGELOG.md).*
+## 9. Known gaps
+
+- The sandbox does not trace system calls. A skill that does nothing observable within its time limit can pass. See [security](security.md) §4.11.
+- The API has no authentication. It is meant for loopback use only.
+- Strict type checking is not enforced in a few modules, which are listed in `pyproject.toml`.
