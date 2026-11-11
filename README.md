@@ -6,6 +6,8 @@
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-emerald) ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![Docker](https://img.shields.io/badge/sandbox-Docker-2496ED?logo=docker&logoColor=white)
 
+[![CI](https://github.com/EmberPhantom/SkillSentry/actions/workflows/ci.yml/badge.svg)](https://github.com/EmberPhantom/SkillSentry/actions/workflows/ci.yml) [![CodeQL](https://github.com/EmberPhantom/SkillSentry/actions/workflows/codeql.yml/badge.svg)](https://github.com/EmberPhantom/SkillSentry/actions/workflows/codeql.yml) [![Release](https://github.com/EmberPhantom/SkillSentry/actions/workflows/release.yml/badge.svg)](https://github.com/EmberPhantom/SkillSentry/actions/workflows/release.yml) [![PyPI](https://img.shields.io/pypi/v/skill-sentry-cli)](https://pypi.org/project/skill-sentry-cli/) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/EmberPhantom/SkillSentry/badge)](https://securityscorecards.dev/viewer/?uri=github.com/EmberPhantom/SkillSentry)
+
 </div>
 
 ---
