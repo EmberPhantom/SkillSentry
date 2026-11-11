@@ -327,7 +327,7 @@ skill_sentry_cli/
 
 | Layer | Choice | Rationale |
 |:---|:---|:---|
-| Core language | **Python 3.11+** | Docker SDK, inotify/watchdog, SARIF, FastAPI ecosystem |
+| Core language | **Python 3.11+** | Docker SDK, SARIF, FastAPI ecosystem |
 | Local model | **a local model via Ollama (Q4)** | Laptop-feasible; latency tested night before; images downscaled if slow |
 | Cloud fallback | **Gemini API** | Opt-in only; off by default |
 | Caching | **SQLite + `hashlib` (SHA-256)** | Instant < 2 s scans for unchanged skills |
