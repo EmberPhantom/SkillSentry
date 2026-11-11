@@ -115,7 +115,7 @@ A security tool that parses hostile input is itself an attack surface. Enumerate
 | 4 | **Resource exhaustion** (huge packages, decompression bombs, image floods) | File-count/size caps before Stage 2; per-file truncation with explicit `truncated` finding; images downscaled to 768 px and at most 3 per scan (the rest are reported as partial coverage); 60 s/512 MB/1 CPU caps |
 | 5 | **Cache poisoning** (attacker pre-seeds `scan_cache` with SAFE verdicts) | DB lives in `~/.skillsentry/` under user permissions; cache rows bind `engine_version` + `model_version`; `skill-sentry-cli cache clear` prunes entries; `--no-cache` re-scans without reading or writing the cache (`cache verify` is not in v1) |
 | 6 | **Sinkhole abuse** (skill uses the fake responder as an oracle, or floods it) | Responder is inert, rate-limited, and logs everything; correlation requires marker match, so probing cannot fabricate a "clean" result |
-| 7 | **Dependency supply chain** (SkillSentry's own deps) | Pinned lockfile; minimal dependency set; Phase-1 signed releases; Docker image built in CI from pinned manifest |
+| 7 | **Dependency supply chain** (SkillSentry's own deps) | Minimal dependency set; release images signed, and a CycloneDX SBOM and build provenance published; GitHub Actions pinned by commit SHA |
 | 8 | **Model supply chain** (tampered Ollama model) | Record `model_version` (digest) with every verdict; docs recommend verifying Ollama model digests; cloud fallback is TLS + API-key scoped |
 | 9 | **Report injection** (hostile strings rendered in the UI dashboard) | All evidence rendered as text (never `dangerouslySetInnerHTML`); React default escaping; Markdown exports escape HTML |
 
@@ -139,15 +139,15 @@ Skills are *made of instructions*, so the analyzers themselves are injection tar
 
 ## 4.9 Supply-Chain Security of SkillSentry Itself
 
-Production hardening checklist (Phase 1–2, from plan §12.5):
+Hardening status:
 
-- ☐ Signed release tags + CHANGELOG + `SECURITY.md`
-- ☐ **Signed verdicts**: sigstore keyless signing, verifiable via `cosign verify-blob` — lets CI trust that a SARIF report was produced by an unmodified SkillSentry
-- ☐ Versioned verdict schema with migration path
-- ☐ Structured logging (JSON) + OpenTelemetry hooks
-- ☐ Scan timeout watchdog + per-skill resource quotas
-- ☐ Community IOC blocklist: simple **signed JSON feed, opt-in**, with false-positive dispute process
-- ☐ MCP runtime proxy: permission enforcement, behavioral drift detection
+- ✅ Signed release images, SBOM, and build provenance; a changelog; `SECURITY.md`
+- ☐ **Signed verdicts** (planned): sigstore keyless signing, verifiable via `cosign verify-blob`, so CI can trust that a SARIF report came from an unmodified SkillSentry
+- ◐ Versioned verdict schema (v1 is in place); a migration path is not yet defined
+- ☐ Structured logging (JSON) and OpenTelemetry hooks (planned)
+- ◐ Sandbox time and memory limits are in place; per-skill quotas beyond those are planned
+- ☐ Community IOC blocklist (planned): a simple **signed JSON feed, opt-in**, with a false-positive dispute process
+- ☐ MCP runtime proxy (planned): permission enforcement and behavioural drift detection
 
 ## 4.10 Community IOC Blocklist Governance — Spec (proposed)
 
@@ -168,7 +168,7 @@ Production hardening checklist (Phase 1–2, from plan §12.5):
 5. **LLM non-determinism.** Semantic/vision judgments can vary run-to-run; anchors and hard-evidence overrides exist precisely to bound this, and cached verdicts pin the exact model version.
 6. **Vision OCR limits.** Extremely small or artistically obfuscated text can evade OCR; fixtures use 4–6 px payloads, but adversarial typography is an arms race.
 7. **Poisoned Well requires the thief to steal.** A malicious skill that harms without reading credential-shaped files won't trigger active defense (other stages still apply).
-8. **TLS is not intercepted in M1.** The sinkhole answers arbitrary DNS names and plain HTTP, but HTTPS bodies are opaque. Fixtures use HTTP for exfiltration evidence; HTTPS payloads remain explicitly unverified rather than being claimed as captured. Installing a custom trust anchor inside every scanned skill image would change the threat model, so it is deferred.
+8. **TLS is not intercepted.** The sinkhole answers arbitrary DNS names and plain HTTP, but HTTPS bodies are opaque. Fixtures use HTTP for exfiltration evidence; HTTPS payloads remain explicitly unverified rather than being claimed as captured. Installing a custom trust anchor inside every scanned skill image would change the threat model, so it is deferred.
 9. **Shim log authenticity.** The in-container `/tmp/skillsentry/events.jsonl` is writable by the untrusted skill. Probe and canary-read events from it are corroborating indicators, not cryptographically attested proof; a hostile skill can forge or truncate them. Poisoned Well confirmation still requires the separate sidecar traffic capture, which the skill cannot write into, and scans never turn a missing/failed shim log into a clean result.
 10. **The local API has no authentication.** The server (`skill-sentry-cli serve`) and its REST and WebSocket endpoints accept requests without credentials. The default bind address is loopback, so only processes on the same machine can reach it. Anyone who can reach the port can read stored scans and start new ones. Do not bind it to a network interface, and publish the container port only as `127.0.0.1:8000:8000`. Team-server mode with bearer tokens is a proposal, not implemented.
 

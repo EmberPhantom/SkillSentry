@@ -8,11 +8,11 @@
 
 | Principle | Consequence in the design |
 |:---|:---|
-| **Pre-install gate first** | All analysis happens *before* a skill touches the agent runtime; runtime enforcement (MCP proxy) is Phase 2. |
+| **Pre-install gate first** | All analysis happens *before* a skill touches the agent runtime. Runtime enforcement through an MCP proxy is planned, not implemented (section 2.10). |
 | **Deterministic anchoring** | Static AST/regex facts are computed first and injected into every LLM prompt as ground truth; the LLM may elaborate but may not contradict them. |
 | **Hard evidence overrides soft judgment** | Poisoned Well correlation and sandbox-evasion probes force `MALICIOUS` (`confidence: 1.0`) regardless of the fused score. |
 | **Everything local** | Ollama (local model, Q4) + Docker + SQLite on one machine; cloud (Gemini API) is an explicit opt-in fallback. |
-| **Contract-first** | The Verdict JSON schema (§7.6 of the plan; [05-api-reference.md](../reference/api.md)) freezes at M0 and does not change. |
+| **Contract-first** | The Verdict JSON schema is versioned (v1), and changes are additive. See [API reference](../reference/api.md). |
 | **Fail-safe demo** | Every external dependency (network, Docker, model) has a degraded path: cloud fallback, `--demo-mode`, graceful UI error states. |
 
 ## 2.2 System Context
@@ -168,7 +168,7 @@ sequenceDiagram
         HTTP->>PW: log request body
         PW->>PW: 🔍 decode → MATCH marker "SKS-8b2c"
         PW->>HTTP: respond 200 OK + secondary canary
-        Note over HTTP: M1 does not intercept TLS; HTTPS traffic is not decoded
+        Note over HTTP: The sinkhole does not intercept TLS; HTTPS traffic is not decoded
     end
 
     PW->>PW: Build Attacker Profile (targeted asset,<br/>channel, C2, encoding)
@@ -321,7 +321,7 @@ skill_sentry_cli/
  └── tests/
 ```
 
-**Ownership map:** `sandbox/`, `poisoned_well/`, `evasion/`, `models/`, `verdict/`, `server/`, `cli.py`, `skill/` → **Dev 1 (Backend + AI Integration)** · `parser/`, `semantic/`, `vision/`, `cache/` + analysis fixtures → **Dev 2 (Backend — Skill Analysis)** · `ui/` + demo assets → **Dev 3 (Frontend)**. Authoritative assignment with work packages, milestones, and RACI: [11-team-and-workload.md](../internal/11-team-and-workload.md).
+**Module areas** are listed in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## 2.7 Technology Stack & Rationale
 
@@ -329,19 +329,17 @@ skill_sentry_cli/
 |:---|:---|:---|
 | Core language | **Python 3.11+** | Docker SDK, inotify/watchdog, SARIF, FastAPI ecosystem |
 | Local model | **a local model via Ollama (Q4)** | Laptop-feasible; latency tested night before; images downscaled if slow |
-| Cloud fallback | **Gemini API** (wired from M1) | Safety net per catalog rules; opt-in only |
+| Cloud fallback | **Gemini API** | Opt-in only; off by default |
 | Caching | **SQLite + `hashlib` (SHA-256)** | Instant < 2 s scans for unchanged skills |
 | Sandbox | **Docker** (`skillsentry-sandbox:local` base) | Portable, demonstrable, simple |
 | Evasion defense | **`LD_PRELOAD` hooks / fake `/proc`** | Hides Docker artifacts from probing malware |
-| File monitoring | **watchdog / inotify** on canary paths | Lightweight, reliable |
 | DNS interception | **Sinkhole resolver** in-container (all DNS → local logger on :53) | Catches exfil-by-DNS; no iptables complexity |
-| HTTP interception | **Fake HTTP responder** + `mitmproxy` fallback | Returns 200 OK; catches direct-IP exfil |
+| HTTP interception | **Fake HTTP responder** | Returns 200 OK; catches direct-IP exfil. TLS is not intercepted. |
 | Egress control | Docker `--network` restricted to sinkhole only | **Hard guarantee nothing escapes** |
 | API server | **FastAPI + WebSocket** | Live scan streaming for a reactive UI |
-| Frontend | **React 18 + Vite + TypeScript + Tailwind + shadcn/ui** | Dedicated frontend dev ⇒ polish expected |
-| Charts/graphs | **Recharts** (risk gauge) + **React Flow** (IOC graph) | IOC visualization for Poisoned Well |
+| Frontend | **React 18 + Vite + TypeScript** | Small, dependency-light dashboard |
 | Report format | **SARIF 2.1.0-style JSON + Markdown + STIX** | Instant credibility with technical audiences |
-| Packaging | `pip install skill-sentry-cli` + Docker image + GitHub Action | Three distribution surfaces |
+| Packaging | `pipx` / `pip install skill-sentry-cli`, the install script, and the server image | GitHub Action is planned, not available |
 
 ### Model backends
 
@@ -365,19 +363,22 @@ Selection order: **local → cloud (if enabled) → demo-mode (if requested)**. 
 | Vision preprocessing | Downscale to 768 px before inference; at most 3 images per scan |
 | WebSocket stage events | Streamed per stage so the UI shows motion even during slow LLM calls |
 
-## 2.9 Integration Contracts (frozen at M0)
+## 2.9 Integration contracts
 
 | Contract | Producer | Consumer | Format |
 |:---|:---|:---|:---|
-| `POST /scan` → `scan_id` | Dev 2/3 API | Dev 1 | JSON |
-| `WS /scan/{id}/stream` | API | LiveConsole | `{stage, skill, event, ts}` |
-| Verdict object | Verdict engine | Triage table | **JSON schema v1** (§7.6 plan / [05-api-reference.md](../reference/api.md)) |
-| SARIF report file | Verdict engine | Export button | SARIF 2.1.0-style |
-| Mock Ollama endpoint | Dev 3 | Dev 1 | Canned JSON (parallel dev) |
+| `POST /scan` → `scan_id` | Dashboard, CLI | Server | JSON |
+| `WS /scan/{id}/stream` | Server | Dashboard live console | `{stage, skill, event, ts}` |
+| Verdict object | Verdict engine | Dashboard, reports, API | **JSON schema v1** ([API reference](../reference/api.md)) |
+| SARIF report | Verdict engine | Code-scanning tools | SARIF 2.1.0 |
+| Model client | Analysis stages | Local model server (or cloud, if enabled) | Structured JSON responses |
+| Demo store | Demo mode | Dashboard and API tests | Schema-identical canned responses |
 
-**Rule:** Dev 1 builds against a mock server returning canned Verdict JSON until the real API is ready. The schema freezes at M0 and does not change. Ownership & interface map: [11-team-and-workload.md](../internal/11-team-and-workload.md).
+**Rule:** the verdict schema is versioned, and changes are additive only. Contract tests run against both the live API and the demo server, so the two cannot drift.
 
-## 2.10 Phase 2 — MCP Runtime Interception
+## 2.10 Planned: MCP runtime interception
+
+> **Not implemented.** This section describes a proposal.
 
 Pre-install auditing catches static threats; runtime interception catches **dynamic privilege escalation** ("you were approved to read files, but you just tried to open a network socket ⇒ **Blocked**").
 
