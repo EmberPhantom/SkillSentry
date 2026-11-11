@@ -232,14 +232,14 @@ Bundle metadata: `created_by_identity = "SkillSentry 2.0"`, `confidence` from ca
 
 **Fail-safe rule:** no error path may produce a `SAFE` verdict. Degraded scans complete with the stages that *did* run and carry explicit `note`-severity findings about what was skipped.
 
-## 5.9 Mock-Server Contract (parallel frontend development)
+## 5.9 Demo mode (mock server)
 
-Dev 3 ships a mock Ollama endpoint + canned Verdict JSON fixtures so Dev 1 never blocks on the real API:
+Demo mode serves the same endpoints from canned data, so the dashboard and API clients can be developed without Docker or a model:
 
-- `python -m skill_sentry_cli.server.demo_mode --port 8000` serves every endpoint above from recorded fixture responses (the 7-fixture store, pre-baked Poisoned Well timeline, `invoice-helper` vision payload with bbox).
-- Canned data is **schema-identical** to production — the frontend switches by base URL only.
-- WS streams replay recorded events with realistic timing (including the heartbeat rule).
+- `skill-sentry-cli serve --demo-mode --port 8000` serves every endpoint above from recorded responses for the seven demo skills.
+- The canned data uses the same schemas as live output, so a client switches between the two by changing only the base URL.
+- The WebSocket stream replays recorded events.
 
 ---
 
-*Next: [06-ui-ux.md](../developer/ui-design.md) — design language, screens, and interaction specs.*
+*Next: [dashboard design](../developer/ui-design.md).*

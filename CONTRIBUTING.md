@@ -85,7 +85,7 @@ The archived build plan, which assigned work to three roles, is in [docs/interna
 
 **Do not open public issues for vulnerabilities.** Follow [SECURITY.md](SECURITY.md). Reports go through a private GitHub Security Advisory.
 
-## Community IOC Feed (Phase 2)
+## Community IOC Feed (planned)
 
 Contributing indicators to the community blocklist is **opt-in**, strips all skill content and user identifiers, and is governed by a signed-feed and dispute process ([docs/developer/security.md](docs/developer/security.md) §4.10). It is not implemented yet.
 
