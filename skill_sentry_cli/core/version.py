@@ -11,7 +11,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 ENGINE_VERSION = __version__
 CONTRACT_VERSION = "1"
 GEMMA_BADGE = "Fully local analysis · open weights"

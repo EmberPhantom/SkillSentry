@@ -13,21 +13,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - Old entries keep the names they had at the time. Do not rewrite history.
 
 ## [Unreleased]
+
+## [2.1.1] — 2026-11-12
+
+### Security
+- Pillow is allowed up to version 13, which fixes known vulnerabilities in the 12.x line that version 2.1.0 installed for new users (fixed in 13.0.0). Upgrade to 2.1.1 to get the fixed version on a fresh install.
+
 ### Changed
 - A model-reported finding no longer decides a verdict on its own. It raises the verdict only when a deterministic, sandbox, vision, or typosquat signal supports it. Otherwise the score stays on the weighted signals, and a note explains why.
 - The default local model reply budget is 2048 tokens with an 8192-token context (was 768 and 4096).
+- Python dependency ranges for pytest, mypy, rich, and Pillow are widened, and `@vitejs/plugin-react` is updated to 6.2.1.
+- GitHub Actions are updated to their current major versions and pinned by commit SHA.
+- Dependabot groups minor and patch updates, and defers major upgrades for the dashboard and the Node base image.
+- The Python base image is not proposed for newer versions by Dependabot.
+
+### Added
+- `serve` warns when it is bound to an address other than loopback, because the API has no authentication. The official container sets `SKILLSENTRY_CONTAINER` to keep its warning quiet.
+- Code scanning (CodeQL) for Python, the dashboard, and the workflows; dependency review on pull requests; an OpenSSF Scorecard report; and a dependency audit in CI.
+- The package page links to the documentation and the security policy.
 
 ### Fixed
 - A benign skill whose only finding was an unsupported model judgment was flagged SUSPICIOUS (#70). It is now SAFE.
 - A semantic range whose model reply was cut short now reports the reason, including the error type, instead of a fixed message.
-
-### Added
-- `serve` warns when it is bound to an address other than loopback, because the API has no authentication. The official container sets `SKILLSENTRY_CONTAINER` to keep its warning quiet.
-
-### Fixed
-- The unused `watchdog` dependency is removed.
 - `init` writes the default image size (768) and no longer writes the unused `[ci]` section.
 - The STIX bundle identity names the running version instead of a fixed `SkillSentry 2.0`.
+- The unused `watchdog` dependency is removed.
 
 ## [2.1.0] — 2026-11-07
 
