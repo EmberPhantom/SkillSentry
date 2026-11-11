@@ -196,3 +196,24 @@ The evaluation measures how well the pipeline finds the fixture corpus's malicio
 **Citation accuracy method:** hand-annotate the suspicious line or lines in each malicious fixture. A finding counts as accurate when its file matches and its line is within one line of an annotated line.
 
 The last measurement recorded in this repository is in [v1 test results](../internal/v1-test-results.md), which is archived. Re-measure before quoting any figure.
+
+## 8.9 Measured results
+
+Measured on 2026-11-11 on a Linux workstation, with Docker and the sandbox enabled, the configured local model, and the core fixtures. Run with `scripts/e2e_fixtures.py`:
+
+| Fixture | Expected | Result | Risk | Pass |
+|:---|:---|:---|---:|:---|
+| `cloud-sync-pro` | MALICIOUS | MALICIOUS | 95 | yes (minimum 91) |
+| `slack-notif-mal` | MALICIOUS | MALICIOUS | 100 | yes (minimum 100) |
+| `git-helper` | SAFE | SAFE | 0 | yes |
+| `pdf-summarizer` | SAFE | **SUSPICIOUS** | 70 | **no** |
+
+**Result: 3 of 4 core fixtures met their expectations.** The failure is a false positive on a benign fixture, tracked in [issue #70](https://github.com/EmberPhantom/SkillSentry/issues/70). Its only high-severity finding comes from the model's semantic judgment, with no code evidence. Changing it needs a maintainer decision, so the fixture's expected verdict has not been changed.
+
+**Not measured in this run:**
+
+- Cold and cached timings. The script does not record them, so the latency targets above remain unverified for this release.
+- The remaining fixtures (the other benign skills, the other malicious skills, and the stretch fixture). They need a run with the full corpus.
+- Citation accuracy against the hand-annotated ground truth.
+
+
