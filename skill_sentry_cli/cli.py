@@ -64,6 +64,7 @@ app = typer.Typer(
     add_completion=False,
 )
 
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 _FAIL_ON = {"safe", "suspicious", "malicious"}
 _RANK = {VerdictTier.SAFE: 0, VerdictTier.SUSPICIOUS: 1, VerdictTier.MALICIOUS: 2}
 _FORMATS = {"text", "json", "sarif", "markdown"}
@@ -99,6 +100,17 @@ def serve(
 ) -> None:
     """Run the FastAPI server and dashboard."""
     import uvicorn
+
+    # The API has no authentication. Warn when it is reachable from other machines, unless
+    # the official container set SKILLSENTRY_CONTAINER, where publishing is the operator's job.
+    if host not in _LOOPBACK_HOSTS and not os.getenv("SKILLSENTRY_CONTAINER"):
+        typer.echo(
+            f"warning: binding to {host} exposes the API, which has no authentication. "
+            "Anyone who can reach this port can read scans and start new ones. Keep the "
+            "default 127.0.0.1, or put the server behind an authenticating proxy. "
+            "See docs/operations/deployment.md.",
+            err=True,
+        )
 
     if demo_mode:
         from skill_sentry_cli.server.demo_mode import create_demo_app

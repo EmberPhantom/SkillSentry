@@ -33,7 +33,8 @@ RUN pip install . \
  && useradd --system --uid 10001 --home-dir /home/skillsentry skillsentry \
  && mkdir -p /home/skillsentry && chown skillsentry /home/skillsentry
 USER skillsentry
-ENV HOME=/home/skillsentry
+ENV HOME=/home/skillsentry \
+    SKILLSENTRY_CONTAINER=1
 EXPOSE 8000
 # /meta is a cheap, dependency-free route, so the container is healthy when the server
 # answers, even when Docker or Ollama are not reachable from inside it.  The check uses

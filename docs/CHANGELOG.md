@@ -21,6 +21,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - A benign skill whose only finding was an unsupported model judgment was flagged SUSPICIOUS (#70). It is now SAFE.
 - A semantic range whose model reply was cut short now reports the reason, including the error type, instead of a fixed message.
 
+### Added
+- `serve` warns when it is bound to an address other than loopback, because the API has no authentication. The official container sets `SKILLSENTRY_CONTAINER` to keep its warning quiet.
+
 ### Fixed
 - The unused `watchdog` dependency is removed.
 - `init` writes the default image size (768) and no longer writes the unused `[ci]` section.
