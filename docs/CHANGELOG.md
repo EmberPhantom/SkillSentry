@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed
+- The STIX bundle identity names the running version instead of a fixed `SkillSentry 2.0`.
+
 ## [2.1.0] — 2026-11-07
 
 First final release of the 2.1 line. The changes are the ones listed under 2.1.0rc2 and 2.1.0rc1 below; this version has no further code changes.

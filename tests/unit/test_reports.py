@@ -60,6 +60,14 @@ def test_stix_bundle_has_indicator_and_relationship():
     assert malware["x_skillsentry_canary_marker"] == "SKS-8b2c4d19"
 
 
+def test_stix_identity_names_the_running_version():
+    from skill_sentry_cli.core.version import __version__
+
+    bundle = build_stix(_verdict("slack-notif-mal"))
+    identity = next(obj for obj in bundle["objects"] if obj["type"] == "identity")
+    assert identity["name"] == f"SkillSentry {__version__}"
+
+
 def test_stix_requires_triggered_active_defense():
     with pytest.raises(NoIOCsError):
         build_stix(_verdict("pdf-summarizer"))
