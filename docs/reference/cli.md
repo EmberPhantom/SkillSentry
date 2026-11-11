@@ -99,7 +99,7 @@ Runs the API and the dashboard.
 
 | Option | Default | Meaning |
 |:---|:---|:---|
-| `--host` | `127.0.0.1` | Address to bind. Keep the default. The API has no authentication; see the [security model](../developer/security.md). |
+| `--host` | `127.0.0.1` | Address to bind. Keep the default. The API has no authentication, so any other address prints a warning; see the [security model](../developer/security.md). |
 | `--port` | `8000` | Port, from 1 to 65535. |
 | `--demo-mode` | off | Serve the canned seven-skill store instead of live scans. |
 | `--speed` | `1.0` | Replay speed for demo mode. `0` is instant. |
@@ -213,6 +213,7 @@ Two sections deserve a warning:
 | `OLLAMA_HOST` | Address of the local model server. |
 | `GEMINI_API_KEY` | API key for the cloud backend. Used only when the cloud backend is selected. |
 | `SKILLSENTRY_DEV` | Set to `1` to allow `--backend demo` for development. |
+| `SKILLSENTRY_CONTAINER` | Set to `1` by the official server image. It silences the warning that `serve` prints when bound beyond loopback. Do not set it elsewhere. |
 | `SKILLSENTRY_DECISION_BACKEND` | Overrides `[decision] backend`. |
 | `SKILLSENTRY_LAYA_CHECKPOINT`, `SKILLSENTRY_LAYA_DEVICE`, `SKILLSENTRY_LAYA_MODEL_PATH`, `SKILLSENTRY_LAYA_REQUIRED` | Options for the optional decision layer. |
 
