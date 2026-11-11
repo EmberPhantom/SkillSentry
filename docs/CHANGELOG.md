@@ -16,6 +16,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Fixed
 - The unused `watchdog` dependency is removed.
+- `init` writes the default image size (768) and no longer writes the unused `[ci]` section.
 - The STIX bundle identity names the running version instead of a fixed `SkillSentry 2.0`.
 
 ## [2.1.0] — 2026-11-07
