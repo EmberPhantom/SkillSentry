@@ -42,6 +42,8 @@ Homepage = "https://github.com/EmberPhantom/SkillSentry"
 Source = "https://github.com/EmberPhantom/SkillSentry"
 Issues = "https://github.com/EmberPhantom/SkillSentry/issues"
 Changelog = "https://github.com/EmberPhantom/SkillSentry/blob/main/docs/CHANGELOG.md"
+Documentation = "https://github.com/EmberPhantom/SkillSentry/blob/main/docs/README.md"
+Security = "https://github.com/EmberPhantom/SkillSentry/blob/main/SECURITY.md"
 
 [project.optional-dependencies]
 laya = [
