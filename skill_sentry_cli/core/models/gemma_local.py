@@ -46,8 +46,8 @@ class GemmaLocal:
         model: str = DEFAULT_OLLAMA_MODEL,
         timeout_s: float = 180.0,
         max_px: int = 1024,
-        num_ctx: int = 4096,
-        num_predict: int = 768,
+        num_ctx: int = 8192,
+        num_predict: int = 2048,
         keep_alive: str = "30m",
         client: httpx.Client | None = None,
     ) -> None:

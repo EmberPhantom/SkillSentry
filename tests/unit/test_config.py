@@ -98,6 +98,14 @@ def test_generated_template_matches_the_code_defaults(tmp_path: Path, monkeypatc
     assert load_config(path).model_dump() == default_config().model_dump()
 
 
+def test_model_output_budget_leaves_room_for_a_full_semantic_reply():
+    # 768 tokens truncated the semantic reply for a benign skill's range (a degraded
+    # scan, not a verdict). The budget is part of the cache identity, so it is pinned.
+    model = default_config().model
+    assert model.ollama_num_predict == 2048
+    assert model.ollama_num_ctx == 8192
+
+
 def test_generated_template_does_not_write_the_unused_ci_section():
     from skill_sentry_cli.core.config import DEFAULT_CONFIG_TOML
 

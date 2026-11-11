@@ -13,6 +13,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - Old entries keep the names they had at the time. Do not rewrite history.
 
 ## [Unreleased]
+### Changed
+- A model-reported finding no longer decides a verdict on its own. It raises the verdict only when a deterministic, sandbox, vision, or typosquat signal supports it. Otherwise the score stays on the weighted signals, and a note explains why.
+- The default local model reply budget is 2048 tokens with an 8192-token context (was 768 and 4096).
+
+### Fixed
+- A benign skill whose only finding was an unsupported model judgment was flagged SUSPICIOUS (#70). It is now SAFE.
+- A semantic range whose model reply was cut short now reports the reason, including the error type, instead of a fixed message.
 
 ### Fixed
 - The unused `watchdog` dependency is removed.
