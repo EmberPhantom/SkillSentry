@@ -1,4 +1,4 @@
-# 17 · Release process (maintainers)
+# Release process (maintainers)
 
 This is the runbook for publishing a version of SkillSentry. It has two parts: the steps only a maintainer with the accounts can do, and what the release workflow does once a tag is pushed.
 
@@ -6,12 +6,12 @@ This is the runbook for publishing a version of SkillSentry. It has two parts: t
 
 ## 1. One-time setup (maintainer)
 
-Create the accounts and register the trusted publishers as described in [18-registry-accounts.md](registry-accounts.md). That manual covers both indexes, two-factor setup, the pending publisher values, and recovery.
+Create the accounts and register the trusted publishers as described in [registry accounts](registry-accounts.md). That manual covers both indexes, two-factor setup, the pending publisher values, and recovery.
 
 In the repository settings, the following is also needed:
 
 - **Environments:** `testpypi` (no protection rules) and `pypi` (required reviewer, so no one can publish alone).
-- **Packages:** after the first image push, set `skillsentry-sandbox` and `skill-sentry-server` to public, so anyone can pull them.
+- **Packages:** both images (`skillsentry-sandbox` and `skill-sentry-server`) are public. For a new image name, set it to public after its first push, so anyone can pull it.
 - **Branch protection on `main`:** the pull request needs one approving review from a code owner, and these checks must pass before merge: `Lint + contract tests (Python 3.11)`, `Lint + contract tests (Python 3.12)`, `Lint + contract tests (Python 3.13)`, `Demo server smoke test`, and `Dashboard build (Node 24)`. The Windows, macOS, installer, and Python 3.14 jobs are informational. The maintainer may bypass the review requirement; see [docs/20 §20.5](governance.md#205-maintainer-settings-checklist).
 
 ## 2. Cutting a pre-release (dry run)
@@ -84,16 +84,13 @@ The same identity check applies to the sandbox image. Compare the SBOM with the 
 Build the dashboard before the sdist: the sdist carries the built dashboard, and a build without it fails. `scripts/build_release.sh` does this in order.
 
 ```bash
-python -m pip install -e ".[dev]"
-ruff check skill_sentry_cli tests scripts && ruff format --check skill_sentry_cli tests scripts
-pytest tests -q
+scripts/check.sh              # the same gate CI runs: lint, mypy, tests with coverage, schema, demo smoke
 scripts/build_release.sh      # dashboard, wheel, fresh-venv install
 python scripts/check_wheel.py dist/*.whl
 ```
 
 ## 6. Limits
 
-- The workflow itself runs only on GitHub. A real tag is the only full test of it. The image signing, image SBOM and provenance steps have not run on GitHub yet, so the first release candidate must be checked with the commands in "Verify a release" before a final tag.
-- The SBOM steps were reproduced locally against a built wheel, not in CI.
+- The workflow runs only on GitHub, so a real tag is the only full test of it. It has run for `2.1.0rc2` and `2.1.0`: images signed and verified, the SBOM attached, and the wheel attestation verified.
 - Windows has an installer (`install.ps1`) that has not been verified on real machines. macOS has not been verified.
-- Hardware for the ARM image is built in CI and not exercised here.
+- The ARM image is built in CI. It is not run on an ARM machine here.

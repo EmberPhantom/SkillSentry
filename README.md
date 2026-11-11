@@ -1,172 +1,99 @@
 <div align="center">
 
-# 🛡️ SkillSentry
+# SkillSentry
 
-**A Context-Aware Firewall for the Agent Skill Supply Chain with "Poisoned Well" Active Defense**
-
-*Your proprietary skills never leave your machine for auditing. We don't just block attackers; we follow them home.*
+**Audit agent skills before you install them. Locally, in a sandbox, with evidence.**
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-emerald) ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![Docker](https://img.shields.io/badge/sandbox-Docker-2496ED?logo=docker&logoColor=white)
-
-**⚡ Runs fully on your machine · open weights ⚡**
 
 </div>
 
 ---
 
-## 🔎 30-Second Pitch
+Agent skills are folders of instructions and scripts that an AI agent reads and runs. A skill can hide a credential stealer, or an instruction that overrides the agent. SkillSentry checks a skill before you install it:
 
-Agent Skills execute code **and** inject instructions into AI agents — the newest supply-chain attack surface. Snyk's Feb 2026 *ToxicSkills* audit found **~1,467 malicious skills** (prompt injection in **36%** of ClawHub skills examined); the *ClawHavoc* campaign pushed **1,184+ malicious skills** in six weeks. OWASP now lists **AST01 — Malicious Skills** as a formal risk category.
+- It validates `SKILL.md`, and flags names that look like typosquats of known skills.
+- It runs the skill's entrypoint in a sandbox with no network access, a memory limit, and a time limit.
+- It plants decoy credentials in the sandbox. If one shows up in outbound traffic, the skill has proven it tried to steal it, and the decoy's destination is recorded as an indicator.
+- A local model reads the text and judges whether it matches what the code does. Deterministic checks are the ground truth, and the model cannot override them.
+- It returns one verdict: `SAFE`, `SUSPICIOUS`, `MALICIOUS`, or `UNSCANNED` when a check could not run. Every finding cites a file and line.
 
-**SkillSentry** audits any skill **before it installs — 100% locally**: local multimodal language-model reasoning (text + vision) fused with deterministic AST anchors and a hardened Docker sandbox featuring **context-aware honeypots**, **sandbox-evasion detection**, and the **☠️ Poisoned Well** — fake, intent-matched credentials that let us catch the thief, decode our canary marker out of their exfil traffic, and map their C2 infrastructure. Clean skills install with zero friction (⚡ < 2 s cached re-scans). Malicious skills are blocked with hard, line-cited evidence and a STIX IOC export.
+Your skills stay on your machine. The cloud model backend is opt-in and off by default.
 
-## 🏴‍☠️ Threat Model
+## Quick start
 
-```mermaid
-flowchart LR
-    subgraph Threat_Actors["🏴‍☠️ Threat Actors"]
-        A1["Compromised Dev Account"]
-        A2["Typosquatter"]
-        A3["Supply Chain Poisoner<br/>(benign → malicious update)"]
-    end
-    subgraph Registry["📦 Public Registry (ClawHub)"]
-        R1["Malicious Skill Package"]
-    end
-    subgraph Local_Env["💻 Developer Local Environment"]
-        L1["Agent IDE / CLI"] --> L2["SkillSentry<br/>Pre-Install Gate"]
-        L2 -->|"✅ CLEAN"| L3["Agent Runtime"]
-        L2 -->|"🚫 MALICIOUS"| L4["Block & Map C2"]
-    end
-    A1 --> R1
-    A2 --> R1
-    A3 --> R1
-    R1 -->|"1. Download"| L1
-    L1 -->|"2. Audit"| L2
+```bash
+pipx install skill-sentry-cli     # or: sh install.sh from the latest release
+skill-sentry-cli setup            # guided; asks before each download or build
+skill-sentry-cli doctor           # what is ready, and what is missing
+skill-sentry-cli scan path/to/skill
+skill-sentry-cli serve            # dashboard at http://127.0.0.1:8000
 ```
 
-Attack vectors covered: credential theft · image-hidden prompt injection (white-on-white payloads) · typosquatting · tool poisoning · obfuscation (`eval`, base64 bombs) · sandbox evasion · post-install supply-chain poisoning. Full model: [docs/developer/security.md](docs/developer/security.md).
+No Docker or model? Try the offline demo:
 
-## 🏗️ Architecture — the 8-Stage Pipeline
-
-```mermaid
-flowchart TD
-    A["📦 Skill Package (SKILL.md + scripts/ + assets/)"] --> S0
-    S0["0 · Incremental Cache — SHA-256 → SQLite, hit = ⚡ <2s"] --> S1
-    S1["1 · Spec Validation + Typosquat (Levenshtein ≤ 2)"] --> S2
-    S2["2 · Deterministic AST Anchors → local model semantic analysis"] --> S3
-    S3["3 · Multimodal Vision Scan — OCR hidden image payloads"] --> S4
-    S4["4 · Context-Aware Sandbox — masquerade, canary FS, DNS sinkhole, fake HTTP (60s/512MB/1CPU)"] --> S45
-    S45["4.5 · ☠️ Poisoned Well — fake intent-matched creds → track exfil → profile C2"] --> S5
-    S5["5 · Sandbox Evasion Detection — probe ⇒ auto-MALICIOUS"] --> S6
-    S6["6 · Verdict Engine — weighted fusion → 0–100 → SARIF 2.1.0"] --> OUT["✅ Install / 🚫 Block / 🖥️ Triage Dashboard"]
+```bash
+skill-sentry-cli scan cloud-sync-pro --demo-mode
 ```
 
-| Why it's different | |
+The [user guide](docs/user/guide.md) walks through installation, the first scans, reading verdicts, reports, and CI use. The [CLI reference](docs/reference/cli.md) lists every command and option.
+
+## Install
+
+| Method | Use |
 |:---|:---|
-| **Pre-install + runtime (MCP, Phase 2)** | not just post-install network watching |
-| **LLM + Vision + Sandbox + Active Defense** | not just regex/text scanning |
-| **Deterministic anchoring** | the LLM cannot contradict hard AST facts — credible, not vibes |
-| **Hard-evidence overrides** | canary-marker correlation or evasion probe ⇒ `MALICIOUS`, confidence 1.0 |
-| **100% local** | A quantized local model via Ollama; opt-in cloud fallback; no telemetry |
-| **Fights back** | Poisoned Well deception + C2 tracking + STIX IOC export |
+| `pipx install skill-sentry-cli` | Developers. Published on PyPI. |
+| Install script (`install.sh`, `install.ps1`) | Checksum-verified installs from a release. |
+| Server image `ghcr.io/emberphantom/skill-sentry-server` | Running the dashboard and API in a container. Publish the port on `127.0.0.1` only. |
+| Source checkout | Contributors. See the [developer setup](docs/developer/getting-started.md). |
 
-Deep-dives: [Architecture](docs/developer/architecture.md) · [Database](docs/developer/database.md) · [Security](docs/developer/security.md) · [API](docs/reference/api.md) · [UI/UX](docs/developer/ui-design.md).
+Requirements: Python 3.11 to 3.13. Docker, for sandboxed scans. A local model server (Ollama), with the model that `doctor` names. macOS and native Windows are best-effort; see the [support policy](docs/operations/governance.md#204-support-policy).
 
-> **Original code:** the sandbox runner, canary filesystem, DNS sinkhole, context-aware honeypot system, sandbox evasion detector, and Poisoned Well correlation engine are original code.
+## Verdicts
 
-## 🚀 How to Run
+| Verdict | Meaning |
+|:---|:---|
+| `SAFE` | No suspicious behaviour was found. |
+| `SUSPICIOUS` | Read each cited finding before you decide. |
+| `MALICIOUS` | Hard evidence of hostile behaviour. Do not install. |
+| `UNSCANNED` | A check could not finish, such as the sandbox or the model being unavailable. Fix the reason and scan again. |
+| `INVALID SKILL` | `SKILL.md` is malformed. This is a packaging problem, not a malware finding. |
 
-Install from a checkout (below), or with the install script in the latest release. Then run `skill-sentry-cli setup`. Once the PyPI release is published, `pipx install skill-sentry-cli` works too. The step-by-step guide covers first scans, reports, the dashboard, CI, and troubleshooting: **[docs/user/guide.md](docs/user/guide.md)**.
+Exit codes: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. CI uses the exit code.
 
-**Prereqs:** Python 3.11 to 3.13 · Docker (for the sandbox) · [Ollama](https://ollama.com) with a local model. `skill-sentry-cli setup` checks all of these and asks before anything is downloaded.
+## Documentation
 
-```bash
-# From a checkout (a PyPI release is planned, not yet published)
-pip install -e .
-cd ui && npm ci && npm run build && cd ..   # builds the dashboard into the package
-skill-sentry-cli init                             # writes skillsentry.toml
-skill-sentry-cli sandbox build                    # builds the sandbox image (needs Docker)
+| For | Start here |
+|:---|:---|
+| Using SkillSentry | [User guide](docs/user/guide.md) · [Overview](docs/user/overview.md) |
+| Commands, configuration, and exit codes | [CLI reference](docs/reference/cli.md) |
+| The HTTP API and report formats | [API reference](docs/reference/api.md) |
+| How it works inside | [Architecture](docs/developer/architecture.md) · [Security model](docs/developer/security.md) |
+| Contributing | [Developer setup](docs/developer/getting-started.md) · [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Running it for a team | [Deployment](docs/operations/deployment.md) · [Governance](docs/operations/governance.md) |
+| Releases | [Release process](docs/operations/release-process.md) · [Changelog](docs/CHANGELOG.md) |
 
-skill-sentry-cli doctor                      # tells you the exact `ollama pull` command for the local model
+Every published release can be checked with the commands in [verify a release](docs/operations/release-process.md#verify-a-release): the images are signed, and the wheel has a build attestation.
 
-skill-sentry-cli scan ./fixtures/benign/pdf-summarizer        # ✅ SAFE
-skill-sentry-cli scan ./fixtures/malicious/cloud-sync-pro     # 🚫 MALICIOUS + ☠️ C2 mapped
-skill-sentry-cli scan ./fixtures/benign/pdf-summarizer        # ⚡ cached
+## Planned, not available
 
-skill-sentry-cli serve                    # Dashboard → http://127.0.0.1:8000
-skill-sentry-cli scan cloud-sync-pro --demo-mode  # offline canned demo (skill names), no Docker or model needed
-skill-sentry-cli export <scan_id> --format sarif   # re-render a stored report
-skill-sentry-cli cache stats              # inspect the verdict cache
-```
+These are proposals. Do not build on them yet.
 
-**Server image:** `docker build -t skill-sentry-server:local .` then
-`docker run -p 127.0.0.1:8000:8000 skill-sentry-server:local`. The container does not
-mount the Docker socket, so the sandbox is unavailable inside it by default. Mounting
-`/var/run/docker.sock` gives the container root-equivalent control of the host, so only do
-that deliberately.
+- A GitHub Action for pull request gates.
+- A `--watch` mode for scans.
+- Uploading SARIF from the CLI.
+- An MCP proxy that enforces policy while an agent runs.
+- Signed verdicts, and an opt-in community indicator feed.
+- A team server with authentication.
 
-**Release build and local checks** (CI is blocked while the GitHub account has a billing issue):
+## Security
 
-```bash
-scripts/check.sh          # lint, format, tests, schema drift, demo smoke
-scripts/build_release.sh  # dashboard, wheel, and a fresh-venv install check
-```
+The API has no authentication, so it is meant for loopback use only. Read the [security model](docs/developer/security.md), including its known limitations, before you run SkillSentry on anything that matters. To report a vulnerability, follow [SECURITY.md](SECURITY.md). Do not open a public issue.
 
-**CI / PR gate (planned):** a `skillsentry/scan` GitHub Action is planned and is not yet published. The intended interface is:
+## Contributing
 
-```yaml
-- uses: skillsentry/scan@v1   # planned
-  with:
-    path: ./skills/
-    fail-on: suspicious     # the CLI default is suspicious
-    upload-sarif: true      # GitHub Security tab
-    cache: true             # incremental re-scans
-```
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md). Participation is covered by the [Code of Conduct](.github/CODE_OF_CONDUCT.md), and questions go to the [support guide](.github/SUPPORT.md).
 
-Full CLI reference: [docs/reference/cli.md](docs/reference/cli.md) · Deployment: [docs/operations/deployment.md](docs/operations/deployment.md) (the whole team server fits a **$12 DigitalOcean droplet**).
+## License
 
-## 📊 Evaluation (7+1 fixture corpus)
-
-| Skill | Behavior | Expected | Caught by |
-|:---|:---|:---|:---|
-| `pdf-summarizer` | pure text processing | ✅ SAFE < 30 | — |
-| `git-helper` | local git ops | ✅ SAFE < 30 | — |
-| `image-resizer` | file ops only | ✅ SAFE < 30 | — |
-| `weather-fetch` | **declared** network call | ✅ SAFE < 30 | — (no false positives) |
-| `cloud-sync-pro` | steals `~/.aws/credentials` → DNS tunnel | 🚫 MALICIOUS > 90 | Sandbox + ☠️ Poisoned Well |
-| `invoice-helper` | white-on-white injection in `logo.png` | 🚫 MALICIOUS > 85 | The local vision model (👁 Eye View) |
-| `slack-notif-mal` | probes `/.dockerenv`, steals Slack token | 🚫 MALICIOUS 100 | Evasion detection + context honeypot |
-| `g1t-translate`* | typosquat of `git-translate` | ⚠️ SUSPICIOUS 30–70 | Levenshtein detector |
-
-**Targets** (not yet re-measured for the current release; see [docs/08](docs/developer/testing.md)): malicious detection 2/2 (+stretch 3/3) · benign false positives 0/4 · cached re-scan < 2 s · uncached local scan < 90 s · citation accuracy ≥ 80%. Run sheet + metrics methodology: [docs/developer/testing.md](docs/developer/testing.md).
-
-## 📚 Documentation
-
-| Doc | | Doc | |
-|:---|:---|:---|:---|
-| [Project Overview](docs/user/overview.md) | problem, positioning, glossary | [API Reference](docs/reference/api.md) | REST/WS, verdict contract v1 |
-| [Architecture](docs/developer/architecture.md) | 8-stage pipeline, scoring | [UI/UX Design](docs/developer/ui-design.md) | screens, wireframes, UX rules |
-| [Database](docs/developer/database.md) | SQLite schema, caching | [CLI Reference](docs/reference/cli.md) | commands, config, exit codes |
-| [Security](docs/developer/security.md) | threat model, hardening | [Testing & Evaluation](docs/developer/testing.md) | fixtures, Chaos Run, demo script |
-| [Deployment & Production](docs/operations/deployment.md) | pip/Docker/Action, MCP proxy | [Developer Guide](docs/developer/getting-started.md) | setup, contracts, roadmap |
-| [Build history (archived)](docs/internal/README.md) | hackathon planning, milestones M0–M5 | | |
-
-Also: [CHANGELOG](docs/CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md) · [Code of Conduct](.github/CODE_OF_CONDUCT.md) · [Support](.github/SUPPORT.md) · [SECURITY](SECURITY.md)
-
-## 🙏 Prior Art (honest citations)
-
-- [Snyk — ToxicSkills: malicious AI agent skills on ClawHub](https://snyk.io/blog/toxicskills-malicious-ai-agent-skills-clawhub/)
-- Pipelock (OSS runtime network monitoring for agents)
-- AIR Security (enterprise cloud AI-agent firewall)
-- MCP prompt-injection research (tool poisoning / rug-pull literature)
-- [Agent Skill Open Standard](https://agentskills.io/specification) · [Ollama](https://ollama.com)
-
-## 📄 License
-
-MIT — see [LICENSE](LICENSE). Maintained by Team SkillSentry. Contributions are welcome: start with [CONTRIBUTING.md](CONTRIBUTING.md), and follow the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
-
-<div align="center">
-
-**⚡ Runs fully on your machine · open weights ⚡**
-
-</div>
+MIT. See [LICENSE](LICENSE).

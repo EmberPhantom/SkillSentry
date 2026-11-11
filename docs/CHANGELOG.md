@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ---
 
+## Policy
+
+- Every change a user or operator can notice gets an entry under `[Unreleased]`, in the same pull request.
+- Entries are grouped as Added, Changed, Deprecated, Removed, Fixed, or Security.
+- A release moves the `[Unreleased]` entries under a new version heading with its date, and then `[Unreleased]` is empty again.
+- Old entries keep the names they had at the time. Do not rewrite history.
+
 ## [Unreleased]
 
 ## [2.1.0] — 2026-11-07
