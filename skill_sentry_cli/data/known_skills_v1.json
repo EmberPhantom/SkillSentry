@@ -1,9 +1,13 @@
 {
   "version": "2.0.0",
   "description": "Curated dictionary of known legitimate AI Agent Skill names for typosquat detection. Union of the v1 core list and the Developer 2 curation.",
-  "updated": "2026-10-30",
-  "source": "Union of skillsentry core names and feature/developer-2 skillsentry/data/known_skills_v1.json (chauhanaman41).",
+  "updated": "2026-11-11",
+  "source": "Union of skillsentry core names and feature/developer-2 skillsentry/data/known_skills_v1.json (chauhanaman41), plus the published skills of github.com/anthropics/skills (2026-11-11).",
   "entries": [
+    {
+      "name": "algorithmic-art",
+      "category": "utility"
+    },
     {
       "name": "api-tester",
       "category": "web-api"
@@ -29,6 +33,10 @@
       "category": "file-system"
     },
     {
+      "name": "brand-guidelines",
+      "category": "utility"
+    },
+    {
       "name": "calculator",
       "category": "utility"
     },
@@ -37,11 +45,19 @@
       "category": "core"
     },
     {
+      "name": "canvas-design",
+      "category": "utility"
+    },
+    {
       "name": "cert-checker",
       "category": "security"
     },
     {
       "name": "changelog-gen",
+      "category": "development"
+    },
+    {
+      "name": "claude-api",
       "category": "development"
     },
     {
@@ -85,6 +101,10 @@
       "category": "communication"
     },
     {
+      "name": "doc-coauthoring",
+      "category": "core"
+    },
+    {
       "name": "docker-build",
       "category": "container"
     },
@@ -111,6 +131,10 @@
     {
       "name": "file-organizer",
       "category": "core"
+    },
+    {
+      "name": "frontend-design",
+      "category": "development"
     },
     {
       "name": "git-commit",
@@ -157,6 +181,10 @@
       "category": "file-system"
     },
     {
+      "name": "internal-comms",
+      "category": "communication"
+    },
+    {
       "name": "json-formatter",
       "category": "data-ai"
     },
@@ -175,6 +203,10 @@
     {
       "name": "markdown-editor",
       "category": "core"
+    },
+    {
+      "name": "mcp-builder",
+      "category": "development"
     },
     {
       "name": "ml-trainer",
@@ -201,7 +233,15 @@
       "category": "security"
     },
     {
+      "name": "skill-creator",
+      "category": "development"
+    },
+    {
       "name": "slack-bot",
+      "category": "communication"
+    },
+    {
+      "name": "slack-gif-creator",
       "category": "communication"
     },
     {
@@ -227,6 +267,10 @@
     {
       "name": "test-runner",
       "category": "development"
+    },
+    {
+      "name": "theme-factory",
+      "category": "utility"
     },
     {
       "name": "time-tracker",
@@ -257,12 +301,20 @@
       "category": "utility"
     },
     {
+      "name": "web-artifacts-builder",
+      "category": "development"
+    },
+    {
       "name": "web-scraper",
       "category": "web-api"
     },
     {
       "name": "web-search",
       "category": "core"
+    },
+    {
+      "name": "webapp-testing",
+      "category": "development"
     },
     {
       "name": "webhook-handler",
