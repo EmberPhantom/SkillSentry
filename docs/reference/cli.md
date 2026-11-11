@@ -199,7 +199,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 
 Two sections deserve a warning:
 
-- **`[ci]`** is written by `init` but **not read** by the CLI. Its `fail_on` value has no effect; the gate is set by `--fail-on`, which defaults to `suspicious`. Do not rely on this section.
+- **`[ci]`** is accepted so that older files still load, but the CLI **does not read** it, and `init` no longer writes it. The gate is set with `--fail-on`, which defaults to `suspicious`. Do not rely on this section.
 - **`[decision]`** selects an optional alternative decision layer. It is off by default (`backend = "legacy"`). Leave it alone unless you know you need it.
 
 ## Environment variables

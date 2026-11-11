@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -77,10 +78,30 @@ def test_write_default_config_roundtrip(tmp_path: Path):
     assert written == path
     assert path.is_file()
     config = load_config(path)
-    assert config.ci.fail_on == "malicious"
+    assert config.model.image_max_px == 768
     with pytest.raises(ConfigError, match="already exists"):
         write_default_config(path)
     write_default_config(path, force=True)
+
+
+def test_generated_template_matches_the_code_defaults(tmp_path: Path, monkeypatch):
+    # The template is written by hand. Any value in it that differs from the code
+    # default would make `init` change behaviour, so every value must agree.
+    # Environment overrides are removed so that only the file is compared.
+    from skill_sentry_cli.core.config import DEFAULT_CONFIG_TOML
+
+    for name in list(os.environ):
+        if name.startswith("SKILLSENTRY_"):
+            monkeypatch.delenv(name)
+    path = tmp_path / "skillsentry.toml"
+    path.write_text(DEFAULT_CONFIG_TOML, encoding="utf-8")
+    assert load_config(path).model_dump() == default_config().model_dump()
+
+
+def test_generated_template_does_not_write_the_unused_ci_section():
+    from skill_sentry_cli.core.config import DEFAULT_CONFIG_TOML
+
+    assert "[ci]" not in DEFAULT_CONFIG_TOML
 
 
 def test_engine_version_tracks_weights():
