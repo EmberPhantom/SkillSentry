@@ -46,6 +46,10 @@ updates:
     schedule:
       interval: "weekly"
     # Node 25 is not an LTS release; the project stays on the current LTS line.
+    # The server image runs the Python versions the project supports (3.11 to 3.13),
+    # so moves to a newer Python are made deliberately, not by this bot.
     ignore:
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
