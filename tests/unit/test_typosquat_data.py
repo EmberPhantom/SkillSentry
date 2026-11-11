@@ -62,3 +62,18 @@ def test_case_variant_of_a_known_name_is_flagged() -> None:
 )
 def test_repo_benign_fixture_names_are_not_flagged(fixture: str) -> None:
     assert check_typosquat(fixture) is None, fixture
+
+
+@pytest.mark.parametrize(
+    ("name", "candidate"),
+    [
+        ("skill-creater", "skill-creator"),
+        ("mcp-bui1der", "mcp-builder"),
+        ("frontend-desing", "frontend-design"),
+    ],
+)
+def test_lookalike_of_a_published_anthropic_skill_is_flagged(name: str, candidate: str) -> None:
+    match = check_typosquat(name)
+
+    assert match is not None
+    assert match.candidate == candidate
