@@ -9,7 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from skill_sentry_cli.core.contracts import Verdict, format_utc, utc_now
-from skill_sentry_cli.core.version import ENGINE_VERSION
+from skill_sentry_cli.core.version import ENGINE_VERSION, __version__
 
 _IPV4_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
 
@@ -49,7 +49,7 @@ def build_stix(verdict: Verdict, *, generated_at: datetime | None = None) -> dic
             "identity",
             created=stamp,
             modified=stamp,
-            name="SkillSentry 2.0",
+            name=f"SkillSentry {__version__}",
             description="Local-first Agent Skill supply-chain auditor.",
             identity_class="system",
             x_skillsentry_engine_version=ENGINE_VERSION,
