@@ -195,6 +195,7 @@ def _finding(stage: Stage, severity: Severity) -> Finding:
 
 
 def test_high_finding_floor_prevents_safe_verdict():
+    # A model HIGH finding is corroborated here by a non-zero sandbox signal.
     fused = fuse(
         [
             _result(
@@ -203,7 +204,7 @@ def test_high_finding_floor_prevents_safe_verdict():
                 findings=[_finding(Stage.SEMANTIC, Severity.HIGH)],
             ),
             _result(Stage.VISION, signals={"vision": 0}),
-            _result(Stage.SANDBOX, signals={"sandbox": 0}),
+            _result(Stage.SANDBOX, signals={"sandbox": 20}),
         ]
     )
     assert fused.risk_score >= 70
@@ -359,12 +360,14 @@ def test_lone_model_critical_is_capped_at_suspicious():
         weights={"semantic": 1.0},
         typosquat_bonus=0,
     )
-    assert fused.verdict == VerdictTier.SUSPICIOUS
-    assert fused.risk_score <= 70
-    assert any(f.finding_type == "semantic-only-capped" for f in fused.findings)
+    # A lone model critical is uncorroborated, so it does not decide the verdict.
+    assert fused.verdict == VerdictTier.SAFE
+    assert fused.risk_score < 30
+    assert any(f.finding_type == "semantic-uncorroborated" for f in fused.findings)
 
 
-def test_model_high_finding_still_raises_to_suspicious():
+def test_uncorroborated_model_high_does_not_raise_the_verdict():
+    # A model-only mismatch, with no independent evidence, must not decide the verdict.
     fused = fuse(
         [
             _result(
@@ -376,8 +379,45 @@ def test_model_high_finding_still_raises_to_suspicious():
         weights={"semantic": 1.0},
         typosquat_bonus=0,
     )
+    assert fused.verdict == VerdictTier.SAFE
+    assert fused.risk_score < 30
+    assert fused.evidence_floor == 0
+    assert any(f.finding_type == "semantic-uncorroborated" for f in fused.findings)
+
+
+def test_uncorroborated_model_signal_cannot_reach_the_suspicious_band():
+    # The weighted score of a model-only mismatch stays below the SUSPICIOUS boundary.
+    fused = fuse(
+        [
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 95.0},
+                findings=[_finding(Stage.SEMANTIC, Severity.HIGH)],
+            ),
+            _result(Stage.SPEC, signals={}),
+        ],
+        weights={"semantic": 1.0},
+        typosquat_bonus=0,
+    )
+    assert fused.verdict == VerdictTier.SAFE
+    assert fused.risk_score < 30
+
+
+def test_model_high_finding_raises_to_suspicious_when_corroborated():
+    fused = fuse(
+        [
+            _result(
+                Stage.SEMANTIC,
+                signals={"semantic": 5.0},
+                findings=[_finding(Stage.SEMANTIC, Severity.HIGH)],
+            ),
+            _result(Stage.SANDBOX, signals={"sandbox": 5.0}),
+        ],
+        typosquat_bonus=0,
+    )
     assert fused.verdict == VerdictTier.SUSPICIOUS
     assert fused.risk_score >= 30
+    assert not any(f.finding_type == "semantic-uncorroborated" for f in fused.findings)
 
 
 def test_model_critical_with_an_anchor_finding_can_be_malicious():

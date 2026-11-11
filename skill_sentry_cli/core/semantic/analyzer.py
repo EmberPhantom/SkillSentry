@@ -326,7 +326,8 @@ def analyze_semantics(
             validate_json(response, SEMANTIC_SCHEMA)
         except Exception as exc:
             last_error = str(exc)[:300]
-            failed.append(_Gap(chunk.file, chunk.first_line, chunk.last_line, "model call failed"))
+            reason = f"model call failed ({type(exc).__name__}: {str(exc)[:160]})"
+            failed.append(_Gap(chunk.file, chunk.first_line, chunk.last_line, reason))
             continue
         responses.append((chunk, response))
 

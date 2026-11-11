@@ -137,17 +137,30 @@ def fuse(
         detected=detected,
         typosquat_floor=typosquat_floor,
     )
-    # Model-reported findings can raise a verdict to SUSPICIOUS, never to MALICIOUS.
-    model_floor = min(
-        _evidence_floor(
-            [finding for finding in findings if finding.stage == Stage.SEMANTIC],
-            detected=False,
-            typosquat_floor=0,
-        ),
-        malicious_min,
+    # A model-reported finding raises a verdict to SUSPICIOUS only when something
+    # independent supports it: a deterministic, sandbox, or vision finding, a typosquat
+    # hit, or a non-zero non-model signal.  Alone, it stays on the weighted score, and a
+    # note says so.  It never reaches MALICIOUS by itself.
+    model_findings = [finding for finding in findings if finding.stage == Stage.SEMANTIC]
+    corroborated = _model_is_corroborated(findings, signals, detected=detected)
+    model_floor = (
+        min(
+            _evidence_floor(model_findings, detected=False, typosquat_floor=0),
+            malicious_min,
+        )
+        if corroborated
+        else 0
     )
+    uncorroborated_model = not corroborated and _evidence_floor(
+        model_findings, detected=False, typosquat_floor=0
+    )
+    if uncorroborated_model:
+        findings = (*findings, _uncorroborated_model_note())
     evidence_floor = max(evidence_floor, model_floor)
     score = max(score, evidence_floor)
+    if uncorroborated_model:
+        # The model's signal alone must not lift the score into the SUSPICIOUS band.
+        score = min(score, safe_max - 1)
     coverage = (
         sum(normalised_weights[key] for key in present) / sum(normalised_weights.values())
         if present
@@ -269,6 +282,34 @@ def _has_strong_non_semantic_evidence(
         for finding in findings
     )
     return strong_signal or strong_finding
+
+
+def _model_is_corroborated(
+    findings: Iterable[Finding],
+    signals: Mapping[str, float],
+    *,
+    detected: bool,
+) -> bool:
+    if detected:
+        return True
+    independent_finding = any(
+        finding.stage != Stage.SEMANTIC and finding.severity.rank > 0 for finding in findings
+    )
+    independent_signal = any(key != "semantic" and value > 0 for key, value in signals.items())
+    return independent_finding or independent_signal
+
+
+def _uncorroborated_model_note() -> Finding:
+    return Finding(
+        stage=Stage.VERDICT,
+        severity=Severity.NOTE,
+        message=(
+            "A model-reported finding was not corroborated by any deterministic, sandbox, "
+            "vision, or typosquat evidence, so it did not raise the verdict."
+        ),
+        finding_type="semantic-uncorroborated",
+        evidence=FindingEvidence(file="SKILL.md", line=1),
+    )
 
 
 def _semantic_cap_note() -> Finding:
