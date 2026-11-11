@@ -54,7 +54,7 @@ Response times are targets, not guarantees. [SUPPORT.md](../../.github/SUPPORT.m
 
 ## 20.5 Maintainer settings checklist
 
-Nothing in this section has been applied. A maintainer runs these once, after reading them. Each command changes the public GitHub repository.
+These settings were applied to the repository in November 2026 and read back. The commands stay here as a record, and for applying the same settings to a fork or a new repository. Each command changes the public GitHub repository, so read it before you run it.
 
 ```bash
 # 1. Private vulnerability reporting, which SECURITY.md relies on.
