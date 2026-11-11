@@ -256,7 +256,7 @@ The STIX bundle is built from the Poisoned Well indicators of one scan. It is av
 | The skill | `malware`, named after the skill |
 | Link between skill and indicator | `relationship` of type `indicates` |
 
-The bundle's identity is `SkillSentry 2.0`. That string is fixed in the current writer, so it does not follow the release version. Indicators have a confidence of `100` when the decoy was seen, and `50` otherwise.
+The bundle's identity is `SkillSentry <version>`, the running release. Indicators have a confidence of `100` when the decoy was seen, and `50` otherwise.
 
 ## 5.8 Error model
 
