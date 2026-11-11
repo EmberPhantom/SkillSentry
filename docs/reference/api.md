@@ -1,244 +1,300 @@
-# 5 · API Reference
+# 5 · API reference
 
-> The FastAPI server exposes REST endpoints for scans and skills, a WebSocket stream for live scan progress, and export endpoints for SARIF / Markdown / STIX. The **Verdict JSON Contract v1** (§5.5) is frozen at milestone M0 and does not change — the frontend builds against it via a mock server until the real API lands.
-
----
+The HTTP and WebSocket API that `skill-sentry-cli serve` exposes. The dashboard uses it, and so can your own tools. Section numbers are kept stable, because the code refers to them.
 
 ## 5.1 Conventions
 
 | Item | Value |
 |:---|:---|
-| Base URL (local) | `http://127.0.0.1:8000` |
+| Base URL | `http://127.0.0.1:8000` (the default for `serve`) |
 | Content type | `application/json` (UTF-8) |
-| Timestamps | ISO-8601 UTC with milliseconds (`2026-10-21T09:31:07.412Z`) |
-| IDs | `scan_id` / `skill_id`: UUID v4 strings |
-| Auth | None in local mode (loopback bind only). Team-server mode: bearer token — **Spec (proposed)** |
-| Demo mode | `--demo-mode` serves canned responses with identical schemas (no Docker/model required) |
-| Versioning | Verdict contract `v1`; breaking changes ⇒ `v2` + migration path (never mutate `v1`) |
+| Response field names | camelCase, for example `scanId` and `riskScore` |
+| Request field names | snake_case, for example `no_cache` and `timeout_s` |
+| Timestamps | ISO-8601, UTC |
+| Identifiers | UUIDs, for scans and skills |
+| Authentication | **None.** The server is meant for loopback use only. Keep the default `--host 127.0.0.1`. See the [security model](../developer/security.md) §4.11. |
+| Contract version | Reported as `contractVersion` by `GET /meta`. The verdict contract is `v1`. Changes are additive. |
+| Demo mode | `serve --demo-mode` serves canned data with the same schemas. No Docker or model is needed. |
 
-## 5.2 REST Endpoints
+## 5.2 REST endpoints
 
-### `POST /scan` — start a scan
+| Method and path | Purpose | Success | Errors |
+|:---|:---|:---|:---|
+| `POST /scan` | Start a scan | `202` | `404` no `SKILL.md`, `409` scan already running, `422` missing or invalid path |
+| `GET /scans` | List scans, newest first | `200` | |
+| `GET /scan/{scan_id}` | Status of one scan | `200` | `404` unknown scan |
+| `GET /scan/{scan_id}/verdicts` | Verdicts of one scan | `200` | `404` unknown scan, `409` still running, `500` failed |
+| `GET /skills/{skill_id}` | Full detail for a skill | `200` | `404` unknown skill |
+| `GET /skills/{skill_id}/export?format=` | Report for a skill | `200` (file) | `404` unknown skill, `409` STIX requested without indicators |
+| `GET /cache/stats` | Cache statistics | `200` | |
+| `DELETE /cache?older_than=` | Remove cached verdicts | `200` | `422` invalid duration |
+| `GET /health` | Dependency health | `200` | |
+| `GET /meta` | Server metadata | `200` | |
+| `WS /scan/{scan_id}/stream` | Live events for one scan | (§5.3) | |
 
-```jsonc
-// Request
+### `POST /scan`: start a scan
+
+Request:
+
+```json
 {
-  "path": "/abs/path/to/skill-folder",   // required; directory containing SKILL.md
-  "options": {                            // all optional
+  "path": "/absolute/path/to/skill-folder",
+  "options": {
     "no_cache": false,
-    "backend": "auto",                    // "auto" | "local" | "cloud" | "demo"
-    "sandbox": true,                      // false ⇒ static stages only (flagged in findings)
+    "backend": "auto",
+    "sandbox": true,
     "poisoned_well": true,
     "timeout_s": 60
   }
 }
-// Response 202
-{ "scan_id": "3f9c…", "status": "queued", "stream": "/scan/3f9c…/stream" }
 ```
 
-Errors: `400` path missing/not a directory · `404` no `SKILL.md` found · `409` identical content hash already scanning · `422` body schema violation.
+- `path` is the skill folder. It must contain `SKILL.md`. A missing or empty path gives `422 missing_path`. A path that does not exist gives `404 no_skill_manifest`. A path that is not a directory gives `422 invalid_skill`.
+- `options` is optional. `backend` is `auto`, `local`, `cloud`, or `demo`. Set `sandbox` to `false` to skip the sandbox; the verdict then relies on the static stages only.
+- A second scan of the same folder while one is running gives `409 scan_in_progress`.
 
-### `GET /scan/{scan_id}` — scan status
+Response, status `202`:
 
-```jsonc
+```json
 {
-  "scan_id": "3f9c…",
-  "status": "running",            // queued | running | completed | failed | cached-hit
-  "stage": "sandbox",             // current pipeline stage (see §5.4)
+  "scanId": "3f9c2a1e-0000-4000-8000-000000000001",
+  "status": "queued",
+  "stream": "/scan/3f9c2a1e-0000-4000-8000-000000000001/stream"
+}
+```
+
+### `GET /scans`: list scans
+
+Newest first. Query parameters: `limit` (1 to 1000, default 100), `offset` (default 0), and `status` (optional; one of the values listed under `GET /scan/{scan_id}`).
+
+Response: `{"scans": [...]}`. Each entry is a summary with `scanId`, `skillId`, `skill`, `verdict`, `riskScore`, `cached`, `status`, `startedAt`, `durationMs`, and `keyFinding`. Use `GET /scan/{scan_id}` for the live status of one scan, and `GET /scan/{scan_id}/verdicts` for the full verdicts.
+
+### `GET /scan/{scan_id}`: status
+
+```json
+{
+  "scanId": "3f9c2a1e-0000-4000-8000-000000000001",
+  "status": "running",
+  "stage": "sandbox",
   "skill": "cloud-sync-pro",
-  "startedAt": "…", "elapsedMs": 41233,
-  "error": null                   // populated when status = failed
+  "startedAt": "2026-10-21T09:31:07.412Z",
+  "elapsedMs": 41233,
+  "error": null
 }
 ```
 
-### `GET /scan/{scan_id}/verdicts` — verdict list (backs the Triage Table)
+`status` is one of `queued`, `running`, `completed`, `failed`, or `cached-hit`. `stage` is the current stage (§5.4). `error` is set when `status` is `failed`.
 
-```jsonc
+### `GET /scan/{scan_id}/verdicts`: verdicts
+
+```json
 {
-  "scan_id": "3f9c…",
-  "verdicts": [ /* array of Verdict Contract v1 objects, §5.5 */ ]
+  "scanId": "3f9c2a1e-0000-4000-8000-000000000001",
+  "verdicts": [ { "...": "one verdict object per skill, §5.5" } ]
 }
 ```
 
-For a single-skill scan the array has one element; a folder-of-skills scan yields one verdict per skill (used by "Scan All" on the store view).
+A single-skill scan returns one verdict. A folder scan returns one per skill.
 
-### `GET /skills/{skill_id}` — full detail (backs Skill Detail screen)
+### `GET /skills/{skill_id}`: detail
 
-Returns the verdict object **plus** tab payloads: `staticFindings` (with code snippets), `visionEvidence` (image refs, OCR text, bboxes, view modes), `sandboxTrace` (ordered `canary_events` + `sandbox_net_logs`), `poisonedWell` (timeline + IOC graph nodes/edges + `activeDefense` block), `reportLinks`.
+Returns the verdict object (`verdict`) together with the data for each dashboard tab:
+
+| Field | Contents |
+|:---|:---|
+| `verdict` | The verdict object (§5.5). Required. |
+| `staticFindings` | Findings from code analysis, with the source lines. |
+| `visionEvidence` | Images checked, with text found and bounding boxes. |
+| `sandboxTrace` | Canary reads and network events seen during the sandbox run. |
+| `poisonedWell` | Decoy credential activity and the indicators it produced. |
+| `reportLinks` | Links to the report in each format. |
 
 ### `GET /skills/{skill_id}/export?format=sarif|markdown|stix`
 
-Streams the report file (generated on demand, cached under `~/.skillsentry/reports/<scan_id>/`). `Content-Disposition: attachment`. STIX export requires an `activeDefense.triggered = true` scan (otherwise `409 no-iocs`).
+Returns the report as a file attachment, rendered from the stored result when you ask for it. Nothing is written to disk on the server. `format` is required.
 
-### Cache & meta endpoints
+- `sarif`: SARIF 2.1.0 (§5.6).
+- `markdown`: a human-readable report.
+- `stix`: a STIX 2.1 bundle (§5.7). It needs at least one indicator, otherwise the response is `409 no_iocs`.
 
-| Endpoint | Purpose |
-|:---|:---|
-| `GET /cache/stats` | `{entries, hitRate, dbSizeBytes, engineVersion, modelVersion}` |
-| `DELETE /cache?older_than=90d` | Prune cache rows (cascades to history per config) |
-| `GET /health` | Liveness + dependency check: `{ollama: "ok"\|"down", docker: "ok"\|"down", db: "ok"}` — the UI's degraded-mode banner reads this |
-| `GET /meta` | `{version, backendActive, gemmaBadge: "Fully local analysis · open weights", demoMode: bool}` |
+### `GET /cache/stats`
 
-## 5.3 WebSocket — `WS /scan/{id}/stream`
-
-Live, terminal-style event stream (backs the Live Scan Console). Server → client messages:
-
-```jsonc
+```json
 {
-  "stage": "poisoned_well",       // cache | spec | anchor | semantic | vision |
-                                  // sandbox | poisoned_well | evasion | verdict
-  "skill": "cloud-sync-pro",
-  "event": "finding",             // started | progress | finding | override |
-                                  // completed | error | cached
-  "ts": "2026-10-21T09:31:07.412Z",
-  "detail": { /* event-specific payload, may be null */ }
+  "entries": 42,
+  "hitRate": 0.37,
+  "dbSizeBytes": 1048576,
+  "engineVersion": "2.1.0+ab12cd34",
+  "modelVersion": "example-model@sha256:…"
 }
 ```
 
-**Event catalog (minimum set the UI must handle):**
+### `DELETE /cache?older_than=`
 
-| Stage | Events worth streaming |
-|:---|:---|
-| `cache` | `cached` (⚡ instant verdict — stream closes) |
-| `spec` | `progress` (frontmatter parsed), `finding` (typosquat!) |
-| `anchor` | `finding` per AST/regex anchor (`{file, line, code}`) |
-| `semantic` | `started`, `progress` ("local model analyzing…"), `completed` with `declared_intent` |
-| `vision` | `progress` per image, `finding` with bbox + OCR snippet |
-| `sandbox` | `started` (container up), `finding` (canary read / probe), `progress` (telemetry) |
-| `poisoned_well` | `override` — "canary marker decoded → CONFIRMED" (the demo money-shot) |
-| `evasion` | `override` — "sandbox evasion detected" |
-| `verdict` | `completed` with the full Verdict object |
-| any | `error` with `{stage, message, degraded: bool}` |
+`older_than` is a number and a unit, for example `7d` or `12h`. Units are `s`, `m`, `h`, `d`, and `w`. Without it, all entries are removed. The response reports `deleted` and `retained`.
 
-Client → server: `{"op":"ping"}` keepalive; `{"op":"cancel"}` aborts the scan (container teardown guaranteed).
+### `GET /health`
 
-**Demo rule:** stage events stream even during slow LLM calls (heartbeat `progress` every ≤ 2 s) so the console always has motion.
+```json
+{ "ollama": "ok", "docker": "down", "db": "ok", "demoMode": false }
+```
 
-## 5.4 Pipeline Stage Identifiers
+Each dependency is `ok` or `down`. The dashboard uses this to show that some stages are unavailable. A `down` status does not mean a scan will succeed.
 
-Canonical stage names (used by WS events, `findings.stage`, and DB CHECK constraints):
+### `GET /meta`
+
+```json
+{
+  "version": "2.1.0",
+  "backendActive": "local",
+  "gemmaBadge": "Fully local analysis · open weights",
+  "demoMode": false,
+  "contractVersion": "1"
+}
+```
+
+`gemmaBadge` is the name of the field; it is the same string the CLI prints. Do not rely on the field name to tell which model is in use. Use `backendActive`.
+
+## 5.3 WebSocket: `WS /scan/{scan_id}/stream`
+
+The server sends events as the scan runs. Each message has this shape:
+
+```json
+{
+  "stage": "sandbox",
+  "skill": "cloud-sync-pro",
+  "event": "progress",
+  "ts": "2026-10-21T09:31:07.412Z",
+  "detail": {}
+}
+```
+
+**Events:** `started`, `progress`, `finding`, `override`, `completed`, `error`, and `cached`.
+
+- `cached`: the verdict came from the cache. No stages run.
+- `override`: a hard-evidence rule decided the result, such as a decoy credential in outbound traffic or a sandbox-detection probe.
+- `completed`: the scan finished. The final verdict is available from `GET /scan/{scan_id}/verdicts`.
+- `error`: a stage or the scan failed. `detail` holds `code`, `message`, and `degraded`.
+- `progress` with `detail.heartbeat` set to `true`: sent every 20 seconds while a long step runs, so a client can tell the scan is still alive.
+
+**Client messages.** The only client message the server acts on is `{"op": "cancel"}`, which stops the scan. Closing the socket does not stop the scan.
+
+Payloads other than `error` and the heartbeat are stage-specific. Treat them as informational, and rely on the verdict for results.
+
+## 5.4 Pipeline stage identifiers
+
+These exact strings appear in events, in `stage` fields, and in findings:
 
 `cache` · `spec` · `typosquat` · `deterministicAnchor` · `semantic` · `vision` · `sandbox` · `poisonedWell` · `evasion` · `verdict`
 
-## 5.5 Verdict JSON Contract v1 (FROZEN)
+## 5.5 Verdict JSON contract v1 (frozen)
 
-This is the single schema shared by the verdict engine, the triage table, the cache, and the mock server. **Frozen at M0 — additions must be backward-compatible (new optional fields only).**
+The verdict object is the one shape shared by the engine, the API, the cache, and the reports. The JSON Schema is generated from the code and committed in `schemas/verdict.v1.json`. CI fails if the two drift apart.
 
-```jsonc
+```json
 {
+  "scanId": "3f9c2a1e-0000-4000-8000-000000000001",
+  "skillId": "8b1d4e62-0000-4000-8000-000000000002",
   "skill": "cloud-sync-pro",
-  "verdict": "MALICIOUS",            // SAFE | SUSPICIOUS | MALICIOUS
-  "riskScore": 97,                   // 0–100 integer
-  "confidence": 1.0,                 // 0.0–1.0
-  "cached": false,                   // true ⇒ served from Stage 0 (<2s)
+  "verdict": "MALICIOUS",
+  "riskScore": 97,
+  "confidence": 1.0,
+  "cached": false,
   "scanDurationMs": 87432,
   "findings": [
     {
-      "stage": "deterministicAnchor", // §5.4 identifiers
-      "severity": "high",             // low | medium | high | critical | note
-      "message": "nslookup command detected — potential DNS tunneling",
-      "evidence": { "file": "scripts/sync.sh", "line": 7 }
-    },
-    {
-      "stage": "sandbox",
-      "severity": "critical",
-      "message": "Read canary file ~/.aws/credentials",
-      "evidence": { "file": "scripts/sync.sh", "line": 14 }
-    },
-    {
-      "stage": "poisonedWell",
-      "severity": "critical",
-      "message": "Canary marker exfiltrated via DNS",
-      "evidence": { "c2": "evil-collector.net", "marker": "SKS-7f3a9c21" }
+      "stage": "deterministicAnchor",
+      "severity": "high",
+      "message": "Reads the AWS credentials file",
+      "evidence": { "file": "scripts/sync.sh", "line": 4 }
     }
   ],
-  "activeDefense": {                  // present iff Poisoned Well ran
+  "activeDefense": {
     "triggered": true,
     "targetedAssets": ["~/.aws/credentials"],
-    "exfilChannel": "DNS_TUNNELING",  // DNS_TUNNELING | HTTP_POST | RAW_SOCKET | null
+    "exfilChannel": "DNS_TUNNELING",
     "canaryMarker": "SKS-7f3a9c21",
-    "secondaryCanary": "SKS-9d1e4b77",
     "c2Indicators": ["evil-collector.net"],
     "encoding": "base64",
     "sandboxEvasionDetected": false,
     "declaredIntent": "Cloud file synchronization",
-    "contextAwareCanary": "AWS"       // AWS | GITHUB | SLACK | SSH | GENERIC
+    "contextAwareCanary": "AWS"
   }
 }
 ```
 
-**Field notes:**
-
-| Field | Guarantees |
+| Field | Notes |
 |:---|:---|
-| `verdict` / `riskScore` | Tier boundaries: SAFE < 30 ≤ SUSPICIOUS ≤ 70 < MALICIOUS; overrides force MALICIOUS with `confidence: 1.0` |
-| `findings[].evidence.file/line` | Line-accurate citation target ≥ 80%; every MALICIOUS verdict has ≥ 1 finding with `file` + `line` ("no naked verdicts") |
-| `cached` | Drives the ⚡ indicator in the UI |
-| `activeDefense` | Mirrors the SARIF extension (§5.6); `triggered: false` keeps the block present with nulls for schema stability |
+| `verdict` | `SAFE` below 30, `SUSPICIOUS` from 30 to 70, `MALICIOUS` above 70. An override sets `MALICIOUS` with `confidence` 1.0. |
+| `riskScore` | An integer from 0 to 100. |
+| `confidence` | From 0.0 to 1.0. |
+| `findings[].severity` | `low`, `medium`, `high`, `critical`, or `note`. |
+| `findings[].evidence` | The file and line of the evidence, where there is one. A Poisoned Well finding can instead cite the destination and marker. |
+| `findings[].type` | Optional. Used in the SARIF rule ID. |
+| `activeDefense` | Optional. Present when Poisoned Well ran. Readers must accept it as absent or null. `triggered` is `false` when no decoy was seen. |
 
-## 5.6 SARIF 2.1.0 Mapping + `activeDefense` Extension
+**Compatibility.** Changes to this contract are additive: new optional fields only. A breaking change needs a new contract version and a migration path.
 
-- Each `findings[]` entry ⇒ one SARIF `result` with `ruleId = skillsentry/<stage>/<type>`, `level` mapped from severity (`critical/high → error`, `medium → warning`, `low/note → note`), and `locations[].physicalLocation` = `{artifactLocation.uri, region.startLine}`.
-- The verdict itself ⇒ `run.properties.verdict` / `.riskScore` / `.confidence` / `.cached`.
-- Poisoned Well enrichment ⇒ `run.properties.activeDefense`:
+## 5.6 SARIF 2.1.0 mapping
+
+- Each finding becomes one SARIF `result`. Its `ruleId` is `skillsentry/<stage>/<type>`.
+- Severity maps to SARIF level: `critical` and `high` become `error`, `medium` becomes `warning`, and `low` and `note` become `note`.
+- The verdict's `verdict`, `riskScore`, `confidence`, and `cached` appear under the run's properties.
+- The Poisoned Well block appears under the run's `activeDefense` property.
+
+Upload to GitHub code scanning with the usual `github/codeql-action/upload-sarif` action. SkillSentry does not upload anything itself; a GitHub Action for this is planned.
+
+## 5.7 STIX 2.1 mapping
+
+The STIX bundle is built from the Poisoned Well indicators of one scan. It is available only when that scan has indicators.
+
+| Indicator | STIX object |
+|:---|:---|
+| C2 domain | `indicator` with a `domain-name` pattern |
+| C2 IP address | `indicator` with an `ipv4-addr` pattern |
+| Exfiltration URL | `indicator` with a `url` pattern |
+| The skill | `malware`, named after the skill |
+| Link between skill and indicator | `relationship` of type `indicates` |
+
+The bundle's identity is `SkillSentry 2.0`. That string is fixed in the current writer, so it does not follow the release version. Indicators have a confidence of `100` when the decoy was seen, and `50` otherwise.
+
+## 5.8 Error model
+
+Errors that SkillSentry raises use one envelope:
 
 ```json
 {
-  "activeDefense": {
-    "triggered": true,
-    "targetedAssets": ["SLACK_BOT_TOKEN", "~/.aws/credentials"],
-    "exfilChannel": "DNS_TUNNELING",
-    "canaryMarker": "SKS-7f3a9c21",
-    "secondaryCanary": "SKS-9d1e4b77",
-    "c2Indicators": ["evil-collector.net", "185.220.101.42"],
-    "encoding": "base64",
-    "sandboxEvasionDetected": false,
-    "declaredIntent": "Slack notification integration",
-    "actualBehavior": "Credential theft + DNS exfiltration",
-    "iocExport": "stix-bundle.json"
+  "error": {
+    "code": "unknown_scan",
+    "message": "unknown scan: 3f9c2a1e-0000-4000-8000-000000000001",
+    "stage": null,
+    "degraded": false,
+    "scan_id": null
   }
 }
 ```
 
-GitHub Action uploads this SARIF to Code Scanning (`upload-sarif: true`).
+| Status | Codes | When |
+|:---|:---|:---|
+| `404` | `unknown_scan` | No scan or skill with that ID. |
+| `404` | `no_skill_manifest` | The path does not exist, or has no `SKILL.md`. |
+| `409` | `scan_in_progress` | The folder is already being scanned, or the scan has not finished. |
+| `409` | `no_iocs` | STIX export for a scan with no indicators. |
+| `422` | `missing_path` | No path was given to `POST /scan`. |
+| `422` | `invalid_skill` | The path is not a directory. |
+| `422` | `invalid_duration` | `older_than` could not be read. |
+| `500` | `scan_failed` | The scan failed. |
+| `500` | `internal_error` | An unexpected error. The scan is marked failed, never `SAFE`. |
 
-## 5.7 STIX 2.1 Export Mapping
+Requests that fail schema validation (wrong types, a missing body) get FastAPI's standard validation response with status `422`. That response is not in the envelope above.
 
-| SkillSentry IOC | STIX object |
-|:---|:---|
-| C2 domain (`evil-collector.net`) | `indicator` · `pattern: [domain-name:value = '…']` · labels `["malicious-activity"]` |
-| C2 IP | `indicator` · `[ipv4-addr:value = '…']` |
-| Exfil URL | `indicator` · `[url:value = '…']` |
-| The skill package itself | `malware` object (name = skill name, sample refs by SHA-256) |
-| Correlation ("skill exfils to C2") | `relationship` · `exfiltrates-to` / `indicates` |
+**Fail-safe rule.** No error path may produce a `SAFE` verdict. A degraded scan completes with the stages that did run, and it carries a finding that says what was skipped.
 
-Bundle metadata: `created_by_identity = "SkillSentry 2.0"`, `confidence` from canary correlation (confirmed ⇒ 100). File: `reports/<scan_id>/stix-bundle.json`.
+## 5.9 Demo mode
 
-## 5.8 Error Model
+`skill-sentry-cli serve --demo-mode --port 8000` serves every endpoint in §5.2 from canned data for seven demo skills. The responses use the same schemas as live output, so a client needs only a different base URL to switch between them. The WebSocket stream replays recorded events.
 
-```jsonc
-{ "error": { "code": "sandbox_unavailable", "message": "Docker daemon not reachable",
-             "stage": "sandbox", "degraded": true, "scan_id": "3f9c…" } }
-```
-
-| HTTP | `code` | Meaning / UI behavior |
-|:--|:---|:---|
-| 400 | `invalid_path` | Path missing, not a directory, or escapes allowed roots |
-| 404 | `unknown_scan` / `no_skill_manifest` | Bad ID / no `SKILL.md` |
-| 409 | `scan_in_progress` / `no_iocs` | Duplicate concurrent scan / STIX export without triggered defense |
-| 422 | `schema_violation` | Request body fails Pydantic validation |
-| 500 | `internal` | Unhandled; scan row marked `failed`, never silently `SAFE` |
-| 503 | `model_unavailable` | Ollama down **and** cloud fallback disabled ⇒ UI offers `--demo-mode`; verdict may be produced from deterministic stages only, flagged `semantic-unavailable` |
-
-**Fail-safe rule:** no error path may produce a `SAFE` verdict. Degraded scans complete with the stages that *did* run and carry explicit `note`-severity findings about what was skipped.
-
-## 5.9 Demo mode (mock server)
-
-Demo mode serves the same endpoints from canned data, so the dashboard and API clients can be developed without Docker or a model:
-
-- `skill-sentry-cli serve --demo-mode --port 8000` serves every endpoint above from recorded responses for the seven demo skills.
-- The canned data uses the same schemas as live output, so a client switches between the two by changing only the base URL.
-- The WebSocket stream replays recorded events.
+Demo mode is for trying the dashboard and building clients. It does not analyse anything.
 
 ---
 
