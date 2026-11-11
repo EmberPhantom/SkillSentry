@@ -1,6 +1,8 @@
 # 6 · UI/UX Design
 
-> Design language, screen architecture, wireframes, component tree, interaction rules, and accessibility for the SkillSentry Triage Dashboard — a **"security operations console"** built with React 18 + Vite + TypeScript + Tailwind + shadcn/ui.
+> Design language, screen architecture, interaction rules, and accessibility for the SkillSentry dashboard.
+>
+> **Status.** The dashboard that ships has four views: triage, new scan, skill detail, and cache. It is built with React 18, Vite, and TypeScript. Items in this document marked *planned* or *proposed* are not built. The wireframes show the design the views are working toward.
 
 ---
 
@@ -80,7 +82,7 @@ flowchart LR
 │  │ T+2.9s  🔍 CANARY MARKER DECODED → CONFIRMED                        │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                            │
-│  ┌── IOC GRAPH (React Flow) ───────────────────────────────────────────┐   │
+│  ┌── IOC GRAPH (planned) ──────────────────────────────────────────────┐   │
 │  │  [skill.sh] ──reads──▶ [~/.aws/credentials] ──fake──▶ [SKS-7f3a]    │   │
 │  │      └──exfil──▶ [DNS tunnel] ──────────▶ (evil-collector.net)     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
@@ -132,7 +134,7 @@ flowchart LR
     ├── <StaticFindings>   (code viewer w/ red line highlights + AST anchors)
     ├── <VisionEvidence>   (image + contrast toggle + Eye View bbox)
     ├── <SandboxTrace>     (event timeline, filterable, evasion alerts)
-    ├── <PoisonedWell>     (timeline + React Flow IOC graph + context info)
+    ├── <PoisonedWell>     (timeline + planned IOC graph + context info)
     └── <ReportExport>     (SARIF/Markdown/STIX download)
 ```
 
@@ -143,7 +145,7 @@ flowchart LR
 1. **No naked verdicts.** Every MALICIOUS verdict shows evidence within one click.
 2. **Always-alive console.** Live scans stream progress per stage, with ≤ 2 s heartbeats, so there is motion even during slow LLM calls.
 3. **Citations are links.** All code citations link to exact `file:line`; clicking opens the highlighted snippet.
-4. **States designed from M0.** Empty / loading / error states for every screen (judges poke at these): empty queue illustration, skeleton rows during scans, degraded-mode banner when `GET /health` reports Ollama/Docker down (with the honest "static-stages-only" explanation and `--demo-mode` hint).
+4. **Every screen has empty, loading, and error states:** empty queue illustration, skeleton rows during scans, degraded-mode banner when `GET /health` reports Ollama/Docker down (with the honest "static-stages-only" explanation and `--demo-mode` hint).
 5. **Cache is visible.** ⚡ icon + "< 2 s (cached)" on cached results — the incremental-scan story must be *seen*.
 6. **Eye View** bounding-box overlay is the visual proof for vision findings.
 7. **Backend transparency.** Header toggle/badge always shows whether inference is Local or API (privacy promise made visible).
