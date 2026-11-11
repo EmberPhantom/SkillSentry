@@ -6,7 +6,7 @@
 
 ## 3.1 Overview & Design Goals
 
-SkillSentry is **local-first**: the single source of truth on a developer machine is one SQLite file. The team-server deployment (§3.9) runs the same logical schema on Postgres.
+SkillSentry is **local-first**: the single source of truth on a developer machine is one SQLite file. A team-server variant on Postgres is proposed in §3.9; it is not implemented.
 
 | Goal | Mechanism |
 |:---|:---|
@@ -138,6 +138,21 @@ erDiagram
 ```
 
 ## 3.4 Schema DDL (SQLite)
+
+The database currently has these tables. The definitions below are the design; the table list is the implementation.
+
+| Table | Holds |
+|:---|:---|
+| `schema_meta` | Schema version and the version that created the database. |
+| `scans` | One row per scan: skill, status, verdict, timing, and the cache key. |
+| `scan_results` | The full verdict and stage payload for each scan, so `export` can re-render a report without a new scan. |
+| `findings` | Individual findings with their file and line evidence. |
+| `scan_cache` | Verdicts keyed by content hash, engine version, and model version (§3.5). |
+| `active_defense` | Poisoned Well summary per scan. |
+| `canary_events` | Decoy credential reads and outbound markers observed in the sandbox. |
+| `sandbox_net_logs` | Network events seen by the sinkhole. |
+| `iocs` | Indicators harvested from a Poisoned Well run. |
+| `attacker_profiles` | Profiles built from those indicators. |
 
 ```sql
 PRAGMA journal_mode = WAL;
@@ -352,7 +367,7 @@ GROUP BY ioc_type, value ORDER BY hits DESC;
 - **Sensitive material:** canary credentials are *fake by construction* (marker `SKS-…`, `-fake` suffixes) so storing them is safe. HTTP bodies from the sandbox may contain fragments of real skill data — they are stored base64 in `sandbox_net_logs` and are only ever read by the local UI/exports.
 - **Exports** (SARIF/STIX/Markdown) are written to `~/.skillsentry/reports/<scan_id>/` and are user-initiated only.
 
-## 3.9 Team-Server Variant (Postgres) — Spec (proposed)
+## 3.9 Team-server variant (Postgres) — proposal, not implemented
 
 The self-hosted topology ([09-deployment-and-production.md](../operations/deployment.md)) replaces SQLite with Postgres using the **same logical schema**, plus:
 
