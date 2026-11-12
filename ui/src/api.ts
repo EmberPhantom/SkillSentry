@@ -178,7 +178,8 @@ export interface ScanOptions {
   noCache: boolean;
   sandbox: boolean;
   poisonedWell: boolean;
-  timeoutS: number;
+  /** Omitted (undefined) lets the server apply its default. */
+  timeoutS?: number;
 }
 
 export class ApiError extends Error {
@@ -231,12 +232,19 @@ export const api = {
     }),
 };
 
-/** Stream stage events for one scan. Returns a close function. */
+export interface ScanStream {
+  /** Ask the server to stop the scan. Sent as soon as the socket is open. */
+  cancel: () => void;
+  /** Close the socket locally. */
+  close: () => void;
+}
+
+/** Stream stage events for one scan. */
 export function openScanStream(
   scanId: string,
   onMessage: (message: WSMessage) => void,
   onClose: () => void,
-): () => void {
+): ScanStream {
   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${scheme}://${window.location.host}/scan/${scanId}/stream`);
   socket.onmessage = (event: MessageEvent<string>) => {
@@ -247,5 +255,25 @@ export function openScanStream(
     }
   };
   socket.onclose = () => onClose();
-  return () => socket.close();
+  const cancelPayload = JSON.stringify({ op: "cancel" });
+  return {
+    cancel: () => {
+      if (socket.readyState === WebSocket.CONNECTING) {
+        socket.addEventListener("open", () => socket.send(cancelPayload), { once: true });
+      } else if (socket.readyState === WebSocket.OPEN) {
+        socket.send(cancelPayload);
+      }
+    },
+    close: () => socket.close(),
+  };
+}
+
+/** Skill ID of the verdict carried by a completed event, if the event has one. */
+export function verdictSkillId(message: WSMessage): string | null {
+  const verdict = message.detail?.verdict;
+  if (verdict && typeof verdict === "object" && "skillId" in verdict) {
+    const skillId = (verdict as { skillId: unknown }).skillId;
+    if (typeof skillId === "string" && skillId !== "") return skillId;
+  }
+  return null;
 }
