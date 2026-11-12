@@ -198,6 +198,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[scoring]` | `typosquat_bonus` | `15` | Points added for a likely typosquat. |
 | `[scoring]` | `tiers` | `safe_max = 30`, `malicious_min = 70` | Score boundaries for the verdicts. |
 | `[cache]` | `db_path` | `~/.skillsentry/skillsentry.db` | Scan history and cache database. |
+| `[server]` | `allowed_scan_roots` | `[]` (any folder) | Absolute folders the API may scan. A scan path must resolve, with symlinks followed, to one of them or to a folder inside one. Read by `serve`; the CLI `scan` command is not limited. See [§5.2 of the API reference](api.md). |
 
 Two sections deserve a warning:
 
@@ -215,6 +216,7 @@ Two sections deserve a warning:
 | `OLLAMA_HOST` | Address of the local model server. |
 | `GEMINI_API_KEY` | API key for the cloud backend. Used only when the cloud backend is selected. |
 | `SKILLSENTRY_DEV` | Set to `1` to allow `--backend demo` for development. |
+| `SKILLSENTRY_ALLOWED_SCAN_ROOTS` | Folders the API may scan, separated by the platform path separator (`:` on Linux and macOS, `;` on Windows). Overrides `[server] allowed_scan_roots`. Each must be an absolute path. Read by `serve`. |
 | `SKILLSENTRY_ALLOWED_HOSTS` | Comma-separated host names the server accepts in the `Host` and `Origin` headers, in addition to `localhost`, `127.0.0.1`, `::1`, and the bind address. Read by `serve`. |
 | `SKILLSENTRY_VERIFY_PROVENANCE` | Installer. Set to `1` to require the `gh attestation verify` check on the wheel: the install stops if `gh` is missing or the check fails. Without it, the check runs when `gh` is installed and a failure is only a warning. |
 | `SKILLSENTRY_CONTAINER` | Set to `1` by the official server image. It silences the warning that `serve` prints when bound beyond loopback. Do not set it elsewhere. |

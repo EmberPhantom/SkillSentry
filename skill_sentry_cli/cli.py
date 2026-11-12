@@ -264,6 +264,8 @@ def scan(
             typer.echo(f"hint: {_scan_error_hint(exc)}", err=True)
             continue
         outcomes.append(outcome)
+    # Resolve the backend that ran before the engine is closed. `auto` is only a request.
+    ran_backend = _ran_backend(engine) if outcomes else backend
     engine.close()
 
     if not outcomes:
@@ -276,14 +278,19 @@ def scan(
         outcomes,
         output_format=output_format,
         quiet=quiet,
-        backend=backend,
+        backend=ran_backend,
         output=output,
         sarif_out=sarif_out,
         skipped=len(roots) - len(outcomes),
         footer=footer,
     )
     if report_dir is not None:
-        _write_report_dir(report_dir, outcomes, skipped=len(roots) - len(outcomes))
+        _write_report_dir(
+            report_dir,
+            outcomes,
+            skipped=len(roots) - len(outcomes),
+            backend=ran_backend,
+        )
         if output_format == "text" and not quiet:
             typer.echo(f"wrote {len(outcomes)} report(s) to {report_dir}")
     if failed:
@@ -324,11 +331,12 @@ def self_audit(
                 timeout_s=timeout_s,
             ),
         )
+        ran_backend = _ran_backend(engine)
         engine.close()
     except (ConfigError, ScanError) as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
-    _print_verdict(outcome.verdict, output_format=output_format, quiet=quiet, backend=backend)
+    _print_verdict(outcome.verdict, output_format=output_format, quiet=quiet, backend=ran_backend)
     if _should_fail(outcome.verdict, fail_on):
         raise typer.Exit(code=int(ExitCode.VERDICT))
     raise typer.Exit(code=int(ExitCode.OK))
@@ -460,6 +468,7 @@ def _emit_outcomes(
                 outcome.verdict,
                 ExportFormat.MARKDOWN,
                 stage_results=outcome.stage_results,
+                backend=backend,
             ).content.decode("utf-8")
             for outcome in outcomes
         ]
@@ -502,11 +511,20 @@ def _report_footer(path: Path, outcomes: list[ScanOutcome]) -> str:
     )
 
 
-def _write_report_dir(directory: Path, outcomes: list[ScanOutcome], *, skipped: int) -> None:
+def _write_report_dir(
+    directory: Path,
+    outcomes: list[ScanOutcome],
+    *,
+    skipped: int,
+    backend: str | None = None,
+) -> None:
     for outcome in outcomes:
         name = f"{outcome.verdict.skill}-{outcome.scan_id}.md"
         rendered = render_report(
-            outcome.verdict, ExportFormat.MARKDOWN, stage_results=outcome.stage_results
+            outcome.verdict,
+            ExportFormat.MARKDOWN,
+            stage_results=outcome.stage_results,
+            backend=backend,
         ).content.decode("utf-8")
         _write_file(directory / name, rendered)
     if len(outcomes) > 1:
@@ -593,12 +611,31 @@ def _banner(backend: str) -> str:
     )
 
 
+def _ran_backend(engine: ScanEngine) -> str:
+    """The analysis backend that produced the verdicts, as the engine selected it.
+
+    ``--backend auto`` is a request, not a result. The engine memoises its model choice,
+    so asking it after the scan names the model that ran without probing again.
+    """
+    try:
+        backend, _model_version = engine.model_identity()
+    except Exception:
+        # The banner and report are presentation. A failure here must not fail a scan that
+        # already finished, so the backend is reported as unknown.
+        return "unavailable"
+    return backend
+
+
 def _backend_label(backend: str) -> str:
     return {
         "auto": "auto (local -> cloud -> unavailable)",
         "local": "local (ollama)",
+        "ollama": "local (ollama)",
         "cloud": "cloud (gemini)",
+        "gemini-api": "cloud (gemini)",
         "demo": "demo/mock",
+        "mock": "demo/mock",
+        "unavailable": "unavailable (no model ran)",
     }.get(backend, backend)
 
 
@@ -614,7 +651,9 @@ def _render_verdict(
     if output_format == "sarif":
         return render_report(verdict, ExportFormat.SARIF).content.decode("utf-8")
     if output_format == "markdown":
-        return render_report(verdict, ExportFormat.MARKDOWN).content.decode("utf-8")
+        # The demo store is canned, so its report names no analysis backend.
+        ran = None if backend == "demo" else backend
+        return render_report(verdict, ExportFormat.MARKDOWN, backend=ran).content.decode("utf-8")
     outcome = ScanOutcome(
         scan_id=verdict.scan_id,
         skill_id=verdict.skill_id,
@@ -728,11 +767,16 @@ def export_report(
         raise typer.Exit(code=int(ExitCode.USAGE)) from exc
     with contextlib.closing(_store()) as store:
         stored = store.get_result(parsed)
+        record = store.get_scan(parsed) if stored is not None else None
     if stored is None:
         typer.echo(f"error: no stored scan {scan_id}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE))
     verdict, _detail, stages, _cached = stored
-    rendered = render_report(verdict, formats[fmt], stage_results=stages).content.decode("utf-8")
+    # The scan history records the backend that ran for this scan.
+    ran = record.backend if record is not None else None
+    rendered = render_report(
+        verdict, formats[fmt], stage_results=stages, backend=ran
+    ).content.decode("utf-8")
     if output is None:
         typer.echo(rendered.rstrip())
     else:

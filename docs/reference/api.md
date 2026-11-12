@@ -21,7 +21,7 @@ The HTTP and WebSocket API that `skill-sentry-cli serve` exposes. The dashboard 
 
 | Method and path | Purpose | Success | Errors |
 |:---|:---|:---|:---|
-| `POST /scan` | Start a scan | `202` | `400` `untrusted_host`, `404` no `SKILL.md`, `409` `scan_in_progress`, `422` `missing_path`, `invalid_skill`, or `folder_of_skills` |
+| `POST /scan` | Start a scan | `202` | `400` `untrusted_host`, `403` `path_not_allowed`, `404` no `SKILL.md`, `409` `scan_in_progress`, `422` `missing_path`, `invalid_skill`, or `folder_of_skills` |
 | `GET /scans` | List scans, newest first | `200` | |
 | `GET /scan/{scan_id}` | Status of one scan | `200` | `404` unknown scan |
 | `GET /scan/{scan_id}/verdicts` | Verdicts of one scan | `200` | `404` unknown scan, `409` still running, `500` failed |
@@ -53,6 +53,7 @@ Request:
 - `path` is the skill folder. It must contain `SKILL.md`. A missing or empty path gives `422 missing_path`. A path that does not exist gives `404 no_skill_manifest`. A path that is not a directory gives `422 invalid_skill`.
 - `options` is optional. `backend` is `auto`, `local`, `cloud`, or `demo`. Set `sandbox` to `false` to skip the sandbox; the verdict then relies on the static stages only.
 - A folder whose child folders are skills gives `422 folder_of_skills`, and the message names them. Scan each one with its own request.
+- If the operator set `[server] allowed_scan_roots` (or `SKILLSENTRY_ALLOWED_SCAN_ROOTS`), the path must resolve inside one of those folders. Symlinks are followed, so `..` and a link that points outside are refused. Otherwise the request gets `403 path_not_allowed`. The check runs before the existence check, so a refused path gets the same answer whether or not it exists, and the message does not repeat the path. With no roots set, any folder is allowed, as before.
 - A second scan of the same folder while one is running gives `409 scan_in_progress`. The `scanId` of the running scan is in the error body.
 
 Response, status `202`:
@@ -285,6 +286,7 @@ Errors that SkillSentry raises use one envelope:
 | Status | Codes | When |
 |:---|:---|:---|
 | `404` | `unknown_scan` | No scan or skill with that ID. |
+| `403` | `path_not_allowed` | The server has `allowed_scan_roots` set and the path does not resolve inside one of them. The same answer is given whether or not the path exists. |
 | `404` | `no_skill_manifest` | The path does not exist, or has no `SKILL.md`. |
 | `409` | `scan_in_progress` | The folder is already being scanned, or the scan has not finished. |
 | `409` | `no_iocs` | STIX export for a scan with no indicators. |

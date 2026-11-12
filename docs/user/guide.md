@@ -189,7 +189,7 @@ skill-sentry-cli scan fixtures/benign/pdf-summarizer
 Expected (the first time; a repeat is marked `(cached)`):
 
 ```text
-SkillSentry 2.1.0 - Analysis backend unknown - backend: auto (local -> cloud -> unavailable)
+SkillSentry 2.1.1 - Fully local analysis · open weights - backend: local (ollama)
 [OK] pdf-summarizer - SAFE - risk 0 - confidence 0.75
 ```
 
@@ -444,6 +444,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 | `UNSCANNED … spec degraded: manifest validation failed`, then `symlink is not allowed in a skill package: …` | The skill contains a symbolic link | Replace it with a real file, or remove it |
 | `UNSCANNED … SKILL.md is not valid UTF-8` | The file is not plain UTF-8 text | Re-save it as UTF-8 |
 | `UNSCANNED … text file not analysed: scripts/x.py (larger than 1 MiB)` | A file is too large to read | Split or shrink the file; SkillSentry will not call it clean |
+| `UNSCANNED … file not analysed: assets/font.ttf (unsupported file type .ttf)` | The skill ships a file type SkillSentry does not read, such as a font, PDF, archive, or compiled binary. Images are read by the vision stage and are not listed | Open the file yourself and check it before you install. If the skill does not need it, remove it and scan again. Packages with such files stay UNSCANNED until the file is gone; SkillSentry does not treat them as SAFE |
 | `UNSCANNED … sandbox … no declared entrypoint, so the scripts were not executed; declare 'entrypoint:' …` | The skill has scripts but no `entrypoint:` | Add `entrypoint:` to `SKILL.md` |
 | `[?] … UNSCANNED` with a reason you do not understand | Anything not listed here | Read the report: `--format markdown --output …` |
 | `[OK] … SAFE` with `LOW sandbox-exit: Skill exited with status 2` | The skill ran and exited with an error (for example, it needs an argument) | Expected for some skills; the finding is low risk |
