@@ -1,52 +1,34 @@
 """Deterministic package hashing used by the verdict cache.
 
-The algorithm is documented in ``docs/developer/database.md``: every regular file is
-visited in sorted POSIX-relative-path order and contributes its path, Unix mode
+The algorithm is documented in ``docs/developer/database.md``: every regular file
+is visited in sorted POSIX-relative-path order and contributes its path, Unix mode
 bits and the SHA-256 of its bytes.  Directory entries are included as well so
 adding or removing an empty directory invalidates the cache.
+
+Nothing is excluded.  The parser reads every file under the package root, including
+dependency, virtualenv, VCS and cache directories, so the cache key must cover all of
+it.  A package cannot hide content from the key, and it cannot do so through its own
+ignore file either.
 
 Symlinks are rejected.  A skill must never be able to make the scanner hash (or
 later read) a file outside the package root, and following links would also
 make a package's identity depend on mutable host state.
+
+The walk uses an explicit stack rather than recursion, so a deeply nested package
+cannot exhaust the interpreter's recursion limit.
 """
 
 from __future__ import annotations
 
-import fnmatch
 import hashlib
 import os
 import stat
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_IGNORE_PATTERNS: tuple[str, ...] = (
-    ".git",
-    ".git/*",
-    ".hg",
-    ".svn",
-    "__pycache__",
-    "__pycache__/*",
-    "*.pyc",
-    ".pytest_cache",
-    ".pytest_cache/*",
-    ".ruff_cache",
-    ".ruff_cache/*",
-    ".mypy_cache",
-    ".mypy_cache/*",
-    ".venv",
-    ".venv/*",
-    "venv",
-    "venv/*",
-    "node_modules",
-    "node_modules/*",
-    ".DS_Store",
-    "Thumbs.db",
-)
-
 MAX_FILES = 5_000
 MAX_TOTAL_BYTES = 64 * 1024 * 1024
 CHUNK_SIZE = 128 * 1024
-IGNORE_FILE = ".skillsentryignore"
 
 
 class HashError(RuntimeError):
@@ -69,31 +51,6 @@ def hash_bytes(data: bytes) -> str:
     """Return the lower-case SHA-256 hex digest of ``data``."""
 
     return hashlib.sha256(data).hexdigest()
-
-
-def _load_ignore_patterns(root: Path) -> tuple[str, ...]:
-    patterns = list(DEFAULT_IGNORE_PATTERNS)
-    ignore_file = root / IGNORE_FILE
-    if ignore_file.is_file() and not ignore_file.is_symlink():
-        try:
-            text = ignore_file.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:  # pragma: no cover - unusual filesystem error
-            raise HashError(f"could not read {IGNORE_FILE}: {exc}") from exc
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            patterns.append(line)
-    return tuple(patterns)
-
-
-def _ignored(rel: str, patterns: tuple[str, ...]) -> bool:
-    # A pattern matching any parent directory excludes the whole subtree.
-    parts = rel.split("/")
-    candidates = ["/".join(parts[: i + 1]) for i in range(len(parts))]
-    return any(
-        fnmatch.fnmatchcase(candidate, pattern) for pattern in patterns for candidate in candidates
-    )
 
 
 def _mode(path: Path) -> int:
@@ -126,67 +83,72 @@ def hash_skill_dir(path: str | Path) -> SkillHash:
     if not root.is_dir():
         raise HashError(f"not a directory: {root}")
 
-    patterns = _load_ignore_patterns(root)
     digest = hashlib.sha256()
     file_count = 0
     total_bytes = 0
 
-    def walk(directory: Path, prefix: str) -> None:
-        nonlocal file_count, total_bytes
+    # Pending entries, popped from the end.  Each directory's children are pushed in
+    # reverse name order when the directory is reached, so the visit order is the
+    # same pre-order a recursive walk would produce: a directory's record, then its
+    # whole subtree, then its next sibling.
+    pending: list[tuple[os.DirEntry[str], str]] = []
+
+    def push_children(directory: Path, prefix: str) -> None:
         try:
             entries = sorted(os.scandir(directory), key=lambda entry: entry.name)
         except OSError as exc:
             raise HashError(f"could not read {directory}: {exc}") from exc
-
-        for entry in entries:
+        for entry in reversed(entries):
             rel = f"{prefix}/{entry.name}" if prefix else entry.name
-            if _ignored(rel, patterns):
-                continue
-            entry_path = Path(entry.path)
-            if entry.is_symlink():
-                # Never followed.  The link and its target text are part of the
-                # key, and the parser reports the link as a HIGH finding, so a
-                # skill with a link is still scanned and reported.
-                digest.update(b"link\0")
-                digest.update(rel.encode("utf-8", "surrogateescape"))
-                digest.update(b"\0")
-                digest.update(os.readlink(entry_path).encode("utf-8", "surrogateescape"))
-                digest.update(b"\n")
-                continue
-            try:
-                if entry.is_dir(follow_symlinks=False):
-                    digest.update(b"dir\0")
-                    digest.update(rel.encode("utf-8", "surrogateescape"))
-                    digest.update(f"\0{_mode(entry_path):o}\n".encode())
-                    walk(entry_path, rel)
-                    continue
-                if not entry.is_file(follow_symlinks=False):
-                    raise HashError(f"unsupported file type in skill package: {rel}")
-            except OSError as exc:
-                raise HashError(f"could not inspect {rel}: {exc}") from exc
+            pending.append((entry, rel))
 
-            file_count += 1
-            if file_count > MAX_FILES:
-                raise HashError(f"skill package exceeds {MAX_FILES} files")
-            size = entry.stat(follow_symlinks=False).st_size
-            total_bytes += size
-            if total_bytes > MAX_TOTAL_BYTES:
-                raise HashError(f"skill package exceeds {MAX_TOTAL_BYTES // (1024 * 1024)} MiB")
-
-            digest.update(b"file\0")
+    push_children(root, "")
+    while pending:
+        entry, rel = pending.pop()
+        entry_path = Path(entry.path)
+        if entry.is_symlink():
+            # Never followed.  The link and its target text are part of the
+            # key, and the parser reports the link as a HIGH finding, so a
+            # skill with a link is still scanned and reported.
+            digest.update(b"link\0")
             digest.update(rel.encode("utf-8", "surrogateescape"))
-            digest.update(f"\0{_mode(entry_path):o}\0".encode())
-            file_digest = hashlib.sha256()
-            try:
-                with open(entry_path, "rb") as handle:
-                    while chunk := handle.read(CHUNK_SIZE):
-                        file_digest.update(chunk)
-            except OSError as exc:
-                raise HashError(f"could not read {rel}: {exc}") from exc
-            digest.update(file_digest.digest())
+            digest.update(b"\0")
+            digest.update(os.readlink(entry_path).encode("utf-8", "surrogateescape"))
             digest.update(b"\n")
+            continue
+        try:
+            if entry.is_dir(follow_symlinks=False):
+                digest.update(b"dir\0")
+                digest.update(rel.encode("utf-8", "surrogateescape"))
+                digest.update(f"\0{_mode(entry_path):o}\n".encode())
+                push_children(entry_path, rel)
+                continue
+            if not entry.is_file(follow_symlinks=False):
+                raise HashError(f"unsupported file type in skill package: {rel}")
+        except OSError as exc:
+            raise HashError(f"could not inspect {rel}: {exc}") from exc
 
-    walk(root, "")
+        file_count += 1
+        if file_count > MAX_FILES:
+            raise HashError(f"skill package exceeds {MAX_FILES} files")
+        size = entry.stat(follow_symlinks=False).st_size
+        total_bytes += size
+        if total_bytes > MAX_TOTAL_BYTES:
+            raise HashError(f"skill package exceeds {MAX_TOTAL_BYTES // (1024 * 1024)} MiB")
+
+        digest.update(b"file\0")
+        digest.update(rel.encode("utf-8", "surrogateescape"))
+        digest.update(f"\0{_mode(entry_path):o}\0".encode())
+        file_digest = hashlib.sha256()
+        try:
+            with open(entry_path, "rb") as handle:
+                while chunk := handle.read(CHUNK_SIZE):
+                    file_digest.update(chunk)
+        except OSError as exc:
+            raise HashError(f"could not read {rel}: {exc}") from exc
+        digest.update(file_digest.digest())
+        digest.update(b"\n")
+
     return SkillHash(
         digest=digest.hexdigest(),
         file_count=file_count,
@@ -196,7 +158,6 @@ def hash_skill_dir(path: str | Path) -> SkillHash:
 
 
 __all__ = [
-    "DEFAULT_IGNORE_PATTERNS",
     "MAX_FILES",
     "MAX_TOTAL_BYTES",
     "HashError",

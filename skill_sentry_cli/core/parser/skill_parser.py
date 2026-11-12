@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 from dataclasses import dataclass, field
@@ -48,7 +49,28 @@ _TEXT_SUFFIXES = frozenset(
         ".php",
         ".pl",
         ".lua",
+        ".c",
+        ".h",
+        ".cc",
+        ".cpp",
+        ".hpp",
+        ".bat",
+        ".cmd",
+        ".vbs",
+        ".pyw",
+        ".psd1",
+        ".psm1",
+        ".html",
+        ".htm",
+        ".xml",
+        ".sql",
+        ".svg",
     }
+)
+
+# Raster and vector images are analysed by the vision stage, not read as text.
+IMAGE_SUFFIXES = frozenset(
+    {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".svg"}
 )
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -73,6 +95,9 @@ class PackageIssue:
     file: str = "SKILL.md"
     line: int = 1
     code: str | None = None
+    # True when the issue reports content the scan did not read.  Such a gap keeps
+    # the stage degraded, so the verdict can never be SAFE.
+    coverage: bool = False
 
 
 @dataclass(frozen=True)
@@ -275,6 +300,29 @@ def _is_text(relative: str) -> bool:
     return suffix == ""
 
 
+def _walk_entries(root: Path) -> list[Path]:
+    """Return every entry beneath ``root`` (files, directories, links), iteratively.
+
+    Symlinks are listed but never descended into.  An explicit stack keeps deep
+    trees from exhausting the recursion limit.
+    """
+
+    found: list[Path] = []
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        try:
+            entries = list(os.scandir(directory))
+        except OSError as exc:
+            raise SkillParseError(f"could not read {directory}: {exc}") from exc
+        for entry in entries:
+            path = Path(entry.path)
+            found.append(path)
+            if entry.is_dir(follow_symlinks=False):
+                pending.append(path)
+    return found
+
+
 def _resolve_entrypoint(
     manifest: dict[str, Any], root: Path
 ) -> tuple[list[str] | None, bool, PackageIssue | None]:
@@ -434,7 +482,7 @@ def parse_skill(path: str | Path) -> SkillPackage:
     files: list[Path] = []
     text_files: list[TextFile] = []
     text_budget = MAX_TEXT_TOTAL_BYTES
-    for candidate in sorted(root.rglob("*"), key=lambda p: p.relative_to(root).as_posix()):
+    for candidate in sorted(_walk_entries(root), key=lambda p: p.relative_to(root).as_posix()):
         if candidate.is_symlink():
             issues.append(
                 PackageIssue(
@@ -455,6 +503,7 @@ def parse_skill(path: str | Path) -> SkillPackage:
                 PackageIssue(
                     "medium",
                     f"unsupported file type: {candidate.relative_to(root).as_posix()}",
+                    coverage=True,
                 )
             )
             continue
@@ -476,6 +525,18 @@ def parse_skill(path: str | Path) -> SkillPackage:
             if parsed is not None:
                 text_files.append(parsed)
                 text_budget -= len(parsed.text.encode("utf-8", "replace"))
+                if parsed.truncated:
+                    # The text budget ran out part-way through this file.  The
+                    # unread tail is a gap, so it degrades the scan like any other.
+                    issues.append(
+                        PackageIssue(
+                            "high",
+                            f"text file only partially analysed: {relative} "
+                            "(skill text budget exhausted)",
+                            file=relative,
+                            coverage=True,
+                        )
+                    )
             else:
                 # A script the scan did not read is a gap, not a clean file.
                 # The HIGH issue degrades the spec stage, so the verdict cannot be SAFE.
@@ -484,8 +545,20 @@ def parse_skill(path: str | Path) -> SkillPackage:
                         "high",
                         f"text file not analysed: {relative} ({_unread_reason(candidate, text_budget)})",
                         file=relative,
+                        coverage=True,
                     )
                 )
+        elif (suffix := Path(relative).suffix.lower()) not in IMAGE_SUFFIXES:
+            # Neither text nor an image: the scan has no reader for it.  Images are
+            # covered by the vision stage, so only other files are reported here.
+            issues.append(
+                PackageIssue(
+                    "medium",
+                    f"file not analysed: {relative} (unsupported file type {suffix})",
+                    file=relative,
+                    coverage=True,
+                )
+            )
 
     try:
         package_hash = hash_skill_dir(root)

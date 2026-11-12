@@ -126,3 +126,113 @@ def test_discovery_rejects_missing_and_empty_roots(tmp_path: Path):
     finally:
         engine.close()
         store.close()
+
+
+def test_nested_skill_inside_node_modules_is_warned_about(tmp_path: Path, caplog):
+    engine, store = _engine(tmp_path)
+    try:
+        _manifest(tmp_path / "repo" / "node_modules" / "dep")
+        _manifest(tmp_path / "repo" / "real-skill")
+        with caplog.at_level("WARNING"):
+            found = engine.discover(tmp_path / "repo")
+    finally:
+        engine.close()
+        store.close()
+
+    assert [path.name for path in found] == ["real-skill"]
+    assert any("node_modules" in record.getMessage() for record in caplog.records)
+
+
+def test_discovery_walk_is_bounded(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core import engine as engine_module
+
+    monkeypatch.setattr(engine_module, "MAX_DISCOVERY_DIRECTORIES", 5)
+    engine, store = _engine(tmp_path)
+    try:
+        root = tmp_path / "wide"
+        for index in range(10):
+            (root / f"dir{index}").mkdir(parents=True)
+        _manifest(root / "dir0")
+        with pytest.raises(ScanError) as excinfo:
+            engine.discover(root, recursive=True)
+    finally:
+        engine.close()
+        store.close()
+
+    assert excinfo.value.code == "too_many_directories"
+
+
+def test_recursion_error_in_parsing_becomes_a_scan_error(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core import engine as engine_module
+
+    def _too_deep(path):
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(engine_module, "parse_skill", _too_deep)
+    engine, store = _engine(tmp_path)
+    try:
+        skill = _manifest(tmp_path / "deep-skill")
+        with pytest.raises(ScanError) as excinfo:
+            engine.scan(skill)
+    finally:
+        engine.close()
+        store.close()
+
+    assert excinfo.value.code == "invalid_skill"
+    assert "nested too deeply" in str(excinfo.value)
+
+
+def test_skipped_directory_listing_is_capped_and_closed(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core import engine as engine_module
+
+    deps = tmp_path / "repo" / "node_modules"
+    for index in range(1000):
+        (deps / f"pkg-{index:04d}").mkdir(parents=True)
+    _manifest(deps / "vendored")
+
+    real_scandir = os.scandir
+    opened: list[object] = []
+
+    class Tracking:
+        def __init__(self, path):
+            self._it = real_scandir(path)
+            self.examined = 0
+            self.closed = False
+            opened.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.close()
+            return False
+
+        def __iter__(self):
+            for entry in self._it:
+                self.examined += 1
+                yield entry
+
+        def close(self):
+            self.closed = True
+            self._it.close()
+
+    monkeypatch.setattr(engine_module.os, "scandir", Tracking)
+    engine_module._WARNED_SKIPPED_DIRS.discard(str(deps))
+    engine_module._warn_if_skills_skipped(deps)
+
+    assert len(opened) == 1
+    assert opened[0].closed is True
+    assert opened[0].examined <= engine_module._SKIPPED_DIR_ENTRY_CAP
+
+
+def test_skipped_directory_warning_is_once_per_process(tmp_path: Path, caplog):
+    from skill_sentry_cli.core import engine as engine_module
+
+    deps = tmp_path / "repo" / "node_modules"
+    _manifest(deps / "dep")
+    engine_module._WARNED_SKIPPED_DIRS.discard(str(deps))
+    with caplog.at_level("WARNING"):
+        engine_module._warn_if_skills_skipped(deps)
+        engine_module._warn_if_skills_skipped(deps)
+    warnings = [r for r in caplog.records if "not scanning" in r.getMessage()]
+    assert len(warnings) == 1

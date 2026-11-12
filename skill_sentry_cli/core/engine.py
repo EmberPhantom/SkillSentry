@@ -10,6 +10,8 @@ the model, the sandbox, or an explicit degradation note.
 from __future__ import annotations
 
 import contextlib
+import itertools
+import logging
 import os
 import threading
 import time
@@ -68,6 +70,7 @@ from skill_sentry_cli.core.poisoned_well.canary_gen import (
 )
 from skill_sentry_cli.core.poisoned_well.exfil_tracker import Correlation, ExfilTracker
 from skill_sentry_cli.core.reports import render_report
+from skill_sentry_cli.core.sandbox.images import SIDECAR_BASE_IMAGE
 from skill_sentry_cli.core.sandbox.instructions import build_plan as build_sandbox_plan
 from skill_sentry_cli.core.sandbox.masquerade import MasqueradeConfig
 from skill_sentry_cli.core.sandbox.runner import (
@@ -90,6 +93,17 @@ from skill_sentry_cli.core.vision import scan_vision
 
 SCAN_NAMESPACE = UUID("1b0f6d9e-3f7c-4a62-a2d8-2b9a0c6e5f41")
 MAX_DISCOVERED_SKILLS = 500
+MAX_DISCOVERY_DIRECTORIES = 100_000
+_DISCOVERY_SKIPPED_DIRS = frozenset(
+    {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__"}
+)
+logger = logging.getLogger(__name__)
+# Skipped directories already reported in this process, so repeated discovery
+# (the CLI discovers twice) warns once per path.
+_WARNED_SKIPPED_DIRS: set[str] = set()
+# Entries examined in one skipped directory. A large node_modules is not fully listed;
+# a skill past this point is not reported, and the warning is only a hint.
+_SKIPPED_DIR_ENTRY_CAP = 200
 _SKILL_STAGE_ORDER: tuple[Stage, ...] = (
     Stage.CACHE,
     Stage.SPEC,
@@ -229,14 +243,28 @@ class ScanEngine:
         if not recursive and manifest.is_file() and not manifest.is_symlink():
             return [root]
         found: list[Path] = []
-        ignored = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__"}
+        visited = 0
         for current, dirnames, filenames in os.walk(root, followlinks=False):
+            visited += 1
+            if visited > MAX_DISCOVERY_DIRECTORIES:
+                raise ScanError(
+                    f"more than {MAX_DISCOVERY_DIRECTORIES} directories under {root}; "
+                    "scan a smaller directory",
+                    code="too_many_directories",
+                    stage=Stage.SPEC,
+                    status_code=422,
+                )
             current_path = Path(current)
-            dirnames[:] = sorted(
-                name
-                for name in dirnames
-                if name not in ignored and not (current_path / name).is_symlink()
-            )
+            kept: list[str] = []
+            for name in sorted(dirnames):
+                child = current_path / name
+                if child.is_symlink():
+                    continue
+                if name in _DISCOVERY_SKIPPED_DIRS:
+                    _warn_if_skills_skipped(child)
+                    continue
+                kept.append(name)
+            dirnames[:] = kept
             current_manifest = current_path / "SKILL.md"
             if (
                 "SKILL.md" in filenames
@@ -288,6 +316,15 @@ class ScanEngine:
         except (OSError, HashError) as exc:
             raise ScanError(
                 f"could not read skill package: {exc}",
+                code="invalid_skill",
+                stage=Stage.SPEC,
+                degraded=True,
+                status_code=422,
+            ) from exc
+        except RecursionError as exc:
+            # Only this package fails; a batch continues with the next skill.
+            raise ScanError(
+                f"skill package is nested too deeply to read: {path}",
                 code="invalid_skill",
                 stage=Stage.SPEC,
                 degraded=True,
@@ -502,6 +539,7 @@ class ScanEngine:
     def _spec_stage(self, package: SkillPackage) -> StageResult:
         findings: list[Finding] = []
         high = False
+        gaps = [issue for issue in package.issues if issue.coverage]
         for issue in package.issues:
             severity = Severity(issue.severity)
             high = high or severity.rank >= Severity.HIGH.rank
@@ -540,8 +578,15 @@ class ScanEngine:
                 "entrypoint_declared": package.entrypoint_declared,
                 "content_hash": package.content_hash,
             },
-            degraded=high,
-            error="manifest validation failed" if high else None,
+            # Unread content is a coverage gap and degrades the stage whatever its
+            # severity.  The error names the gap, so it is not mistaken for a
+            # malformed manifest, which is shown as INVALID rather than UNSCANNED.
+            degraded=high or bool(gaps),
+            error=(
+                f"not fully analysed: {gaps[0].message}"
+                if gaps
+                else ("manifest validation failed" if high else None)
+            ),
         )
 
     def _typosquat_stage(self, name: str) -> StageResult:
@@ -1345,7 +1390,7 @@ class ScanEngine:
             sidecar_factory=lambda client: SinkholeSidecar(
                 client,
                 SinkholeConfig(
-                    image="python:3.11-slim",
+                    image=SIDECAR_BASE_IMAGE,
                     ip=config.sidecar_ip,
                     subnet=config.sidecar_subnet,
                 ),
@@ -1379,6 +1424,36 @@ class ScanEngine:
 _SCRIPT_SUFFIXES = frozenset(
     {".py", ".sh", ".bash", ".zsh", ".js", ".mjs", ".ts", ".ps1", ".rb", ".pl", ".bat", ".cmd"}
 )
+
+
+def _warn_if_skills_skipped(directory: Path) -> None:
+    """Warn when a skipped dependency or virtualenv directory holds skill packages.
+
+    Such directories are not walked, so this looks only one level down: the common
+    case of a vendored skill in ``node_modules/<pkg>`` or ``.venv/...``.  The scan
+    is not changed; the warning makes the omission visible.
+    """
+
+    nested: list[str] = []
+    try:
+        with os.scandir(directory) as entries:
+            for entry in itertools.islice(entries, _SKIPPED_DIR_ENTRY_CAP):
+                if (
+                    entry.is_dir(follow_symlinks=False)
+                    and (Path(entry.path) / "SKILL.md").is_file()
+                ):
+                    nested.append(entry.name)
+    except OSError:
+        return
+    nested.sort()
+    key = str(directory)
+    if nested and key not in _WARNED_SKIPPED_DIRS:
+        _WARNED_SKIPPED_DIRS.add(key)
+        logger.warning(
+            "not scanning skill(s) inside %s: %s; scan that directory directly to include them",
+            directory,
+            ", ".join(nested[:5]),
+        )
 
 
 def _has_script(package: SkillPackage) -> bool:

@@ -10,6 +10,15 @@ from skill_sentry_cli.core.parser import parse_skill
 from skill_sentry_cli.core.vision import vision_scanner as scanner
 
 
+def _skill(root: Path) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "SKILL.md").write_text(
+        "---\nname: vision-test\ndescription: Vision budget test skill.\n---\n\n# Test\n",
+        encoding="utf-8",
+    )
+    return root
+
+
 class _CountingVision:
     backend = "fake"
     model_version = "fake@1"
@@ -59,3 +68,35 @@ def test_within_budget_is_fully_evaluated(tmp_path: Path) -> None:
     assert model.calls == 2
     assert stage.degraded is False
     assert stage.telemetry["vision_status"] == "evaluated"
+
+
+def test_image_skipped_for_size_degrades_vision(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core.vision import image_extractor
+
+    monkeypatch.setattr(image_extractor, "MAX_IMAGE_BYTES", 1024)
+    skill = _skill(tmp_path / "skill")
+    (skill / "assets").mkdir()
+    (skill / "assets" / "big.png").write_bytes(b"\x89PNG" + b"0" * 4096)
+
+    result = scanner.scan_vision(parse_skill(skill), None)
+
+    assert result.telemetry["vision_status"] == "not_evaluated"
+    assert result.degraded
+    assert any("big.png" in note for note in result.telemetry["notes"])
+
+
+def test_images_over_the_image_limit_degrade_vision(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core.vision import image_extractor
+
+    monkeypatch.setattr(image_extractor, "MAX_IMAGES", 1)
+    skill = _skill(tmp_path / "skill")
+    (skill / "assets").mkdir()
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>hello</text></svg>'
+    (skill / "assets" / "a.svg").write_text(svg, encoding="utf-8")
+    (skill / "assets" / "b.svg").write_text(svg, encoding="utf-8")
+
+    result = scanner.scan_vision(parse_skill(skill), None)
+
+    assert result.telemetry["vision_status"] == "partial"
+    assert result.degraded
+    assert result.telemetry["images_scanned"] == 1
