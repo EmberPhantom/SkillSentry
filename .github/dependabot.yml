@@ -33,6 +33,13 @@ updates:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
 
+  # The sandbox image's hash-locked Pillow requirement lives beside its Dockerfile.
+  - package-ecosystem: "pip"
+    directory: "/skill_sentry_cli/core/sandbox/assets"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
