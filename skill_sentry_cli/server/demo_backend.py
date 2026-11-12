@@ -34,9 +34,24 @@ from skill_sentry_cli.core.contracts import (
 from skill_sentry_cli.core.models.mock import MockGemma
 from skill_sentry_cli.core.reports import RenderedReport, render_report
 from skill_sentry_cli.core.verdict.stix_report import NoIOCsError
-from skill_sentry_cli.core.version import CONTRACT_VERSION, GEMMA_BADGE, __version__, engine_version
+from skill_sentry_cli.core.version import (
+    CONTRACT_VERSION,
+    __version__,
+    badge_for_backend,
+    engine_version,
+)
 from skill_sentry_cli.server.demo_data import DEMO_STARTED_AT, DemoSkill, build_demo_store
 from skill_sentry_cli.server.errors import ApiError
+
+
+def _cancelled_message() -> WSMessage:
+    return WSMessage(
+        stage=Stage.VERDICT,
+        skill="",
+        event=WSEventType.ERROR,
+        ts=datetime.now(UTC),
+        detail={"code": "cancelled", "message": "cancelled by client", "degraded": True},
+    )
 
 
 @dataclass
@@ -212,10 +227,17 @@ class DemoBackend:
             delay = (1.2 if heartbeat else 0.12) * self._speed
             if delay:
                 await asyncio.sleep(delay)
+            if scan.status is ScanStatus.FAILED:
+                # Cancelled: stop replaying and report it the way the live backend does.
+                yield _cancelled_message()
+                return
             scan.current_stage = message.stage
             offset_ms = int((message.ts - scan.started_at).total_seconds() * 1000)
             scan.elapsed_ms = max(scan.elapsed_ms, offset_ms)
             yield message
+        if scan.status is ScanStatus.FAILED:
+            yield _cancelled_message()
+            return
         scan.status = ScanStatus.CACHED_HIT if scan.cached else ScanStatus.COMPLETED
         scan.current_stage = Stage.VERDICT
         for item in scan.items:
@@ -236,7 +258,7 @@ class DemoBackend:
         return MetaResponse(
             version=__version__,
             backend_active="demo",
-            gemma_badge=GEMMA_BADGE,
+            gemma_badge=badge_for_backend("demo"),
             demo_mode=True,
             contract_version=CONTRACT_VERSION,
         )

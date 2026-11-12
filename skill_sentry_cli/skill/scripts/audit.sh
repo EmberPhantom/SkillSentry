@@ -10,8 +10,12 @@
 #   scripts/audit.sh ./some-downloaded-skill --demo-mode
 #
 # Exit codes (CI contract, docs/reference/cli.md §7.5):
-#   0  all skills within --fail-on threshold (default: no MALICIOUS)
-#   1  verdict above threshold found  -> DO NOT INSTALL
+#   0  every skill is below the --fail-on threshold (SAFE)
+#   1  a verdict at or above the threshold was found -> DO NOT INSTALL
+#      The default threshold is "suspicious": SUSPICIOUS and MALICIOUS verdicts
+#      exit 1, and so does a degraded scan (for example, sandbox-unavailable),
+#      because the fusion layer raises a degraded SAFE to SUSPICIOUS (a floor). Pass
+#      "--fail-on malicious" explicitly to accept SUSPICIOUS after review.
 #   2  usage error
 #   3  operational error (Docker down, DB locked) — not a verdict
 set -euo pipefail
@@ -44,4 +48,4 @@ command -v docker >/dev/null 2>&1 || echo "warning: Docker not found — sandbox
 curl -sf --max-time 2 "${OLLAMA_HOST:-http://localhost:11434}/api/tags" >/dev/null 2>&1 \
   || echo "warning: Ollama not reachable — set --backend cloud or --demo-mode, otherwise semantic/vision stages degrade" >&2
 
-exec skill-sentry-cli scan "${SKILL_DIR}" --fail-on malicious "$@"
+exec skill-sentry-cli scan "${SKILL_DIR}" --fail-on suspicious "$@"

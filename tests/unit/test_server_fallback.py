@@ -16,7 +16,9 @@ def dashboard_client(tmp_path: Path) -> TestClient:
     (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text("<!doctype html><title>dashboard</title>", encoding="utf-8")
     (dist / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
-    return TestClient(create_app(DemoBackend(speed=0), static_dir=dist))
+    return TestClient(
+        create_app(DemoBackend(speed=0), static_dir=dist), base_url="http://localhost"
+    )
 
 
 def test_dashboard_is_served_at_the_root(dashboard_client: TestClient):

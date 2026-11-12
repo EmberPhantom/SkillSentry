@@ -15,8 +15,8 @@ from skill_sentry_cli.server.app import create_app
 from skill_sentry_cli.server.demo_backend import DemoBackend
 
 
-def create_demo_app(*, speed: float | None = None) -> FastAPI:
-    return create_app(DemoBackend(speed=speed))
+def create_demo_app(*, speed: float | None = None, bind_host: str | None = None) -> FastAPI:
+    return create_app(DemoBackend(speed=speed), bind_host=bind_host)
 
 
 app = create_demo_app()
@@ -33,7 +33,12 @@ def main() -> None:
         help="WS replay speed multiplier (0 disables delays; used by tests)",
     )
     args = parser.parse_args()
-    uvicorn.run(create_demo_app(speed=args.speed), host=args.host, port=args.port, log_level="info")
+    uvicorn.run(
+        create_demo_app(speed=args.speed, bind_host=args.host),
+        host=args.host,
+        port=args.port,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":

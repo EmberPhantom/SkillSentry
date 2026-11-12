@@ -103,6 +103,31 @@ function Uninstall-SkillSentry {
     Write-Host "Delete that folder yourself if you no longer need it."
 }
 
+# Optional build-provenance check, mirroring install.sh. Default: try gh, warn on failure.
+# SKILLSENTRY_VERIFY_PROVENANCE=1 makes any reason the check cannot pass fatal.
+function Test-Provenance([string]$File) {
+    $strict = $env:SKILLSENTRY_VERIFY_PROVENANCE -eq "1"
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        if ($strict) { Fail "SKILLSENTRY_VERIFY_PROVENANCE=1 needs the GitHub CLI (gh) to verify the release attestation" }
+        Write-Host "Build provenance not checked. Install the GitHub CLI (gh) to verify the release attestation."
+        return
+    }
+    # cmd keeps native stderr out of PowerShell's error stream, which Stop would turn into an exception.
+    cmd /c "gh attestation verify --help >nul 2>&1"
+    if ($LASTEXITCODE -ne 0) {
+        $reason = "this gh has no 'attestation' command"
+    } else {
+        cmd /c "gh attestation verify `"$File`" --repo $Repo >nul 2>&1"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Build provenance verified (GitHub attestation)."
+            return
+        }
+        $reason = "gh attestation verify did not succeed"
+    }
+    if ($strict) { Fail "build provenance check failed for ${WheelName}: $reason; the download is not trusted" }
+    Write-Host "warning: could not verify provenance ($reason); checksum was verified" -ForegroundColor Yellow
+}
+
 function Get-VerifiedWheel([string]$Target) {
     $sums = Join-Path $Target "SHA256SUMS"
     $file = Join-Path $Target $WheelName
@@ -117,6 +142,7 @@ function Get-VerifiedWheel([string]$Target) {
         Fail "checksum mismatch for $WheelName; the download is not trusted"
     }
     Write-Host "Checksum verified."
+    Test-Provenance $file
     return $file
 }
 
@@ -134,6 +160,11 @@ if ($DryRun) {
     } else {
         Write-Host "  download: $BaseUrl/$WheelName"
         Write-Host "  checksum: $BaseUrl/SHA256SUMS"
+        if ($env:SKILLSENTRY_VERIFY_PROVENANCE -eq "1") {
+            Write-Host "  provenance: gh attestation verify, required (install fails without gh)"
+        } else {
+            Write-Host "  provenance: gh attestation verify when gh is installed (warning only)"
+        }
     }
     if (Get-Command pipx -ErrorAction SilentlyContinue) {
         Write-Host "  install:  pipx install --force <wheel>"

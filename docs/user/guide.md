@@ -50,6 +50,8 @@ Read `install.sh` before running it, as you would any script you download. Usefu
 | `--upgrade` | Reinstall over an existing install |
 | `--uninstall` | Remove the command; your scan history is kept |
 
+If the GitHub CLI (`gh`) is installed, the script also runs `gh attestation verify` on the wheel. Success prints that the build provenance is verified. A failed check is a warning, and the checksum result stands. Set `SKILLSENTRY_VERIFY_PROVENANCE=1` to make the check required: the install then stops if `gh` is missing or the check cannot pass.
+
 The script never uses sudo and installs only under your home folder. If the command is not found afterwards, the script prints the exact line to add to your shell's startup file (for example `~/.bashrc` or `~/.zshrc`).
 
 **D. Windows (PowerShell)** (native Windows; no administrator rights needed):
@@ -59,7 +61,7 @@ Invoke-WebRequest -Uri https://github.com/EmberPhantom/SkillSentry/releases/late
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-It needs Python 3.11 to 3.13 (`winget install Python.Python.3.12`). It checks the download against `SHA256SUMS`, installs under `%LOCALAPPDATA%\skill-sentry-cli`, adds that folder to your user PATH, and runs setup. Add `-DryRun`, `-NoSetup`, or `-Uninstall` as needed. Open a new PowerShell window after installing.
+It needs Python 3.11 to 3.13 (`winget install Python.Python.3.12`). It checks the download against `SHA256SUMS`. If the GitHub CLI (`gh`) is installed, it also runs `gh attestation verify`; set `$env:SKILLSENTRY_VERIFY_PROVENANCE = "1"` first to make that check required. It installs under `%LOCALAPPDATA%\skill-sentry-cli`, adds that folder to your user PATH, and runs setup. Add `-DryRun`, `-NoSetup`, or `-Uninstall` as needed. Open a new PowerShell window after installing.
 
 **Windows and WSL:** the sandbox needs Docker Desktop. On WSL, turn on WSL integration for your distribution in Docker Desktop settings. Keep your skills inside the Linux filesystem (for example `~/skills`), not under `/mnt/c/...`: scans of Windows-drive folders are much slower. `doctor` warns when the working folder is on a Windows drive.
 
@@ -79,7 +81,7 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.1.0 - Fully local analysis · open weights` (the version number matches the release you installed).
+Check the install with `skill-sentry-cli --version`. Expected: `SkillSentry 2.1.0` (the version number matches the release you installed).
 
 **Build the dashboard** only when you install from a checkout (B and A ship it built):
 
@@ -100,7 +102,7 @@ cd ..
 
 ## 4. Docker access and the sandbox image
 
-The sandbox runs each skill's entrypoint in a container with no network access, a memory limit, and a time limit.
+The sandbox runs each skill's entrypoint in a container on an internal Docker network with no route to the internet, plus a memory limit and a time limit. Its DNS and HTTP requests go to a local sinkhole that answers with fake responses and records what was asked for.
 
 **Give your user access to Docker** (Linux, once):
 
@@ -187,7 +189,7 @@ skill-sentry-cli scan fixtures/benign/pdf-summarizer
 Expected (the first time; a repeat is marked `(cached)`):
 
 ```text
-SkillSentry 2.1.0 - Fully local analysis · open weights - backend: auto (local -> cloud -> unavailable)
+SkillSentry 2.1.0 - Analysis backend unknown - backend: auto (local -> cloud -> unavailable)
 [OK] pdf-summarizer - SAFE - risk 0 - confidence 0.75
 ```
 
@@ -268,6 +270,7 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 | Option | What it does |
 |:---|:---|
 | `--fail-on suspicious` (default) | Exit `1` for `SUSPICIOUS` and `MALICIOUS` |
+| `--fail-on safe` | Exit `1` for any verdict other than `SAFE` |
 | `--fail-on malicious` | Exit `1` only for `MALICIOUS` (not recommended in CI; see section 11) |
 | `--no-cache` | Ignore saved results and scan again |
 | `--timeout 120` | Sandbox time limit in seconds (5 to 600; default 60) |
@@ -341,7 +344,9 @@ If the port is taken, you see `address already in use`. Pick another port.
 
 A CI runner needs Docker and a local model server to produce full verdicts. Hosted runners usually have neither, so a hosted run will report `UNSCANNED` unless you provide a model server. Plan for that before you rely on the gate.
 
-The gate must fail when a skill is not fully scanned. Keep the default `--fail-on suspicious`: an `UNSCANNED` skill shows as `SUSPICIOUS`, which fails the gate. Do not use `--fail-on malicious` for this reason.
+A degraded scan is never `SAFE`: its verdict is at least `SUSPICIOUS`, and the report shows `UNSCANNED` with the reason. Keep the default `--fail-on suspicious`, which fails such a scan. `--fail-on malicious` lets it pass, so do not use it for this reason.
+
+The bundled Agent Skill ships `scripts/audit.sh`, which runs `scan` with `--fail-on suspicious` and passes extra flags through. Pass `--fail-on malicious` to it only after you have reviewed a SUSPICIOUS result and accepted it.
 
 Example workflow (**the commands were run locally; this file was not run on GitHub**):
 
@@ -384,7 +389,7 @@ To see the output without Docker or a model:
 skill-sentry-cli scan cloud-sync-pro --demo-mode
 ```
 
-`--demo-mode` takes a skill **name** from the built-in demo set (`pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`, `cloud-sync-pro`, `invoice-helper`, `slack-notif-mal`). It does not scan a folder, and its results are canned, not real analysis. The banner says `demo`.
+`--demo-mode` takes a skill **name** from the built-in demo set (`pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`, `cloud-sync-pro`, `invoice-helper`, `slack-notif-mal`). It does not scan a folder, and its results are canned, not real analysis. The banner says `demo`, and a warning on standard error says that the path was not read.
 
 ---
 
@@ -472,7 +477,7 @@ skill-sentry-cli doctor
 skill-sentry-cli init [--force]
 skill-sentry-cli sandbox build
 skill-sentry-cli scan <skill-or-folder> [--format text|json|markdown|sarif] [--output FILE] [--sarif-out FILE]
-skill-sentry-cli scan <skill-or-folder> [--fail-on suspicious|malicious] [--no-cache] [--timeout N] [--no-sandbox] [-q]
+skill-sentry-cli scan <skill-or-folder> [--fail-on safe|suspicious|malicious] [--no-cache] [--timeout N] [--no-sandbox] [-q]
 skill-sentry-cli scan <skill-name> --demo-mode
 skill-sentry-cli self-audit
 skill-sentry-cli cache list [--limit N]

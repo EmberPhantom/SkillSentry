@@ -19,7 +19,7 @@ def test_live_api_streams_a_real_scan_and_serves_its_evidence(tmp_path):
     engine = ScanEngine(store=store, model=MockGemma(profile="benign"))
     backend = LiveBackend(engine=engine)
     try:
-        with TestClient(create_app(backend)) as client:
+        with TestClient(create_app(backend), base_url="http://localhost") as client:
             started = client.post(
                 "/scan",
                 json={
@@ -31,7 +31,7 @@ def test_live_api_streams_a_real_scan_and_serves_its_evidence(tmp_path):
             scan_id = started.json()["scanId"]
 
             events = []
-            with client.websocket_connect(f"/scan/{scan_id}/stream") as websocket:
+            with client.websocket_connect(f"ws://localhost/scan/{scan_id}/stream") as websocket:
                 while True:
                     event = websocket.receive_json()
                     events.append(event)

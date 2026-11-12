@@ -40,12 +40,20 @@ jobs:
         run: |
           python -m pip install --require-hashes -r requirements-dev.txt
           python -m pip install --no-deps -e .
+      - name: Audit installed dependencies for known vulnerabilities
+        run: |
+          python -m pip install --require-hashes -r requirements-tools.txt
+          pip-audit --progress-spinner off
       - name: Lint and format
         run: |
           ruff check skill_sentry_cli tests scripts
           ruff format --check skill_sentry_cli tests scripts
-      - name: Tests
-        run: pytest tests -q
+      - name: Type check (mypy)
+        run: mypy
+      - name: Tests with coverage gate
+        # Same selection as scripts/check.sh: tests/live needs a running local model and is run on purpose.
+        # The floor lives in [tool.coverage.report] and applies to every Python version in the matrix.
+        run: pytest tests -q -p no:cacheprovider --ignore=tests/live --cov=skill_sentry_cli
 
   build:
     name: Build artifacts

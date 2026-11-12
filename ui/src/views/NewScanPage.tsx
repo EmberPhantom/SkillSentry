@@ -1,20 +1,52 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, openScanStream, type ScanOptions, type WSMessage } from "../api";
+import { api, openScanStream, verdictSkillId, type ScanOptions, type ScanStream, type WSMessage } from "../api";
 import { ErrorBox, formatTime } from "../components";
+import { TIMEOUT_MAX_S, TIMEOUT_MIN_S, parseTimeout } from "../scanOptions";
 
-const DEFAULT_OPTIONS: ScanOptions = { noCache: false, sandbox: true, poisonedWell: true, timeoutS: 60 };
+const DEFAULT_OPTIONS: ScanOptions = { noCache: false, sandbox: true, poisonedWell: true };
+const DEFAULT_TIMEOUT_TEXT = "60";
+
+type RunStatus = "running" | "cancelling" | "completed" | "cancelled" | "closed";
+
+const STATUS_PILL: Record<RunStatus, { label: string; tone: string }> = {
+  running: { label: "streaming", tone: "ok" },
+  cancelling: { label: "cancelling", tone: "warn" },
+  completed: { label: "completed", tone: "ok" },
+  cancelled: { label: "cancelled", tone: "warn" },
+  closed: { label: "finished", tone: "" },
+};
 
 export function NewScanPage() {
   const [path, setPath] = useState("");
   const [options, setOptions] = useState<ScanOptions>(DEFAULT_OPTIONS);
+  const [timeoutText, setTimeoutText] = useState(DEFAULT_TIMEOUT_TEXT);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
   const [events, setEvents] = useState<WSMessage[]>([]);
-  const [streamOpen, setStreamOpen] = useState(false);
-  const closeStream = useRef<(() => void) | null>(null);
+  const [status, setStatus] = useState<RunStatus>("closed");
+  const [skillId, setSkillId] = useState<string | null>(null);
+  const stream = useRef<ScanStream | null>(null);
+  // Bumped on every new run and on unmount, so callbacks from an old socket are ignored.
+  const runToken = useRef(0);
 
-  useEffect(() => () => closeStream.current?.(), []);
+  useEffect(
+    () => () => {
+      runToken.current += 1;
+      stream.current?.close();
+    },
+    [],
+  );
+
+  function handleMessage(message: WSMessage) {
+    setEvents((prior) => [...prior, message]);
+    if (message.event === "error" && message.detail?.code === "cancelled") {
+      setStatus("cancelled");
+    } else if (message.event === "completed") {
+      setStatus("completed");
+      setSkillId(verdictSkillId(message));
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,25 +54,54 @@ export function NewScanPage() {
       setError("Enter a path to a skill folder.");
       return;
     }
+    const timeout = parseTimeout(timeoutText);
+    if (!timeout.ok) {
+      setError(timeout.error);
+      return;
+    }
+
+    const token = runToken.current + 1;
+    runToken.current = token;
+    stream.current?.close();
+    stream.current = null;
     setSubmitting(true);
     setError(null);
     setEvents([]);
-    closeStream.current?.();
+    setScanId(null);
+    setSkillId(null);
+    setStatus("closed");
     try {
-      const started = await api.startScan(path.trim(), options);
+      // A blank timeout leaves timeoutS undefined, so the request omits timeout_s.
+      const started = await api.startScan(path.trim(), { ...options, timeoutS: timeout.value });
+      if (runToken.current !== token) return;
       setScanId(started.scanId);
-      setStreamOpen(true);
-      closeStream.current = openScanStream(
+      setStatus("running");
+      stream.current = openScanStream(
         started.scanId,
-        (message) => setEvents((prior) => [...prior, message]),
-        () => setStreamOpen(false),
+        (message) => {
+          if (runToken.current === token) handleMessage(message);
+        },
+        () => {
+          if (runToken.current !== token) return;
+          // A cancel the server acknowledges by closing the socket has no separate event.
+          setStatus((prior) => (prior === "cancelling" ? "cancelled" : prior === "running" ? "closed" : prior));
+        },
       );
     } catch (err) {
+      // Server validation errors arrive as readable "field: message" strings; show them unchanged.
       setError(err instanceof Error ? err.message : "Could not start the scan.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  function cancelScan() {
+    if (!stream.current) return;
+    setStatus("cancelling");
+    stream.current.cancel();
+  }
+
+  const running = status === "running" || status === "cancelling";
 
   return (
     <section className="page">
@@ -48,13 +109,14 @@ export function NewScanPage() {
         <h1>New scan</h1>
       </div>
 
-      <form className="scan-form" onSubmit={submit}>
+      {/* noValidate: the timeout bounds are checked in submit() so the message is ours, not the browser's. */}
+      <form className="scan-form" onSubmit={submit} noValidate>
         <label className="field">
           <span>Skill folder</span>
           <input
             type="text"
             value={path}
-            placeholder="C:\\path\\to\\skill"
+            placeholder="/path/to/skill-folder"
             onChange={(event) => setPath(event.target.value)}
             required
           />
@@ -91,10 +153,13 @@ export function NewScanPage() {
             <span>Timeout (s)</span>
             <input
               type="number"
-              min={5}
-              max={600}
-              value={options.timeoutS}
-              onChange={(event) => setOptions({ ...options, timeoutS: Number(event.target.value) })}
+              inputMode="numeric"
+              min={TIMEOUT_MIN_S}
+              max={TIMEOUT_MAX_S}
+              step={1}
+              placeholder="Server default"
+              value={timeoutText}
+              onChange={(event) => setTimeoutText(event.target.value)}
             />
           </label>
         </fieldset>
@@ -112,7 +177,14 @@ export function NewScanPage() {
         <section className="card" aria-live="polite">
           <div className="card-head">
             <h2>Live console</h2>
-            <span className={`pill ${streamOpen ? "ok" : ""}`}>{streamOpen ? "streaming" : "finished"}</span>
+            <div className="head-meta">
+              <span className={`pill ${STATUS_PILL[status].tone}`}>{STATUS_PILL[status].label}</span>
+              {running ? (
+                <button type="button" className="danger" disabled={status === "cancelling"} onClick={cancelScan}>
+                  {status === "cancelling" ? "Cancelling…" : "Cancel scan"}
+                </button>
+              ) : null}
+            </div>
           </div>
           <ol className="console">
             {events.length === 0 ? <li className="muted">Waiting for the first stage…</li> : null}
@@ -124,9 +196,22 @@ export function NewScanPage() {
               </li>
             ))}
           </ol>
-          {!streamOpen ? (
+
+          {status === "completed" ? (
             <p>
-              <a href="#/">Back to triage</a> once the verdict appears in the table.
+              {skillId ? <a href={`#/skill/${skillId}`}>Open verdict</a> : <span>Verdict recorded.</span>}
+              {" · "}
+              <a href="#/">Back to triage</a>
+            </p>
+          ) : null}
+          {status === "cancelled" ? (
+            <p>
+              Scan cancelled before a verdict was produced. <a href="#/">Back to triage</a>
+            </p>
+          ) : null}
+          {status === "closed" ? (
+            <p>
+              The stream ended. <a href="#/">Back to triage</a> to check the table.
             </p>
           ) : null}
         </section>

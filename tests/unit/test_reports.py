@@ -29,7 +29,9 @@ def test_markdown_contains_citations_and_money_shot():
     assert "evil-collector.net" in text
     assert "SKS-7f3a9c21" in text
     assert "Do not install this skill" in text
-    assert "Fully local analysis · open weights" in text
+    # The verdict does not record the analysis backend, so the footer must not claim local.
+    assert "Fully local analysis" not in text
+    assert "analysis backend not recorded in this report" in text
 
 
 def test_markdown_benign_is_affirmative():
@@ -123,3 +125,85 @@ def test_complete_scan_is_not_marked_unscanned():
     complete = [StageResult(stage=Stage.SEMANTIC)]
     text = build_markdown(_verdict("git-helper"), stage_results=complete)
     assert "UNSCANNED" not in text
+
+
+def _hostile_active_defense(verdict, **overrides):
+    from skill_sentry_cli.core.contracts import ActiveDefense
+
+    active = ActiveDefense(
+        triggered=True,
+        targeted_assets=["~/.aws/credentials"],
+        declared_intent="Fetch <img src=x onerror=alert(1)> & report",
+        actual_behavior="line one\nline two | extra",
+        canary_marker="SKS-1",
+        **overrides,
+    )
+    return verdict.model_copy(update={"active_defense": active})
+
+
+def test_markdown_escapes_html_in_active_defense_cells():
+    verdict = _hostile_active_defense(_verdict("cloud-sync-pro"))
+    text = build_markdown(verdict)
+    assert "<img" not in text
+    assert "&lt;img src=x onerror=alert(1)&gt; &amp; report" in text
+
+
+def test_markdown_table_cells_stay_on_one_row_and_escape_pipes():
+    verdict = _hostile_active_defense(_verdict("cloud-sync-pro"))
+    text = build_markdown(verdict)
+    row = next(line for line in text.splitlines() if line.startswith("| Actual behavior |"))
+    assert row == "| Actual behavior | line one line two \\| extra |"
+
+
+def test_markdown_code_spans_cannot_be_broken_out_of():
+    from skill_sentry_cli.core.contracts import Finding, Severity, Stage
+    from skill_sentry_cli.core.verdict.markdown_report import _code, _evidence_line
+
+    assert _code("plain") == "`plain`"
+    assert _code("a`b") == "``a`b``"
+    assert _code("`edge`") == "`` `edge` ``"
+    assert "\n" not in _code("x\n# injected\n- fake")
+
+    finding = Finding(
+        stage=Stage.SEMANTIC,
+        severity=Severity.HIGH,
+        message="m",
+        evidence={"file": "scripts/a.py", "ocr": "evil`\n## Heading"},
+    )
+    line = _evidence_line(finding)
+    assert "\n" not in line
+    assert "ocr=``evil` ## Heading``" in line
+
+
+def test_markdown_defaults_unchanged_for_clean_values():
+    text = build_markdown(_verdict("cloud-sync-pro"))
+    assert "| Skill ID | `" in text
+    assert "scripts/sync.sh:7" in text
+
+
+def test_markdown_flattens_newlines_and_neutralises_links_in_finding_messages():
+    from skill_sentry_cli.core.contracts import Finding, Severity, Stage
+
+    hostile = (
+        "Exfil to [docs](https://evil.example/x)\n## Fake heading "
+        "![logo](https://evil.example/p.png) <b>bold</b>"
+    )
+    finding = Finding(stage=Stage.SEMANTIC, severity=Severity.HIGH, message=hostile)
+    verdict = _verdict("cloud-sync-pro").model_copy(update={"findings": [finding]})
+    text = build_markdown(verdict)
+
+    assert "\n## Fake heading" not in text
+    assert "[docs](" not in text
+    assert "![logo](" not in text
+    line = next(item for item in text.splitlines() if item.startswith("- **semantic**"))
+    assert "\\[docs\\](https://evil.example/x)" in line
+    assert "!\\[logo\\](https://evil.example/p.png)" in line
+    assert "&lt;b&gt;bold&lt;/b&gt;" in line
+    assert "## Fake heading" in line
+
+
+def test_markdown_cells_escape_backslashes_before_pipes_and_brackets():
+    from skill_sentry_cli.core.verdict.markdown_report import _cell
+
+    assert _cell("dir\\sub|b") == "dir\\\\sub\\|b"
+    assert _cell("[x](y)") == "\\[x\\](y)"

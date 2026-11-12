@@ -69,10 +69,13 @@ export function TriagePage() {
 
       {scans.error ? <ErrorBox error={scans.error} /> : null}
       {scans.loading && !scans.data ? <Loading label="Loading scans" /> : null}
-      {scans.data && rows.length === 0 ? (
+      {scans.data && rows.length === 0 && (scans.data.scans?.length ?? 0) === 0 ? (
         <Empty>
-          No scans match. <a href="#/new">Start a scan</a> to add a skill.
+          No scans yet. <a href="#/new">Start a scan</a> to add a skill.
         </Empty>
+      ) : null}
+      {scans.data && rows.length === 0 && (scans.data.scans?.length ?? 0) > 0 ? (
+        <Empty>No scans match the current filter or search. Clear them to see every scan.</Empty>
       ) : null}
 
       {rows.length > 0 ? (

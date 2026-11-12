@@ -7,7 +7,7 @@ How to run SkillSentry today: on a developer machine, as a container, and what t
 | Method | For | Command | Status |
 |:---|:---|:---|:---|
 | pipx or pip | Developers, local use | `pipx install skill-sentry-cli` | Published on PyPI (2.1.0). |
-| Install script | Linux, macOS, WSL | `sh install.sh` from the latest release | Checksum-verified against `SHA256SUMS`. |
+| Install script | Linux, macOS, WSL | `sh install.sh` from the latest release | Checksum-verified against `SHA256SUMS`. Also runs `gh attestation verify` when `gh` is installed; `SKILLSENTRY_VERIFY_PROVENANCE=1` makes it required. |
 | Windows installer | Windows | `powershell -ExecutionPolicy Bypass -File install.ps1` | Included with the release. Not yet verified on real machines. |
 | Server image | Running the dashboard and API in a container | `ghcr.io/emberphantom/skill-sentry-server:<version>` | Published, signed, and public. |
 | Source | Contributors | `python -m pip install -e ".[dev]"` | See [developer setup](../developer/getting-started.md). |
@@ -52,6 +52,7 @@ docker run -d --name skillsentry \
 ```
 
 - **Publish the port on loopback only.** The API has no authentication. The container listens on all interfaces inside its own network, so the `127.0.0.1:` prefix is what keeps it local.
+- **Reaching it from another machine.** The server refuses requests whose `Host` is not loopback or its bind address (`400 untrusted_host`). If you publish the port on a LAN address and open the dashboard by that address or a LAN name, add it with `-e SKILLSENTRY_ALLOWED_HOSTS=<name or address>`. Publishing on a LAN address exposes the unauthenticated API to that network, so do it only on a network you trust.
 - **The data volume keeps the scan history.** Without it, history is lost when the container is removed.
 - **The Docker socket is not mounted by default.** Mounting `/var/run/docker.sock` lets the container control the host's Docker engine, which is root-equivalent on the host. Only do it deliberately, on a machine you control.
 - **Health.** The image has a healthcheck on the `/meta` endpoint. Check it with `docker inspect --format '{{.State.Health.Status}}' skillsentry`.

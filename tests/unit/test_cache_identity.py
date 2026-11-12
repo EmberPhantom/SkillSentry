@@ -224,3 +224,41 @@ def test_legacy_identity_is_unchanged_without_laya(tmp_path: Path) -> None:
     finally:
         engine.close()
         store.close()
+
+
+def test_verdict_stored_before_the_cache_version_bump_is_not_reused(tmp_path: Path) -> None:
+    """A row written by pre-fix code (untagged engine version) is rescanned, not served."""
+    import sqlite3
+
+    from skill_sentry_cli.core.cache.hash_utils import hash_skill_dir
+    from skill_sentry_cli.core.version import engine_version
+
+    store = SQLiteStore(tmp_path / "cache.sqlite")
+    skill = _write_skill(tmp_path)
+    config = _config()
+    engine = ScanEngine(
+        config,
+        store=store,
+        model=MockGemma(profile="benign"),
+        sandbox_runner=_EmptyRunner(),  # type: ignore[arg-type]
+        decision_client=MockDecisionClient("benign"),
+    )
+    try:
+        first = _scan(engine, skill, config)
+        assert first.cached is False
+        assert _scan(engine, skill, config).cached is True
+        # Rewrite the row as the pre-fix code stored it: the bare engine version.
+        untagged = engine_version(config.scoring.weights)
+        with sqlite3.connect(tmp_path / "cache.sqlite") as raw:
+            updated = raw.execute(
+                "UPDATE scan_cache SET engine_version=? WHERE content_hash=?",
+                (untagged, hash_skill_dir(skill).digest),
+            ).rowcount
+        assert updated == 1
+        rescanned = _scan(engine, skill, config)
+    finally:
+        engine.close()
+        store.close()
+
+    assert rescanned.cached is False
+    assert rescanned.verdict.verdict == first.verdict.verdict

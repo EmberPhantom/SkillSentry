@@ -5,10 +5,15 @@ import { NewScanPage } from "./views/NewScanPage";
 import { SkillPage } from "./views/SkillPage";
 import { TriagePage } from "./views/TriagePage";
 
+// Shown even before /meta loads or when it fails. The server value wins when present.
+// It is neutral on purpose: the UI does not know which analysis backend is active.
+const FALLBACK_COMPLIANCE_BADGE = "Analysis backend unknown";
+
 export function App() {
   const route = useRoute();
   const meta = useLoad<Meta>(api.meta, "meta");
   const health = useLoad<Health>(api.health, "health", 15000);
+  const complianceBadge = meta.data?.gemmaBadge || FALLBACK_COMPLIANCE_BADGE;
 
   return (
     <div className="app">
@@ -16,6 +21,7 @@ export function App() {
         <a className="brand" href="#/">
           SkillSentry
         </a>
+        <span className="pill ok compliance-badge">{complianceBadge}</span>
         <nav aria-label="Main">
           <a href="#/" aria-current={route.name === "triage" || route.name === "skill" ? "page" : undefined}>
             Triage

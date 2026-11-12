@@ -211,6 +211,77 @@ jobs:
           PATH="$HOME/.local/bin:$PATH" skill-sentry-cli --version
           sh install.sh --uninstall
 
+  wheel-install:
+    # Builds the wheel the way a release does, installs it into a fresh virtual environment,
+    # and runs the installed command. Catches a wheel that imports from the source tree only.
+    name: Wheel installs and runs (clean venv)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ui/.nvmrc
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build the dashboard (the wheel bundles ui/dist)
+        working-directory: ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Build the wheel and check its contents
+        run: |
+          python -m pip install --require-hashes -r requirements-tools.txt
+          python -m build --wheel --outdir "$RUNNER_TEMP/wheel" .
+          python scripts/check_wheel.py "$RUNNER_TEMP"/wheel/*.whl
+
+      - name: Install the wheel into a clean virtual environment
+        run: |
+          python -m venv "$RUNNER_TEMP/clean"
+          "$RUNNER_TEMP/clean/bin/python" -m pip install "$RUNNER_TEMP"/wheel/*.whl
+          # Run from outside the checkout so the source tree cannot satisfy an import.
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          import importlib.resources as resources
+          import pathlib
+          import subprocess
+          import sys
+
+          root = resources.files("skill_sentry_cli")
+          for name in ("ui/dist/index.html", "skill/SKILL.md", "data/known_skills_v1.json"):
+              if not root.joinpath(name).is_file():
+                  sys.exit(f"installed package is missing {name}")
+          print("installed package location:", root)
+          PY
+          version=$(basename "$RUNNER_TEMP"/wheel/*.whl | cut -d- -f2)
+          "$RUNNER_TEMP/clean/bin/skill-sentry-cli" --version | tee version.txt
+          grep -qF "SkillSentry $version" version.txt
+
+      - name: Scan a fixture with the installed command
+        env:
+          # The deterministic mock model is refused unless this is set. It runs the real
+          # parser and deterministic checks, so it exercises the installed code paths offline.
+          SKILLSENTRY_DEV: "1"
+        run: |
+          cd "$RUNNER_TEMP"
+          fixture="$GITHUB_WORKSPACE/tests/fixtures/decisions/cases/benign_config_reader"
+          "$RUNNER_TEMP/clean/bin/skill-sentry-cli" scan "$fixture" \
+            --backend demo --no-sandbox --no-cache --format json > scan.json
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          import json
+          import pathlib
+
+          verdict = json.loads(pathlib.Path("scan.json").read_text(encoding="utf-8"))["verdict"]
+          assert verdict == "SAFE", verdict
+          print("installed scan OK: verdict", verdict)
+          PY
+
   installers:
     name: Installer scripts (shellcheck)
     runs-on: ubuntu-latest

@@ -8,10 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from skill_sentry_cli.core.parser import SkillPackage
+from skill_sentry_cli.core.parser.skill_parser import IMAGE_SUFFIXES
 
-IMAGE_SUFFIXES = frozenset(
-    {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".svg"}
-)
 MAX_IMAGES = 20
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_PREVIEW_BYTES = 2 * 1024 * 1024

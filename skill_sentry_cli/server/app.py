@@ -16,6 +16,7 @@ from skill_sentry_cli.server.backend import ScanBackend
 from skill_sentry_cli.server.errors import ApiError
 from skill_sentry_cli.server.live_backend import LiveBackend
 from skill_sentry_cli.server.routes import router
+from skill_sentry_cli.server.security import TrustedHostMiddleware, allowed_hostnames_from_env
 
 _DEV_ORIGINS = [
     "http://localhost:5173",
@@ -40,11 +41,30 @@ def _default_ui_dist() -> Path:
     return Path.cwd() / "ui" / "dist"
 
 
+def _validation_message(exc: RequestValidationError) -> str:
+    """One readable line per problem, e.g. ``body.path: Field required``."""
+
+    parts: list[str] = []
+    for error in exc.errors():
+        location = ".".join(str(part) for part in error.get("loc", ()))
+        message = str(error.get("msg", "invalid value"))
+        parts.append(f"{location}: {message}" if location else message)
+    return "; ".join(parts[:10]) or "request failed validation"
+
+
 def create_app(
     backend: ScanBackend | None = None,
     *,
     static_dir: str | Path | None = None,
+    bind_host: str | None = None,
 ) -> FastAPI:
+    """Build the API.
+
+    ``bind_host`` is the address the server listens on. A specific address is added to
+    the accepted Host names; wildcard and loopback binds accept only loopback names
+    (plus ``SKILLSENTRY_ALLOWED_HOSTS``).
+    """
+
     backend = backend or LiveBackend()
     app = FastAPI(
         title="SkillSentry",
@@ -59,6 +79,12 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Outermost: refuse foreign Host and Origin values before any route runs.
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=allowed_hostnames_from_env(bind_host),
+        allowed_origins=_DEV_ORIGINS,
+    )
 
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
@@ -72,7 +98,7 @@ def create_app(
         response = ErrorResponse(
             error=ErrorDetail(
                 code="schema_violation",
-                message=str(exc.errors()),
+                message=_validation_message(exc),
                 degraded=False,
             )
         )

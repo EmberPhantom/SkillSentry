@@ -15,7 +15,7 @@
 Agent skills are folders of instructions and scripts that an AI agent reads and runs. A skill can hide a credential stealer, or an instruction that overrides the agent. SkillSentry checks a skill before you install it:
 
 - It validates `SKILL.md`, and flags names that look like typosquats of known skills.
-- It runs the skill's entrypoint in a sandbox with no network access, a memory limit, and a time limit.
+- It runs the skill's entrypoint in a sandbox with a memory limit and a time limit. The sandbox has no route to the internet: its DNS and HTTP requests go to a local sinkhole that answers with fake responses and records them.
 - It plants decoy credentials in the sandbox. If one shows up in outbound traffic, the skill has proven it tried to steal it, and the decoy's destination is recorded as an indicator.
 - A local model reads the text and judges whether it matches what the code does. Deterministic checks are the ground truth, and the model cannot override them.
 - It returns one verdict: `SAFE`, `SUSPICIOUS`, `MALICIOUS`, or `UNSCANNED` when a check could not run. Every finding cites a file and line.
@@ -45,7 +45,7 @@ The [user guide](docs/user/guide.md) walks through installation, the first scans
 | Method | Use |
 |:---|:---|
 | `pipx install skill-sentry-cli` | Developers. Published on PyPI. |
-| Install script (`install.sh`, `install.ps1`) | Checksum-verified installs from a release. |
+| Install script (`install.sh`, `install.ps1`) | Checksum-verified installs from a release. If `gh` is installed, the wheel's build provenance is checked too. `SKILLSENTRY_VERIFY_PROVENANCE=1` makes that check required. |
 | Server image `ghcr.io/emberphantom/skill-sentry-server` | Running the dashboard and API in a container. Publish the port on `127.0.0.1` only. |
 | Source checkout | Contributors. See the [developer setup](docs/developer/getting-started.md). |
 

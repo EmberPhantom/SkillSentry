@@ -17,7 +17,7 @@
 | Typography | **Inter** for UI text · **JetBrains Mono** for code, evidence, hashes, IOCs, and the live console |
 | Iconography | Emoji-in-label for demo readability (🛡 ✅ ⚠️ 🚫 ☠️ 👁 🔒 ⚡) paired with text — never color or icon alone |
 | Motion | Scan-line sweep on active scans; timeline rows animate in as WS events arrive; no motion on cached (instant) results |
-| **Brand moment** (compliance requirement) | Header badge — **"Fully local analysis · open weights"** — visible on **every** screen |
+| **Brand moment** (compliance requirement) | Header badge showing the analysis backend from `GET /meta` — visible on **every** screen. Local and mock/demo show "Fully local analysis · open weights" (the local example in the mock-up below); cloud shows "Cloud analysis · code excerpts sent to the Gemini API"; an unknown backend shows "Analysis backend unknown". The badge never claims local analysis for a cloud scan. |
 
 ## 6.2 Screen Architecture
 
@@ -125,7 +125,7 @@ flowchart LR
 
 ```text
 <App>
-├── <Header>            (brand + local model badge + backend-mode toggle: Local ☁/API)
+├── <Header>            (brand + local-analysis badge from GET /meta; no backend toggle)
 ├── <ScanQueue>         → POST /scan {path} → returns scan_id
 ├── <LiveConsole>       → WebSocket /scan/{id}/stream (terminal-style log)
 ├── <TriageTable>       → GET /scan/{id}/verdicts
@@ -148,7 +148,7 @@ flowchart LR
 4. **Every screen has empty, loading, and error states:** empty queue illustration, skeleton rows during scans, degraded-mode banner when `GET /health` reports Ollama/Docker down (with the honest "static-stages-only" explanation and `--demo-mode` hint).
 5. **Cache is visible.** ⚡ icon + "< 2 s (cached)" on cached results — the incremental-scan story must be *seen*.
 6. **Eye View** bounding-box overlay is the visual proof for vision findings.
-7. **Backend transparency.** Header toggle/badge always shows whether inference is Local or API (privacy promise made visible).
+7. **Backend transparency.** The header shows the local-analysis badge. It is a fixed label and does not show whether the cloud backend ran; `backendActive` in `GET /meta` does. A Local/API toggle is not implemented.
 8. **Destructive actions gated.** "Install anyway" on SUSPICIOUS requires an explicit confirm dialog enumerating findings; MALICIOUS cannot be installed from the UI at all.
 
 ## 6.6 Accessibility & Responsiveness — Spec (proposed)

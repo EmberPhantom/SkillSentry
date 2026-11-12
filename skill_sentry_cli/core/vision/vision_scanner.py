@@ -130,7 +130,7 @@ def scan_vision(
     """Scan bundled images.  Missing images are not a degraded stage."""
 
     assets, notes = extract_images(package)
-    if not assets:
+    if not assets and not notes:
         return StageResult(
             stage=Stage.VISION,
             findings=[],
@@ -140,7 +140,9 @@ def scan_vision(
 
     findings: list[Finding] = []
     evidence: list[VisionEvidence] = []
-    degraded_errors: list[str] = []
+    # Images the extractor skipped (oversize, over the image limit, unreadable) were
+    # never analysed, so they degrade the stage exactly like a failed model call.
+    degraded_errors: list[str] = list(notes)
     analysed = 0
     skipped = 0
     model_calls = 0
@@ -239,7 +241,7 @@ def scan_vision(
     if findings:
         score = max(_SEVERITY_SCORE[item.severity] for item in findings)
         score = min(100.0, score + min(8, (len(findings) - 1) * 2))
-    if skipped == 0:
+    if skipped == 0 and not notes:
         vision_status = "evaluated"
     elif analysed == 0:
         # Deferred or unavailable vision must never read as a clean image result.

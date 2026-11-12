@@ -74,7 +74,7 @@
 
 *Depends on: CL-D1-1 (DB path/config conventions) · Blocks: Dev 1's Stage 0 + verdict writes (CL-D1-5)*
 
-- [ ] `cache/hash_utils.py` exactly per [03-database §3.2](../../developer/database.md): exclusions (`.git`, `__pycache__`, `*.pyc`, `.DS_Store`, `.skillsentryignore`), sorted POSIX-path walk, `path\0mode\0sha256(content)\n` entries, final SHA-256 hex
+- [ ] `cache/hash_utils.py` exactly per [03-database §3.2](../../developer/database.md): no exclusions (every file and directory is hashed; symlinks are hashed as links and never followed), sorted POSIX-path walk, `path\0mode\0sha256(content)\n` entries, final SHA-256 hex
 - [ ] Determinism tests: same dir re-hashed stable; rename/reorder/permission-bit/content changes each alter the hash; cross-run reproducibility
 - [ ] `cache/sqlite_store.py`: DDL for `scan_cache` + `schema_meta` ([03-db §3.4](../../developer/database.md)); WAL mode; repository interface `get_cached(hash, engine_v, model_v) / put(...) / prune(older_than) / stats()`
 - [ ] Invalidation matrix implemented + tested per [03-db §3.5](../../developer/database.md) (engine bump, model bump, `backend_strict` config, `--no-cache` bypasses read **and** write)

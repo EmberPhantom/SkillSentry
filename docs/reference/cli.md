@@ -12,7 +12,7 @@ Running the command with no arguments prints its help. Shell completion is not i
 
 | Option | Effect |
 |:---|:---|
-| `--version` | Prints `SkillSentry <version> - Fully local analysis · open weights` and exits 0. |
+| `--version` | Prints `SkillSentry <version>` and exits 0. It makes no claim about the analysis backend. |
 | `--help` | Lists the commands. |
 
 ## Exit codes
@@ -36,7 +36,7 @@ Audits one skill folder, or a folder that contains skills.
 skill-sentry-cli scan PATH [OPTIONS]
 ```
 
-`PATH` is either a skill folder (one that contains `SKILL.md`) or a folder whose child folders are skills. A run covers at most 500 skills.
+`PATH` is either a skill folder (one that contains `SKILL.md`) or a folder whose child folders are skills. A folder search finds at most 500 skills. With more than 500 under `PATH`, or more than 100,000 directories, the command stops with an error (exit `3`) and scans nothing. Scan a smaller folder, or the skill folders one at a time.
 
 | Option | Default | Meaning |
 |:---|:---|:---|
@@ -51,7 +51,7 @@ skill-sentry-cli scan PATH [OPTIONS]
 | `--sarif-out FILE` | none | Also write a SARIF 2.1.0 file. |
 | `--report-dir DIR` | none | Write one Markdown report per skill, and a `summary.md` for a folder. |
 | `--recursive` | off | Also scan skills nested inside a skill folder. |
-| `--demo-mode` | off | `PATH` is then the name of a canned skill: `pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`, `cloud-sync-pro`, `invoice-helper`, or `slack-notif-mal`. Other names exit `2`. |
+| `--demo-mode` | off | `PATH` is then the name of a canned skill: `pdf-summarizer`, `git-helper`, `image-resizer`, `weather-fetch`, `cloud-sync-pro`, `invoice-helper`, or `slack-notif-mal`. Other names exit `2`. A warning on standard error says that the path was not read and the verdict is canned. |
 
 Examples:
 
@@ -82,6 +82,8 @@ Each text result starts with one of these markers:
 
 Audits the skill that ships with SkillSentry. It takes `--format`, `--fail-on`, `-q`, `--no-cache`, `--sandbox` / `--no-sandbox`, `--backend`, and `--timeout`, with the same defaults as `scan`. It has no `--output` option; redirect standard output instead.
 
+The bundled Agent Skill's `scripts/audit.sh DIR` runs `scan DIR --fail-on suspicious` and passes extra flags through. A SUSPICIOUS verdict exits `1`. Pass `--fail-on malicious` explicitly to accept SUSPICIOUS after review.
+
 ## `init`
 
 Writes a configuration file with comments.
@@ -104,7 +106,7 @@ Runs the API and the dashboard.
 | `--demo-mode` | off | Serve the canned seven-skill store instead of live scans. |
 | `--speed` | `1.0` | Replay speed for demo mode. `0` is instant. |
 
-The dashboard is served at `/`, and the API endpoints (for example `/scans`) are on the same port. Press `Ctrl+C` to stop.
+The dashboard is served at `/`, and the API endpoints (for example `/scans`) are on the same port. Requests whose `Host` header is not loopback or the bind address are refused with `400 untrusted_host`. To accept another name, such as a LAN name, set `SKILLSENTRY_ALLOWED_HOSTS` (see the environment variables). Press `Ctrl+C` to stop.
 
 ## `doctor`
 
@@ -213,11 +215,13 @@ Two sections deserve a warning:
 | `OLLAMA_HOST` | Address of the local model server. |
 | `GEMINI_API_KEY` | API key for the cloud backend. Used only when the cloud backend is selected. |
 | `SKILLSENTRY_DEV` | Set to `1` to allow `--backend demo` for development. |
+| `SKILLSENTRY_ALLOWED_HOSTS` | Comma-separated host names the server accepts in the `Host` and `Origin` headers, in addition to `localhost`, `127.0.0.1`, `::1`, and the bind address. Read by `serve`. |
+| `SKILLSENTRY_VERIFY_PROVENANCE` | Installer. Set to `1` to require the `gh attestation verify` check on the wheel: the install stops if `gh` is missing or the check fails. Without it, the check runs when `gh` is installed and a failure is only a warning. |
 | `SKILLSENTRY_CONTAINER` | Set to `1` by the official server image. It silences the warning that `serve` prints when bound beyond loopback. Do not set it elsewhere. |
 | `SKILLSENTRY_DECISION_BACKEND` | Overrides `[decision] backend`. |
 | `SKILLSENTRY_LAYA_CHECKPOINT`, `SKILLSENTRY_LAYA_DEVICE`, `SKILLSENTRY_LAYA_MODEL_PATH`, `SKILLSENTRY_LAYA_REQUIRED` | Options for the optional decision layer. |
 
-The installer also reads `SKILL_SENTRY_HOME` (install location) and `SKILL_SENTRY_RELEASE_URL` (a mirror for release files).
+The installer also reads `SKILL_SENTRY_HOME` (install location), `SKILL_SENTRY_RELEASE_URL` (a mirror for release files), and `SKILLSENTRY_VERIFY_PROVENANCE` (above).
 
 ## Planned, not available
 

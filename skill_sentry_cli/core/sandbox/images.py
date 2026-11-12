@@ -1,0 +1,19 @@
+"""Container image references used by the sandbox and its sinkhole sidecar.
+
+The sidecar's base image is pinned by digest, the same digest the sandbox
+Dockerfile uses (``assets/Dockerfile.sandbox``). Read it from this module
+only. A tag such as ``python:3.11-slim`` moves when the upstream image is
+rebuilt, so a sidecar pulled by tag can change between scans.
+
+The published sandbox image lives in ``skill_sentry_cli/data/sandbox_image.json``,
+which the release workflow overwrites with ``repository`` and ``digest``. Keep the
+sidecar reference here, not in that file.
+"""
+
+from __future__ import annotations
+
+SIDECAR_BASE_IMAGE = (
+    "python:3.11-slim@sha256:673719e071ecf27434fd2635bbd8d00f49f4fdd81f243143438a42ced8bedf60"
+)
+
+__all__ = ["SIDECAR_BASE_IMAGE"]

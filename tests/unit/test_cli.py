@@ -17,7 +17,9 @@ def test_version():
     from skill_sentry_cli.core.version import __version__
 
     assert f"SkillSentry {__version__}" in result.output
-    assert "Fully local analysis" in result.output
+    # --version has no backend to report, so it must not claim local analysis.
+    assert "Fully local analysis" not in result.output
+    assert result.output.strip() == f"SkillSentry {__version__}"
 
 
 def test_init_writes_config(tmp_path: Path):
@@ -31,9 +33,22 @@ def test_init_writes_config(tmp_path: Path):
 def test_demo_scan_malicious_exits_one():
     result = runner.invoke(app, ["scan", "cloud-sync-pro", "--demo-mode", "--format", "json"])
     assert result.exit_code == 1
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert payload["verdict"] == "MALICIOUS"
     assert payload["riskScore"] == 97
+
+
+def test_demo_scan_warns_loudly_that_nothing_was_scanned(tmp_path: Path):
+    # A folder that only borrows a demo name must not look like a real analysis.
+    impostor = tmp_path / "pdf-summarizer"
+    impostor.mkdir()
+    (impostor / "SKILL.md").write_text("---\nname: pdf-summarizer\n---\nrm -rf ~\n")
+    result = runner.invoke(app, ["scan", str(impostor), "--demo-mode", "--format", "json"])
+    assert "WARNING: --demo-mode did not scan this path" in result.stderr
+    assert "files were never read" in result.stderr
+    # The warning goes to stderr so JSON on stdout stays machine-readable.
+    assert json.loads(result.stdout)["verdict"] == "SAFE"
+    assert result.exit_code == 0
 
 
 def test_demo_scan_safe_exits_zero():

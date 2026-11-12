@@ -15,13 +15,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Fixed
+- The privacy badge no longer claims local analysis when the cloud backend is active. The badge follows the active analysis backend. Local and mock/demo keep "Fully local analysis · open weights". Cloud shows "Cloud analysis · code excerpts sent to the Gemini API". Auto before a model is selected, or no backend available, shows "Analysis backend unknown". This applies to the CLI banner, the dashboard header (from `GET /meta`), and demo mode. The dashboard shows the same neutral text when `/meta` fails.
+- Markdown triage reports flatten line breaks in finding messages and escape square brackets, so attacker-written text cannot form a link or an image. The report footer no longer claims local analysis. It says the analysis backend is not recorded in the report.
 - The hash-locked dependency files now carry platform markers, so the Windows install no longer tries to build `uvloop`, which has no Windows build. The lock files are compiled with uv for every platform.
 
 ### Changed
 - Installs are hash-locked. CI, the server image and the sandbox image install from `requirements-dev.txt`, `requirements-runtime.txt`, `requirements-tools.txt` and `skill_sentry_cli/core/sandbox/assets/requirements-sandbox.txt` with `--require-hashes`. The project itself is then installed with `--no-deps`. This clears the OpenSSF Scorecard pinned-dependencies findings and makes builds reproducible.
+- Package hashing covers everything the parser reads. The cache key no longer excludes `.git`, `__pycache__`, `*.pyc`, `.DS_Store`, or a `.skillsentryignore` file, and that ignore file is no longer read. Dependency and virtualenv directories such as `node_modules` and `.venv` count toward the cap of 5,000 files and 64 MiB. A package over either cap is refused with an `invalid_skill` error instead of being hashed in part.
+- Unread content degrades the scan. A file the parser cannot read (binary or unreadable content, larger than the per-file limit, past the skill text budget, or of a type with no reader) is a coverage gap. The spec stage is degraded and the report shows `UNSCANNED` with the reason. A MALICIOUS verdict is still shown as MALICIOUS.
+- More file types are read as text: `.c`, `.h`, `.cc`, `.cpp`, `.hpp`, `.bat`, `.cmd`, `.vbs`, `.pyw`, `.psd1`, `.psm1`, `.html`, `.htm`, `.xml`, `.sql`, and `.svg`.
+- Images that the vision stage skips (over 20 MiB, past the image limit, or unreadable) degrade the vision stage. They were previously ignored.
+- Verdicts stored by earlier versions are no longer reused. The cache semantics version (`CACHE_KEY_VERSION` 2) is part of the engine tag, so the first scan of each skill after the upgrade is a full scan.
+- `scripts/audit.sh` in the bundled Agent Skill, and the command the skill documents, now use `--fail-on suspicious`. A SUSPICIOUS verdict exits `1` by default; before, only MALICIOUS did. CI jobs that run the bundled skill see this change.
+- `scan --demo-mode` prints a warning on standard error. The path was not read, and the verdict is a canned result.
+- `init` no longer writes `[sandbox] max_parallel`. The key is still accepted and ignored.
+- Folder discovery warns when it skips a `node_modules`, `.venv`, `venv`, `.git`, `.hg`, `.svn`, or `__pycache__` directory that contains skill folders. It stops with an error past 100,000 directories.
+- Cancelling a scan over the WebSocket (`{"op": "cancel"}`) marks it failed at once and sends an `error` event with code `cancelled`. A second scan of a folder that is still being scanned gets `409 scan_in_progress`.
+- The API refuses a folder of skills with `422 folder_of_skills`. Scan one skill folder per request.
+- Markdown export runs off the event loop, so a large export does not stall other requests.
+- The install scripts (`install.sh`, `install.ps1`) try `gh attestation verify` on the wheel when `gh` is installed. Success prints that the build provenance is verified; a failed check is a warning and the checksum result stands. Set `SKILLSENTRY_VERIFY_PROVENANCE=1` to make the check strict: any reason it cannot pass (no `gh`, a `gh` without `attestation`, or a failed verification) stops the install. The release signs container images with cosign; the wheel carries a GitHub build-provenance attestation.
 
 ### Fixed
-- CI's dependency audit failed on `main` because the runner's preinstalled setuptools 79.0.1 has known vulnerabilities (PYSEC-2026-3447, GHSA-xmj3-9gf7-h52w). The lint and release checks now upgrade setuptools along with pip before auditing.
+- CI's dependency audit failed on `main` because the runner's preinstalled setuptools 79.0.1 has known vulnerabilities (PYSEC-2026-3447, GHSA-xmj3-9gf7-h52w). setuptools is now hash-pinned at 84.2.1 in `requirements-dev.txt`, `requirements-tools.txt` and `requirements-runtime.txt`; `--require-hashes` installs replace the runner's preinstalled setuptools before the audit.
+- Release checks run `pip-audit`, mypy, and the coverage gate (`tests/live` excluded). CI gained a wheel-install job that builds the wheel, installs it into a fresh virtual environment, and runs the installed command.
+
+### Added
+- `SKILLSENTRY_ALLOWED_HOSTS`: a comma-separated list of host names that the local server accepts, in addition to loopback and its bind address. Use it when the dashboard is opened by a LAN name or address.
+
+### Security
+- The local server refuses any request whose `Host` header is not loopback or its bind address, with `400 untrusted_host`. A WebSocket handshake with a foreign `Origin` is refused before it is accepted. This blocks DNS-rebinding access to scans and code excerpts.
+- A cross-site page cannot start a scan, clear the cache, or read scan results over a WebSocket. A `POST`, `PUT`, `PATCH`, `DELETE` or WebSocket handshake whose `Origin` is not the server's own origin (same scheme, host and port as `Host`) or a dev origin such as `http://localhost:5173` is refused (`400 untrusted_host` for HTTP, close code 1008 for WebSocket), including an `Origin` of `null`. Another port on localhost is a different origin and is refused. Requests without an `Origin` header (curl, the CLI) and `GET` requests are not affected.
+- Markdown triage reports escape `&`, `<`, and `>` in table cells, and replace line breaks and backticks in code spans. Text from a skill (declared intent, actual behaviour, evidence) can no longer inject HTML or break the report's structure.
+- `~/.skillsentry` is created with mode `0700`, and the scan database with mode `0600`. An existing directory keeps the mode it already has.
+- The sandbox sidecar image is pinned by digest, not by the `python:3.11-slim` tag.
 
 ## [2.1.1] — 2026-11-12
 
@@ -33,8 +59,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - The default local model reply budget is 2048 tokens with an 8192-token context (was 768 and 4096).
 - Python dependency ranges for pytest, mypy, rich, and Pillow are widened, and `@vitejs/plugin-react` is updated to 6.2.1.
 - GitHub Actions are updated to their current major versions and pinned by commit SHA.
-- Dependabot groups minor and patch updates, and defers major upgrades for the dashboard and the Node base image.
-- The Python base image is not proposed for newer versions by Dependabot.
+- Dependabot groups minor and patch updates for Python, the dashboard, and GitHub Actions. Major updates to React, react-dom, their type packages, and TypeScript are ignored, and so are major updates to the Node base image. Dependabot does not propose Python version moves (3.x minor or major); patch and digest refreshes of the pinned base images still arrive.
 
 ### Added
 - `serve` warns when it is bound to an address other than loopback, because the API has no authentication. The official container sets `SKILLSENTRY_CONTAINER` to keep its warning quiet.

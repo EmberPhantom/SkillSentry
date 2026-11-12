@@ -18,7 +18,16 @@ export function SkillPage({ skillId }: { skillId: string }) {
   const detail = useLoad<SkillDetail>(() => api.skill(skillId), skillId);
   const [tab, setTab] = useState<Tab>("overview");
 
-  if (detail.error) return <ErrorBox error={detail.error} />;
+  if (detail.error) {
+    return (
+      <section className="page">
+        <a className="back" href="#/">
+          ← Triage
+        </a>
+        <ErrorBox error={detail.error} />
+      </section>
+    );
+  }
   if (!detail.data) return <Loading label="Loading skill" />;
   const data = detail.data;
   const verdict = data.verdict;

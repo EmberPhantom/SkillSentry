@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from skill_sentry_cli.core.cache.hash_utils import hash_bytes
+from skill_sentry_cli.core.config import ensure_private_dir, ensure_private_file
 from skill_sentry_cli.core.contracts import (
     ScanStatus,
     SkillDetail,
@@ -39,7 +39,26 @@ from skill_sentry_cli.core.contracts import (
 )
 
 SCHEMA_VERSION = 1
-CACHE_KEY_VERSION = 1
+# Bump when what a cached verdict means changes, even if the package hash is the
+# same: a verdict stored before the change must not be reused.  Version 2 covers
+# the parser's read coverage (newly read script suffixes, unread-file issues).
+CACHE_KEY_VERSION = 2
+
+
+def cache_engine_tag(engine_version: str) -> str:
+    """Fold the cache-semantics version into the engine-version column.
+
+    Rows stored under an older ``CACHE_KEY_VERSION`` carry an untagged engine
+    version, so they never match a lookup and are rescanned instead of reused.
+    """
+
+    return f"{engine_version}#cache{CACHE_KEY_VERSION}"
+
+
+def _untag_engine_version(tagged: str) -> str:
+    base, marker, _ = tagged.rpartition("#cache")
+    return base if marker else tagged
+
 
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -214,22 +233,6 @@ class ScanRecord:
     error: str | None
 
 
-def cache_key(
-    content_hash: str,
-    engine_version: str,
-    model_version: str,
-    *,
-    backend: str | None = None,
-    backend_strict: bool = False,
-) -> str:
-    """Return a stable diagnostic key (the DB query uses the individual fields)."""
-
-    backend_part = backend or "*" if not backend_strict else ""
-    return hash_bytes(
-        f"{CACHE_KEY_VERSION}\0{content_hash}\0{engine_version}\0{model_version}\0{backend_part}".encode()
-    )
-
-
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -268,7 +271,12 @@ class SQLiteStore:
         self._closed = False
         if self.path != ":memory:":
             target = Path(self.path).expanduser()
-            target.parent.mkdir(parents=True, exist_ok=True)
+            # Scan history can name skills and paths, so keep it owner-only.
+            try:
+                ensure_private_dir(target.parent)
+                ensure_private_file(target)
+            except OSError as exc:
+                raise StoreError(f"could not prepare database {target}: {exc}") from exc
             self._path = target
         else:
             self._path = None
@@ -557,7 +565,7 @@ class SQLiteStore:
     def set_cache_identity(
         self, *, engine_version: str, model_backend: str, model_version: str
     ) -> None:
-        self._engine_version = engine_version
+        self._engine_version = cache_engine_tag(engine_version)
         self._model_backend = model_backend
         self._model_version = model_version
 
@@ -715,7 +723,7 @@ class SQLiteStore:
         sql = (
             "SELECT * FROM scan_cache WHERE content_hash=? AND engine_version=? AND model_version=?"
         )
-        params: list[Any] = [content_hash, engine_version, model_version]
+        params: list[Any] = [content_hash, cache_engine_tag(engine_version), model_version]
         if backend_strict and model_backend:
             sql += " AND model_backend=?"
             params.append(model_backend)
@@ -743,7 +751,7 @@ class SQLiteStore:
             verdict=verdict,
             detail=detail,
             sarif_json=row["sarif_json"],
-            engine_version=row["engine_version"],
+            engine_version=_untag_engine_version(row["engine_version"]),
             model_backend=row["model_backend"],
             model_version=row["model_version"],
             scan_duration_ms=int(row["scan_duration_ms"] or 0),
@@ -921,5 +929,5 @@ __all__ = [
     "SQLiteStore",
     "ScanRecord",
     "StoreError",
-    "cache_key",
+    "cache_engine_tag",
 ]

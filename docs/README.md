@@ -50,4 +50,4 @@ SkillSentry audits agent skills before you install them. This index groups the d
 | [SECURITY](../SECURITY.md) | How to report a vulnerability. |
 | [LICENSE](../LICENSE) | MIT. |
 
-*Fully local analysis · open weights.*
+*Local analysis by default · open weights. Cloud analysis is opt-in and is labelled as such.*

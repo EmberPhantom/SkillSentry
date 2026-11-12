@@ -19,7 +19,6 @@ from skill_sentry_cli.core.cache.sqlite_store import (
     ScanRecord,
     SQLiteStore,
     StoreError,
-    cache_key,
 )
 
 __all__ = [
@@ -29,7 +28,6 @@ __all__ = [
     "ScanRecord",
     "SkillHash",
     "StoreError",
-    "cache_key",
     "hash_bytes",
     "hash_skill_dir",
 ]
