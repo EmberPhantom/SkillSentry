@@ -133,8 +133,38 @@ fetch_wheel() {
     actual="$(sha256_of "$tmp/$WHEEL_NAME")"
     [ "$expected" = "$actual" ] || die "checksum mismatch for $WHEEL_NAME; the download is not trusted"
     printf 'Checksum verified.\n'
+    verify_provenance "$tmp/$WHEEL_NAME"
   fi
   WHEEL_PATH="$tmp/$WHEEL_NAME"
+}
+
+# Optional. The release workflow attests the wheel's build provenance. cosign signs the
+# container images, not the wheel, so GitHub's attestation check is the one that applies.
+#
+# Default: if gh is installed, try the check. Success prints "verified"; failure is a warning
+# and the checksum result stands. SKILLSENTRY_VERIFY_PROVENANCE=1 makes it strict: any reason
+# the check cannot pass (no gh, gh too old, verification failed) stops the install.
+verify_provenance() {
+  wheel="$1"
+  if ! command -v gh >/dev/null 2>&1; then
+    if [ "${SKILLSENTRY_VERIFY_PROVENANCE:-}" = "1" ]; then
+      die "SKILLSENTRY_VERIFY_PROVENANCE=1 needs the GitHub CLI (gh) to verify the release attestation"
+    fi
+    printf 'Build provenance not checked. Install the GitHub CLI (gh) to verify the release attestation.\n'
+    return 0
+  fi
+  if ! gh attestation verify --help >/dev/null 2>&1; then
+    reason="this gh has no 'attestation' command"
+  elif gh attestation verify "$wheel" --repo "$REPO" >/dev/null 2>&1; then
+    printf 'Build provenance verified (GitHub attestation).\n'
+    return 0
+  else
+    reason="gh attestation verify did not succeed"
+  fi
+  if [ "${SKILLSENTRY_VERIFY_PROVENANCE:-}" = "1" ]; then
+    die "build provenance check failed for $WHEEL_NAME: $reason; the download is not trusted"
+  fi
+  printf 'warning: could not verify provenance (%s); checksum was verified\n' "$reason" >&2
 }
 
 # Tell the user the exact line to add, for their shell, instead of a generic hint.
@@ -166,6 +196,11 @@ install_command() {
     else
       printf '  download: %s/%s\n' "$BASE_URL" "$WHEEL_NAME"
       printf '  checksum: %s/SHA256SUMS\n' "$BASE_URL"
+      if [ "${SKILLSENTRY_VERIFY_PROVENANCE:-}" = "1" ]; then
+        printf '  provenance: gh attestation verify, required (install fails without gh)\n'
+      else
+        printf '  provenance: gh attestation verify when gh is installed (warning only)\n'
+      fi
     fi
     if command -v pipx >/dev/null 2>&1; then
       printf '  install:  pipx install --force <wheel>\n'
