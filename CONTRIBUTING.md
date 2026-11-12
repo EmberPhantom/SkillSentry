@@ -103,4 +103,4 @@ Contributing indicators to the community blocklist is **opt-in**, strips all ski
 
 ---
 
-*Fully local analysis · open weights.*
+*Local analysis by default · open weights. Cloud analysis is opt-in and is labelled as such.*

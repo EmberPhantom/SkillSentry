@@ -47,7 +47,7 @@ flowchart LR
 | 1 | Spec and typosquat | Validates `SKILL.md`. Flags names within edit distance 2 of known skills, case-only variants, and Cyrillic or Greek lookalikes. |
 | 2 | Anchors and semantic | Deterministic AST and regex checks, plus the local model's reading of the text. The model cannot override an anchor. |
 | 3 | Vision | Scans images for hidden text, such as white-on-white payloads. Up to 3 images are checked, downscaled to 768 px. SVG is read as text. |
-| 4 | Sandbox | Runs the declared entrypoint in a container with no network. A masquerade shim, canary files, a DNS sinkhole and a fake HTTP responder watch what it does. |
+| 4 | Sandbox | Runs the declared entrypoint in a container with no route to the internet. A masquerade shim, canary files, a DNS sinkhole and a fake HTTP responder watch what it does. |
 | 4.5 | Poisoned Well | Tracks planted credentials leaving the sandbox (raw, base64, hex, or split DNS labels). Builds an attacker profile and exports STIX 2.1 indicators. |
 | 5 | Evasion | A skill that probes for the sandbox (for example `/.dockerenv` or `/proc/1/cgroup`) is marked `MALICIOUS`. |
 | 6 | Verdict | Weighted fusion into a 0–100 risk score, then a verdict. |
@@ -80,7 +80,7 @@ flowchart LR
 
 - Eight-stage pipeline with a cache that answers unchanged skills in under 2 seconds (cached-rescan target from the README).
 - Typosquat detection against a packaged list of 67 known skill names.
-- Sandboxed execution: no network, 512 MB memory, 1 CPU, 128 processes, 60-second default timeout.
+- Sandboxed execution: no route to the internet (DNS and HTTP go to a local sinkhole), 512 MB memory, 1 CPU, 128 processes, 60-second default timeout.
 - Poisoned Well active defense, with STIX 2.1 export of indicators.
 - Sandbox-evasion detection.
 - Reports in SARIF 2.1.0, Markdown, JSON and STIX 2.1.
@@ -215,7 +215,7 @@ Code 4 is defined in the source but **never returned**. Do not document it as a 
 skill-sentry-cli scan PATH [OPTIONS]
 ```
 
-`PATH` is one skill folder (contains `SKILL.md`), or a folder whose child folders are skills. Up to 500 skills per run.
+`PATH` is one skill folder (contains `SKILL.md`), or a folder whose child folders are skills. A folder search finds at most 500 skills; a larger folder is refused.
 
 | Option | Default | Meaning |
 |:---|:---|:---|
@@ -512,7 +512,7 @@ Use the sandboxed sample only after a sandboxed run confirms it. The demo output
 **FAQ candidates (answers are accurate to the code):**
 
 - *Does my code leave my machine?* No. Analysis, the local model, and reports stay local. The cloud backend is opt-in and off by default.
-- *Is it safe to scan malicious skills?* The entrypoint runs only inside the sandbox, with no network. Canary credentials are fake.
+- *Is it safe to scan malicious skills?* The entrypoint runs only inside the sandbox, with no route to the internet. Canary credentials are fake.
 - *Does it run on Windows and macOS?* Linux is the supported platform. Windows and macOS have installers and CI jobs but are **not verified** yet.
 - *Can I use it in CI?* Yes, with Docker and a local model server on the runner. See 19.10.
 - *What does UNSCANNED mean?* A stage did not finish, so the verdict cannot be trusted. The reason is printed.

@@ -27,7 +27,7 @@ A scan runs these stages in order. Each one can only add evidence; a model judgm
 | Spec and typosquat | `SKILL.md` validity, and names that look like known skills. |
 | Anchors and model | Deterministic code checks (for example, reads of credential files), then the local model's reading of the text against them. |
 | Vision | Hidden text in images, such as white-on-white payloads. |
-| Sandbox | The entrypoint runs with no network, a memory limit, and a time limit. |
+| Sandbox | The entrypoint runs on a network with no route out. Its DNS and HTTP requests go to a local sinkhole that answers with fake responses. It also has a memory limit and a time limit. |
 | Poisoned Well | Decoy credentials are planted in the sandbox. Their appearance in outbound traffic is hard evidence. |
 | Evasion | Probes for sandbox detection, such as `/.dockerenv`. A probe is treated as hard evidence. |
 | Verdict | Weighted fusion of the signals into the score and verdict. |

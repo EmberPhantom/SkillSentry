@@ -25,20 +25,20 @@ Dev 1 reviews every PR against this list.
 | # | Severity | Defect | Where |
 |---|---|---|---|
 | 1 | Critical | The verdict is chosen from the path name: `"malicious" in path` selects `MockGemma(DECEPTIVE/BENIGN)`. The eval harness repeats this. | `cli.py:227-237`, `tests/check_expected_verdicts.py:49` |
-| 2 | Critical | Cache-hash bypass. `.skillsentryignore` is read from inside the package and matched by substring. One pattern such as `.` empties the hash. | `core/cache/hash_utils.py:25-67` |
+| 2 | Critical | Cache-hash bypass. `.skillsentryignore` is read from inside the package and matched by substring. One pattern such as `.` empties the hash. **Resolved:** the ignore file is no longer read and nothing is excluded from the hash. | `core/cache/hash_utils.py:25-67` |
 | 3 | Critical | Fusion is a weighted average with no overrides or floors. | `cli.py:314-328` |
 | 4 | Critical | Fail-open. `degraded` is dropped, oversize and truncated files are skipped silently, cache-write errors are swallowed, `--timeout` is unused. | `cli.py:258-263,381`, `vision_scanner.py:306`, `skill_parser.py:457`, `ast_anchor.py:420` |
 | 5 | Critical | Scan blind spots. `.ps1 .bat .cmd .rb .pl`, shebang scripts, `.md/.json/.txt` references and dot-directories are never analysed. | `skill_parser.py:60,353` |
 | 6 | High | Raw attacker code is placed in the system prompt. The fence is unescaped and there is no size budget. | `prompts.py`, `ast_anchor.py:398` |
-| 7 | High | A symlink that escapes the package raises `ValueError` and aborts the batch, instead of producing a finding. Its test is skipped on Windows. | `skill_parser.py:377` |
+| 7 | High | A symlink that escapes the package raises `ValueError` and aborts the batch, instead of producing a finding. Its test is skipped on Windows. **Resolved:** a symlink is a HIGH manifest finding and is never followed. | `skill_parser.py:377` |
 | 8 | High | Unvalidated model output can crash the analyzer and the vision scanner. | `analyzer.py:243`, `vision_scanner.py:188` |
 | 9 | High | The cache ignores scan mode and backend, so mock or degraded results are served as authoritative. | `cli.py:180` |
-| 10 | High | Default `--fail-on malicious` exits 0 on SUSPICIOUS. | `cli.py:554` |
+| 10 | High | Default `--fail-on malicious` exits 0 on SUSPICIOUS. **Resolved:** `scan` and `self-audit` default to `--fail-on suspicious`. | `cli.py:554` |
 | 11 | High | ReDoS. The `subprocess ... shell=True` pattern is quadratic on long lines, and patterns are recompiled per file. | `ast_anchor.py:92,303` |
 | 12 | Medium | `xml.etree` parses untrusted SVG. Use `defusedxml`. | `vision_scanner.py:63` |
 | 13 | Medium | The contrast filter is narrow. Decompression-bomb errors are swallowed. | `vision_scanner.py`, `image_extractor.py:123` |
-| 14 | Medium | The YAML depth limiter is dead code, so the default loader is used. | `skill_parser.py:127` |
-| 15 | Medium | Typosquat: case-variant exact names are treated as the original; no confusables normalisation; the dictionary path breaks in a wheel install. | `typosquat.py:117,235` |
+| 14 | Medium | The YAML depth limiter is dead code, so the default loader is used. **Resolved:** the depth limit (10 levels) is enforced on frontmatter, and aliases are refused. | `skill_parser.py:127` |
+| 15 | Medium | Typosquat: case-variant exact names are treated as the original; no confusables normalisation; the dictionary path breaks in a wheel install. **Partly resolved:** case variants are imitations, and confusables are folded. The dictionary path is not re-checked here. | `typosquat.py:117,235` |
 | 16 | Medium | Contract mismatch with main (signal keys, flat `Finding`, extra `sandbox_instructions` field). | `contracts.py` |
 | 17 | Medium | The INT-4 producer never emits the evasion watch (no `.dockerenv` pattern), has no canary mapping, and may use `SKILL.md` as the entrypoint. | `sandbox_instructions.py` |
 
@@ -108,7 +108,7 @@ Work was ported onto `integrate/dev2-v1` from `main`. `feature/developer-2` was 
 ### Regressions to send back to Developer 2
 1. `MockGemma` is imported by `cli.py`, `engine.py` and `models/selector.py`. The "zero mocks" gate does not scan those files.
 2. The cache identity dropped the rules and prompt versions. `main` now fingerprints the rules file.
-3. `--fail-on` defaults to `malicious` again for `scan` and `self-audit`.
+3. `--fail-on` defaults to `malicious` again for `scan` and `self-audit`. **Resolved:** both default to `suspicious`.
 4. `--model-name`, `--ollama-host`, `--max-ctx` and `--no-semantic` are removed, and their `doctor` differs from `main`.
 5. Parity: `docker-compose-helper` (benign) is SUSPICIOUS 70 and the report still says every benign fixture is SAFE.
 6. Citation headline: precision is 60% (12 false positives). Report precision alongside recall.

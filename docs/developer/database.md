@@ -31,10 +31,12 @@ SkillSentry is **local-first**: the single source of truth on a developer machin
 
 The cache key is a **SHA-256 digest of the normalized skill directory**, computed by `core/cache/hash_utils.py`:
 
-1. Recursively walk the skill directory; **exclude** `.git/`, `__pycache__/`, `*.pyc`, `.DS_Store`, and any path matching `.skillsentryignore`.
+1. Recursively walk the skill directory. **Nothing is excluded**: every file and directory under the package root is hashed, including `.git/`, `node_modules/`, `.venv/`, and any ignore file. Symlinks are hashed as links (name and target) and never followed. The walk is capped at 5,000 files and 64 MiB in total; a package over either cap is refused.
 2. Sort entries by relative POSIX path (byte-order) for determinism.
-3. For each entry, feed the hasher: `path + "\0" + file_mode_bits + "\0" + sha256(file_bytes) + "\n"`.
+3. For each entry, feed the hasher: a file as `file\0path\0mode\0sha256(bytes)\n`, a directory as `dir\0path\0mode\n`, and a symlink as `link\0path\0target\n`. Modes are octal.
 4. Final key: `sha256(concatenation)` → lowercase hex, 64 chars.
+
+The cache also tags each stored verdict with the cache semantics version (`CACHE_KEY_VERSION`). A verdict stored under an earlier version is not reused.
 
 Properties: any content, rename, permission-bit, or add/delete change alters the hash; hashing is stable across machines and filesystems; cost is negligible (< 50 ms for typical skills).
 

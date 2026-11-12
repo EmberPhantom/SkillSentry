@@ -13,6 +13,7 @@ The HTTP and WebSocket API that `skill-sentry-cli serve` exposes. The dashboard 
 | Timestamps | ISO-8601, UTC |
 | Identifiers | UUIDs, for scans and skills |
 | Authentication | **None.** The server is meant for loopback use only. Keep the default `--host 127.0.0.1`. See the [security model](../developer/security.md) §4.11. |
+| Host check | Requests whose `Host` is not loopback or the bind address get `400 untrusted_host`, on every endpoint. An `Origin` header on a WebSocket handshake, or on a `POST`, `PUT`, `PATCH` or `DELETE`, must be the server's own origin (same scheme, host and port as `Host`) or a dev origin such as `http://localhost:5173`. Otherwise the request is refused with `400 untrusted_host` (WebSocket: closed with 1008). A `null` origin is refused. Requests without an `Origin` header (curl, the CLI) and `GET` requests are not affected. Add names with `SKILLSENTRY_ALLOWED_HOSTS`. |
 | Contract version | Reported as `contractVersion` by `GET /meta`. The verdict contract is `v1`. Changes are additive. |
 | Demo mode | `serve --demo-mode` serves canned data with the same schemas. No Docker or model is needed. |
 
@@ -20,7 +21,7 @@ The HTTP and WebSocket API that `skill-sentry-cli serve` exposes. The dashboard 
 
 | Method and path | Purpose | Success | Errors |
 |:---|:---|:---|:---|
-| `POST /scan` | Start a scan | `202` | `404` no `SKILL.md`, `409` scan already running, `422` missing or invalid path |
+| `POST /scan` | Start a scan | `202` | `400` `untrusted_host`, `404` no `SKILL.md`, `409` `scan_in_progress`, `422` `missing_path`, `invalid_skill`, or `folder_of_skills` |
 | `GET /scans` | List scans, newest first | `200` | |
 | `GET /scan/{scan_id}` | Status of one scan | `200` | `404` unknown scan |
 | `GET /scan/{scan_id}/verdicts` | Verdicts of one scan | `200` | `404` unknown scan, `409` still running, `500` failed |
@@ -51,7 +52,8 @@ Request:
 
 - `path` is the skill folder. It must contain `SKILL.md`. A missing or empty path gives `422 missing_path`. A path that does not exist gives `404 no_skill_manifest`. A path that is not a directory gives `422 invalid_skill`.
 - `options` is optional. `backend` is `auto`, `local`, `cloud`, or `demo`. Set `sandbox` to `false` to skip the sandbox; the verdict then relies on the static stages only.
-- A second scan of the same folder while one is running gives `409 scan_in_progress`.
+- A folder whose child folders are skills gives `422 folder_of_skills`, and the message names them. Scan each one with its own request.
+- A second scan of the same folder while one is running gives `409 scan_in_progress`. The `scanId` of the running scan is in the error body.
 
 Response, status `202`:
 
@@ -65,9 +67,9 @@ Response, status `202`:
 
 ### `GET /scans`: list scans
 
-Newest first. Query parameters: `limit` (1 to 1000, default 100), `offset` (default 0), and `status` (optional; one of the values listed under `GET /scan/{scan_id}`).
+Newest first. Query parameters: `limit` (1 to 1000, default 100), `offset` (default 0), and `status` (optional; one of the values listed under `GET /scan/{scan_id}`). The list reads the scan history database. A scan appears once its history row is written, which happens when the scan starts; a request that is accepted but not yet started does not appear. A running scan is listed with status `running`.
 
-Response: `{"scans": [...]}`. Each entry is a summary with `scanId`, `skillId`, `skill`, `verdict`, `riskScore`, `cached`, `status`, `startedAt`, `durationMs`, and `keyFinding`. Use `GET /scan/{scan_id}` for the live status of one scan, and `GET /scan/{scan_id}/verdicts` for the full verdicts.
+Response: `{"scans": [...]}`. Each entry is a summary with `scanId`, `skillId`, `skill`, `verdict`, `riskScore`, `cached`, `status`, `startedAt`, `durationMs`, and `keyFinding`. `verdict` and `riskScore` are empty while the scan runs. Use `GET /scan/{scan_id}` for the live status of one scan, and `GET /scan/{scan_id}/verdicts` for the full verdicts.
 
 ### `GET /scan/{scan_id}`: status
 
@@ -153,7 +155,13 @@ Each dependency is `ok` or `down`. The dashboard uses this to show that some sta
 }
 ```
 
-`gemmaBadge` is the name of the field; it is the same string the CLI prints. Do not rely on the field name to tell which model is in use. Use `backendActive`.
+`gemmaBadge` is the name of the field. Its value follows the active analysis backend, and it is the same text the CLI banner prints for that backend:
+
+- `local` and `mock`/`demo`: `Fully local analysis · open weights`.
+- Cloud (Gemini API): `Cloud analysis · code excerpts sent to the Gemini API`. Code excerpts leave the machine.
+- `auto` before a model is selected, or no backend available: `Analysis backend unknown`.
+
+The field name does not say which model is in use. Use `backendActive` for the backend identity.
 
 ## 5.3 WebSocket: `WS /scan/{scan_id}/stream`
 
@@ -177,7 +185,7 @@ The server sends events as the scan runs. Each message has this shape:
 - `error`: a stage or the scan failed. `detail` holds `code`, `message`, and `degraded`.
 - `progress` with `detail.heartbeat` set to `true`: sent every 20 seconds while a long step runs, so a client can tell the scan is still alive.
 
-**Client messages.** The only client message the server acts on is `{"op": "cancel"}`, which stops the scan. Closing the socket does not stop the scan.
+**Client messages.** The only client message the server acts on is `{"op": "cancel"}`, which stops the scan. The scan is recorded as failed at once, and the server sends an `error` event whose `detail.code` is `cancelled`. Closing the socket does not stop the scan.
 
 Payloads other than `error` and the heartbeat are stage-specific. Treat them as informational, and rely on the verdict for results.
 
