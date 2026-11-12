@@ -1,0 +1,3 @@
+# Build tools pinned in every lock: installed by the lock itself.
+pip
+setuptools
