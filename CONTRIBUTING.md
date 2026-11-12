@@ -21,7 +21,7 @@ Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is M
 git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
 python3.12 -m venv .venv && source .venv/bin/activate
 python -m pip install --require-hashes -r requirements-dev.txt
-python -m pip install --no-deps -e .   # the lock file pins every dependency by hash
+python -m pip install --no-deps --no-build-isolation -e .   # the lock file pins every dependency by hash
 pre-commit install                      # optional: runs the lint hooks before each commit
 skill-sentry-cli init                   # writes skillsentry.toml (not committed)
 scripts/check.sh                        # lint, format, tests, schema drift, demo smoke

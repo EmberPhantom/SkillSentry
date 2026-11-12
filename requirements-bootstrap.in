@@ -1,3 +1,8 @@
 # Build tools pinned in every lock: installed by the lock itself.
+# hatchling is the build backend (pyproject.toml). The builds and editable installs run
+# with --no-build-isolation so that nothing is fetched unhashed; editables is what
+# hatchling needs for `pip install -e`.
 pip
 setuptools
+hatchling
+editables

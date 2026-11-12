@@ -60,3 +60,14 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "python"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # The sandbox image is built from its own Dockerfile (python:3.11-slim, pinned by digest).
+  # It keeps the same policy as the server image: the 3.11 line stays put, and only the
+  # base image's patch level and digest move.
+  - package-ecosystem: "docker"
+    directory: "/skill_sentry_cli/core/sandbox/assets"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

@@ -13,7 +13,10 @@ printf '\n== dashboard\n'
 
 printf '\n== wheel\n'
 rm -rf dist
-"$PY" -m pip wheel . --no-deps -w dist -q
+# hatchling comes from the hash-locked requirements, so the wheel is built without
+# build isolation (which would fetch the build backend unhashed).
+"$PY" -m pip install -q --require-hashes -r requirements-tools.txt
+"$PY" -m pip wheel . --no-deps --no-build-isolation -w dist -q
 WHEEL=$(ls dist/*.whl)
 echo "built $WHEEL"
 
