@@ -31,7 +31,7 @@ COPY skill_sentry_cli ./skill_sentry_cli
 COPY --from=ui /src/skill_sentry_cli/ui/dist ./skill_sentry_cli/ui/dist
 # Dependencies come from the hash-locked file; the project itself is installed without resolving.
 RUN pip install --require-hashes -r requirements-runtime.txt \
- && pip install --no-deps . \
+ && pip install --no-deps --no-build-isolation . \
  && useradd --system --uid 10001 --home-dir /home/skillsentry skillsentry \
  && mkdir -p /home/skillsentry && chown skillsentry /home/skillsentry
 USER skillsentry

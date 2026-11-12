@@ -449,3 +449,20 @@ def test_unread_text_file_shows_unscanned_not_invalid(tmp_path: Path):
     assert not is_invalid(outcome.verdict.verdict, outcome.stage_results)
     assert shown_status(outcome.verdict.verdict, outcome.stage_results) == "UNSCANNED"
     assert outcome.verdict.verdict != VerdictTier.MALICIOUS
+
+
+def test_unsupported_file_message_names_the_suffix_and_the_next_step(tmp_path: Path):
+    skill = _skill(tmp_path / "skill")
+    (skill / "assets").mkdir()
+    (skill / "assets" / "font.ttf").write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 64)
+
+    package = parse_skill(skill)
+
+    issues = [issue for issue in package.issues if "font.ttf" in issue.message]
+    assert len(issues) == 1
+    message = issues[0].message
+    assert message.startswith("file not analysed: assets/font.ttf (unsupported file type .ttf)")
+    # The message says what to do, not only what was skipped.
+    assert "Review the file by hand, or remove it" in message
+    # It stays a coverage gap, so the verdict is UNSCANNED and never SAFE.
+    assert issues[0].coverage is True

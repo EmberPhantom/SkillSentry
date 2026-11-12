@@ -554,7 +554,9 @@ def parse_skill(path: str | Path) -> SkillPackage:
             issues.append(
                 PackageIssue(
                     "medium",
-                    f"file not analysed: {relative} (unsupported file type {suffix})",
+                    f"file not analysed: {relative} (unsupported file type {suffix}); "
+                    "SkillSentry reads text, scripts and images only, so the package is "
+                    "UNSCANNED. Review the file by hand, or remove it, before installing",
                     file=relative,
                     coverage=True,
                 )

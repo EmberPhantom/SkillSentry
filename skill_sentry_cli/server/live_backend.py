@@ -82,6 +82,33 @@ class _LiveScan:
     worker_running: bool = False
 
 
+def _inside_scan_roots(path: Path, roots: list[str]) -> bool:
+    """True when ``path``, with symlinks resolved, is one of ``roots`` or inside one.
+
+    ``is_relative_to`` compares whole path components, so ``/srv/skills-evil`` is not
+    inside ``/srv/skills``. Any failure to resolve counts as not inside.
+    """
+
+    try:
+        target = path.expanduser().resolve()
+        return any(target.is_relative_to(Path(root).expanduser().resolve()) for root in roots)
+    except (OSError, RuntimeError, ValueError):
+        # RuntimeError: a symlink loop. ValueError: an embedded NUL byte.
+        return False
+
+
+def _path_not_allowed() -> ApiError:
+    # The message names neither the path nor the roots, so it reveals nothing about the
+    # filesystem outside the allowed folders.
+    return ApiError(
+        403,
+        "path_not_allowed",
+        "scan path is outside the folders this server may scan (server.allowed_scan_roots)",
+        stage=Stage.SPEC,
+        degraded=True,
+    )
+
+
 def _ollama_ready(config: SkillsEntryConfig) -> bool:
     """True only when the local server answers and the configured model is pulled."""
 
@@ -143,7 +170,12 @@ class LiveBackend:
                 stage=Stage.SPEC,
                 degraded=True,
             )
+        roots = self.config.server.allowed_scan_roots
         path = Path(request.path).expanduser()
+        # The allowlist check runs before the existence check, so a refused path gets the
+        # same answer whether or not it exists.
+        if roots and not _inside_scan_roots(path, roots):
+            raise _path_not_allowed()
         try:
             path = path.resolve(strict=True)
         except OSError as exc:
@@ -154,6 +186,10 @@ class LiveBackend:
                 stage=Stage.SPEC,
                 degraded=True,
             ) from exc
+        if roots and not _inside_scan_roots(path, roots):
+            # The first check looked at the path as written. This one looks at the resolved
+            # path, the one that will be scanned, so a symlink swapped in between is refused.
+            raise _path_not_allowed()
         if not path.is_dir():
             raise ApiError(
                 422,

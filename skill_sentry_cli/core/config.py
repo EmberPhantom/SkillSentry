@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from skill_sentry_cli.core.version import DEFAULT_WEIGHTS, engine_version
 
 APP_DIR_NAME = ".skillsentry"
+ALLOWED_SCAN_ROOTS_ENV = "SKILLSENTRY_ALLOWED_SCAN_ROOTS"
 
 
 class ConfigError(RuntimeError):
@@ -140,6 +141,30 @@ class CacheSettings(_ConfigModel):
     backend_strict: bool = False
 
 
+class ServerSettings(_ConfigModel):
+    """Settings that apply only to the API server (``serve``).
+
+    ``allowed_scan_roots`` limits which folders a ``POST /scan`` may read. The empty
+    default allows any readable folder, as before. Each entry must be an absolute path;
+    symlinks are resolved before the check.
+    """
+
+    allowed_scan_roots: list[str] = Field(default_factory=list)
+
+    @field_validator("allowed_scan_roots")
+    @classmethod
+    def _validate_scan_roots(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for entry in value:
+            text = entry.strip()
+            if not text:
+                raise ValueError("allowed_scan_roots must not contain an empty path")
+            if not Path(text).expanduser().is_absolute():
+                raise ValueError(f"allowed_scan_roots must be absolute paths: {text!r}")
+            cleaned.append(text)
+        return cleaned
+
+
 class CISettings(_ConfigModel):
     """Accepted so that existing files with a ``[ci]`` section still load.
 
@@ -158,6 +183,7 @@ class SkillsEntryConfig(_ConfigModel):
     poisoned_well: PoisonedWellSettings = Field(default_factory=PoisonedWellSettings)
     scoring: ScoringSettings = Field(default_factory=ScoringSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
+    server: ServerSettings = Field(default_factory=ServerSettings)
     ci: CISettings = Field(default_factory=CISettings)
 
     @property
@@ -214,6 +240,9 @@ tiers = { safe_max = 30, malicious_min = 70 }
 [cache]
 db_path = "~/.skillsentry/skillsentry.db"
 backend_strict = false
+
+# [server]
+# allowed_scan_roots = ["/srv/skills"]   # API scans only inside these folders; empty = any folder
 """
 
 
@@ -295,6 +324,12 @@ def _env_overrides() -> dict[str, Any]:
         set_value("cache", "db_path", db_path)
     if ollama_host := os.getenv("OLLAMA_HOST"):
         set_value("model", "ollama_url", ollama_host)
+    if scan_roots := os.getenv(ALLOWED_SCAN_ROOTS_ENV):
+        # os.pathsep separates entries, as in PATH. Empty entries are dropped here and
+        # refused by the validator if they are not absolute.
+        roots = [part for part in scan_roots.split(os.pathsep) if part.strip()]
+        if roots:
+            set_value("server", "allowed_scan_roots", roots)
     return overrides
 
 

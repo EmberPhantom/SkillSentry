@@ -20,7 +20,7 @@ Python 3.14 is not supported yet. CI runs the unit tests on it as a non-blocking
 git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
 python3.12 -m venv .venv && . .venv/bin/activate
 python -m pip install --require-hashes -r requirements-dev.txt
-python -m pip install --no-deps -e .   # the lock file pins every dependency by hash
+python -m pip install --no-deps --no-build-isolation -e .   # the lock file pins every dependency by hash
 pre-commit install            # optional: lint hooks before each commit
 ```
 

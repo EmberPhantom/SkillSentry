@@ -51,17 +51,21 @@ def render_report(
     fmt: ExportFormat,
     *,
     stage_results: Sequence[StageResult] | None = None,
+    backend: str | None = None,
 ) -> RenderedReport:
     """Render one report in memory.  Raises ``NoIOCsError`` for empty STIX.
 
     Pass ``stage_results`` to include the decision-layer summary.  Without them
-    the report states that the decision layer was not recorded.
+    the report states that the decision layer was not recorded.  ``backend`` names
+    the analysis backend that ran; only the Markdown footer uses it.
     """
     decision = decision_summary(stage_results) if stage_results is not None else None
     if fmt is ExportFormat.SARIF:
         content = json.dumps(build_sarif(verdict, decision=decision), indent=2) + "\n"
     elif fmt is ExportFormat.MARKDOWN:
-        content = build_markdown(verdict, decision=decision, stage_results=stage_results)
+        content = build_markdown(
+            verdict, decision=decision, stage_results=stage_results, backend=backend
+        )
     elif fmt is ExportFormat.STIX:
         content = json.dumps(build_stix(verdict), indent=2) + "\n"
     else:  # pragma: no cover - enum exhaustiveness
@@ -78,13 +82,16 @@ def write_report_files(
     *,
     root: str | Path | None = None,
     stage_results: Sequence[StageResult] | None = None,
+    backend: str | None = None,
 ) -> ReportFiles:
     """Write SARIF + Markdown (+ STIX when triggered) and return file paths."""
     target = Path(root) if root is not None else reports_dir(str(verdict.scan_id))
     target.mkdir(parents=True, exist_ok=True)
 
     sarif = render_report(verdict, ExportFormat.SARIF, stage_results=stage_results)
-    markdown = render_report(verdict, ExportFormat.MARKDOWN, stage_results=stage_results)
+    markdown = render_report(
+        verdict, ExportFormat.MARKDOWN, stage_results=stage_results, backend=backend
+    )
     (target / sarif.filename).write_bytes(sarif.content)
     (target / markdown.filename).write_bytes(markdown.content)
 
