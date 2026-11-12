@@ -20,11 +20,14 @@ Thanks for helping defend the agent skill supply chain! 🛡️ SkillSentry is M
 ```bash
 git clone https://github.com/EmberPhantom/SkillSentry.git && cd SkillSentry
 python3.12 -m venv .venv && source .venv/bin/activate
-python -m pip install -e ".[dev]"
+python -m pip install --require-hashes -r requirements-dev.txt
+python -m pip install --no-deps -e .   # the lock file pins every dependency by hash
 pre-commit install                      # optional: runs the lint hooks before each commit
 skill-sentry-cli init                   # writes skillsentry.toml (not committed)
 scripts/check.sh                        # lint, format, tests, schema drift, demo smoke
 ```
+
+To change a dependency, edit `pyproject.toml` and regenerate the lock files with `pip-compile --generate-hashes --allow-unsafe`, compiling with Python 3.11 so the hashes cover every supported version. Leave the project's own entry out of the locks, because it is installed with `--no-deps`. Commit the regenerated files with the change.
 
 **Dashboard (frontend):**
 

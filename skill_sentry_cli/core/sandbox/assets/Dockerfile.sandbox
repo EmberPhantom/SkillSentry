@@ -18,10 +18,12 @@ FROM python:3.11-slim@sha256:673719e071ecf27434fd2635bbd8d00f49f4fdd81f243143438
 # git for local repository helpers, and Pillow for image tools.  Installing them makes the sandbox
 # representative; the internal sinkhole network still prevents any upstream
 # connection.
+COPY requirements-sandbox.txt /tmp/requirements-sandbox.txt
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl dnsutils git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir pillow==13.0.0 \
+    && pip install --no-cache-dir --require-hashes -r /tmp/requirements-sandbox.txt \
+    && rm -f /tmp/requirements-sandbox.txt \
     && mkdir -p /opt/skillsentry /home/sandbox \
     && chown -R 65534:65534 /home/sandbox
 COPY --from=build /src/masquerade.so /opt/skillsentry/masquerade.so

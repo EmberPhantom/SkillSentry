@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Changed
+- Installs are hash-locked. CI, the server image and the sandbox image install from `requirements-dev.txt`, `requirements-runtime.txt`, `requirements-tools.txt` and `skill_sentry_cli/core/sandbox/assets/requirements-sandbox.txt` with `--require-hashes`. The project itself is then installed with `--no-deps`. This clears the OpenSSF Scorecard pinned-dependencies findings and makes builds reproducible.
+
 ### Fixed
 - CI's dependency audit failed on `main` because the runner's preinstalled setuptools 79.0.1 has known vulnerabilities (PYSEC-2026-3447, GHSA-xmj3-9gf7-h52w). The lint and release checks now upgrade setuptools along with pip before auditing.
 

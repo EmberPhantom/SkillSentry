@@ -26,12 +26,12 @@ jobs:
 
       - name: Install
         run: |
-          python -m pip install --upgrade pip setuptools
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-dev.txt
+          python -m pip install --no-deps -e .
 
       - name: Audit installed dependencies for known vulnerabilities
         run: |
-          python -m pip install "pip-audit==2.10.1"
+          python -m pip install --require-hashes -r requirements-tools.txt
           pip-audit --progress-spinner off
 
       - name: Ruff lint
@@ -71,8 +71,8 @@ jobs:
 
       - name: Install
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-dev.txt
+          python -m pip install --no-deps -e .
 
       - name: Boot demo server
         run: |
@@ -115,8 +115,8 @@ jobs:
 
       - name: Install
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-dev.txt
+          python -m pip install --no-deps -e .
 
       - name: Unit + contract tests
         run: pytest tests/unit tests/contract -q
@@ -157,8 +157,8 @@ jobs:
 
       - name: Install
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-dev.txt
+          python -m pip install --no-deps -e .
 
       - name: Unit + contract tests
         run: pytest tests/unit tests/contract -q
@@ -196,8 +196,8 @@ jobs:
 
       - name: Install
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes -r requirements-dev.txt
+          python -m pip install --no-deps -e .
 
       - name: Unit + contract tests
         run: pytest tests/unit tests/contract -q
