@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed
+- The hash-locked dependency files now carry platform markers, so the Windows install no longer tries to build `uvloop`, which has no Windows build. The lock files are compiled with uv for every platform.
+
 ### Changed
 - Installs are hash-locked. CI, the server image and the sandbox image install from `requirements-dev.txt`, `requirements-runtime.txt`, `requirements-tools.txt` and `skill_sentry_cli/core/sandbox/assets/requirements-sandbox.txt` with `--require-hashes`. The project itself is then installed with `--no-deps`. This clears the OpenSSF Scorecard pinned-dependencies findings and makes builds reproducible.
 
