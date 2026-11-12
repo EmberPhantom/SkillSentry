@@ -342,7 +342,7 @@ def test_package_ignore_file_cannot_hide_content_from_the_hash(tmp_path: Path):
     assert hash_skill_dir(skill).digest != before
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="1200 nested levels exceed Windows MAX_PATH")
+@pytest.mark.skipif(sys.platform != "linux", reason="1200 nested levels exceed PATH_MAX on Windows and macOS")
 def test_deep_tree_is_hashed_and_parsed_without_recursion_error(tmp_path: Path):
     skill = _skill(tmp_path / "skill")
     deep = skill
