@@ -8,6 +8,7 @@ whether or not it exists, so the API does not reveal the filesystem outside the 
 from __future__ import annotations
 
 import os
+import sys
 import threading
 from pathlib import Path
 
@@ -207,18 +208,21 @@ def test_env_variable_sets_the_roots_with_os_pathsep(layout, monkeypatch, tmp_pa
 
 def test_env_variable_overrides_the_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    from_file = (tmp_path / "from-file").as_posix()
+    from_env = str(tmp_path / "from-env")
     file = tmp_path / "skillsentry.toml"
-    file.write_text('[server]\nallowed_scan_roots = ["/from/file"]\n', encoding="utf-8")
-    monkeypatch.setenv(ENV, "/from/env")
-    assert load_config(file).server.allowed_scan_roots == ["/from/env"]
+    file.write_text(f'[server]\nallowed_scan_roots = ["{from_file}"]\n', encoding="utf-8")
+    monkeypatch.setenv(ENV, from_env)
+    assert load_config(file).server.allowed_scan_roots == [from_env]
 
 
 def test_empty_env_variable_leaves_the_file_setting(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    from_file = (tmp_path / "from-file").as_posix()
     file = tmp_path / "skillsentry.toml"
-    file.write_text('[server]\nallowed_scan_roots = ["/from/file"]\n', encoding="utf-8")
+    file.write_text(f'[server]\nallowed_scan_roots = ["{from_file}"]\n', encoding="utf-8")
     monkeypatch.setenv(ENV, "")
-    assert load_config(file).server.allowed_scan_roots == ["/from/file"]
+    assert load_config(file).server.allowed_scan_roots == [from_file]
 
 
 def test_env_roots_are_enforced_by_the_live_backend(layout, monkeypatch, tmp_path):
@@ -235,7 +239,20 @@ def test_env_roots_are_enforced_by_the_live_backend(layout, monkeypatch, tmp_pat
         store.close()
 
 
-@pytest.mark.parametrize("value", ["relative/path", "./skills", "~nobody-here-", " "])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "relative/path",
+        "./skills",
+        pytest.param(
+            "~nobody-here-",
+            marks=pytest.mark.skipif(
+                sys.platform == "win32", reason="Windows expands ~name to a sibling of home"
+            ),
+        ),
+        " ",
+    ],
+)
 def test_relative_or_blank_roots_are_refused_at_load(tmp_path, value):
     file = tmp_path / "skillsentry.toml"
     file.write_text(f"[server]\nallowed_scan_roots = [{value!r}]\n", encoding="utf-8")
