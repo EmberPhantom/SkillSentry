@@ -32,6 +32,10 @@ from skill_sentry_cli.server.errors import ApiError
 
 router = APIRouter()
 
+# After a client cancel, how long the socket keeps delivering events that were
+# already produced (including the backend's "cancelled" ERROR) before it closes.
+_CANCEL_DRAIN_S = 2.5
+
 
 def _backend(request: Request) -> ScanBackend:
     return request.app.state.backend
@@ -73,7 +77,8 @@ async def export_skill(
     request: Request,
     fmt: ExportFormat = Query(..., alias="format"),
 ) -> Response:
-    report = _backend(request).export(skill_id, fmt)
+    # Rendering reads the store and can be slow; keep it off the event loop.
+    report = await asyncio.to_thread(_backend(request).export, skill_id, fmt)
     return Response(
         content=report.content,
         media_type=report.media_type,
@@ -160,6 +165,21 @@ async def scan_stream(websocket: WebSocket, scan_id: UUID) -> None:
         finally:
             await queue.put(None)
 
+    async def _drain_after_cancel() -> None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _CANCEL_DRAIN_S
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return
+            try:
+                message = await asyncio.wait_for(queue.get(), timeout=remaining)
+            except TimeoutError:
+                return
+            if message is None:
+                return
+            await websocket.send_json(message.model_dump(by_alias=True, mode="json"))
+
     producer = asyncio.create_task(pump())
     try:
         while not cancel.is_set():
@@ -173,6 +193,9 @@ async def scan_stream(websocket: WebSocket, scan_id: UUID) -> None:
         if cancel.is_set():
             with suppress(ApiError):
                 await backend.cancel(scan_id)
+            # Deliver what the backend recorded for the cancel (the "cancelled" ERROR)
+            # before closing, instead of dropping the queue.
+            await _drain_after_cancel()
     except WebSocketDisconnect:
         pass
     finally:

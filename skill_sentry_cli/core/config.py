@@ -100,6 +100,12 @@ class DecisionSettings(_ConfigModel):
 
 
 class SandboxSettings(_ConfigModel):
+    """Sandbox settings.
+
+    ``max_parallel`` is accepted so existing files still load, but no code reads it:
+    scans run one sandbox at a time. ``init`` no longer writes it.
+    """
+
     enabled: bool = True
     base_image: str = "skillsentry-sandbox:local"
     timeout_s: int = Field(default=60, ge=5, le=600)
@@ -194,7 +200,6 @@ timeout_s = 60
 memory_mb = 512
 cpus = 1.0
 masquerade = true
-max_parallel = 1
 
 [poisoned_well]
 enabled = true
@@ -214,6 +219,41 @@ backend_strict = false
 
 def settings_dir() -> Path:
     return Path.home() / APP_DIR_NAME
+
+
+def ensure_private_dir(path: Path) -> None:
+    """Create ``path`` for this user only (0700 on POSIX).
+
+    ``mkdir``'s mode is masked by the umask, so a directory we create is chmodded
+    explicitly. An existing directory is left as the user set it.
+    """
+
+    if os.name == "nt":
+        path.mkdir(parents=True, exist_ok=True)
+        return
+    existed = path.exists()
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not existed:
+        os.chmod(path, 0o700)
+
+
+def ensure_private_file(path: Path) -> None:
+    """Make sure ``path`` exists and is readable and writable by this user only (0600 on POSIX).
+
+    The file is created with the restricted mode before SQLite opens it, so there is
+    no window in which the database is world-readable.
+    """
+
+    if os.name == "nt":
+        return
+    if not path.exists():
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            os.close(fd)
+    os.chmod(path, 0o600)
 
 
 def reports_dir(scan_id: str | None = None) -> Path:

@@ -40,7 +40,7 @@ from skill_sentry_cli.core.verdict.status import (
     is_unscanned,
     shown_status,
 )
-from skill_sentry_cli.core.version import GEMMA_BADGE, __version__
+from skill_sentry_cli.core.version import __version__, badge_for_backend
 from skill_sentry_cli.server.demo_data import build_demo_store
 
 
@@ -73,7 +73,7 @@ _BACKENDS = {"auto", "local", "cloud", "demo"}
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"SkillSentry {__version__} - {GEMMA_BADGE}")
+        typer.echo(f"SkillSentry {__version__}")
         raise typer.Exit(code=int(ExitCode.OK))
 
 
@@ -116,14 +116,14 @@ def serve(
         from skill_sentry_cli.server.demo_mode import create_demo_app
 
         typer.echo(f"SkillSentry {__version__} - demo mode - http://{host}:{port}")
-        uvicorn.run(create_demo_app(speed=speed), host=host, port=port)
+        uvicorn.run(create_demo_app(speed=speed, bind_host=host), host=host, port=port)
         return
 
     from skill_sentry_cli.server.app import create_app
     from skill_sentry_cli.server.live_backend import LiveBackend
 
     typer.echo(f"SkillSentry {__version__} - live mode - http://{host}:{port}")
-    uvicorn.run(create_app(LiveBackend()), host=host, port=port)
+    uvicorn.run(create_app(LiveBackend(), bind_host=host), host=host, port=port)
 
 
 @app.command()
@@ -193,6 +193,14 @@ def scan(
     _refuse_mock_backend(backend)
 
     if demo_mode:
+        # The canned store is keyed by directory name. Nothing under PATH is read, so a
+        # hostile folder that happens to share a demo name gets the canned verdict.
+        typer.echo(
+            "WARNING: --demo-mode did not scan this path. The verdict below is a canned "
+            "result looked up by the directory name; the files were never read. "
+            "Run without --demo-mode before any install decision.",
+            err=True,
+        )
         verdict = _demo_verdict_for(path)
         if sarif_out is not None:
             _write_file(
@@ -579,7 +587,10 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
 
 
 def _banner(backend: str) -> str:
-    return f"SkillSentry {__version__} - {GEMMA_BADGE} - backend: {_backend_label(backend)}"
+    return (
+        f"SkillSentry {__version__} - {badge_for_backend(backend)} - "
+        f"backend: {_backend_label(backend)}"
+    )
 
 
 def _backend_label(backend: str) -> str:

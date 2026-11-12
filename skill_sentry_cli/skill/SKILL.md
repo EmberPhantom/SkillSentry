@@ -37,8 +37,10 @@ scripts/audit.sh <path-to-skill-directory> [extra skill-sentry-cli flags]
 Equivalent direct CLI:
 
 ```bash
-skill-sentry-cli scan <path-to-skill-directory> --fail-on malicious
+skill-sentry-cli scan <path-to-skill-directory> --fail-on suspicious
 ```
+
+`scripts/audit.sh` exits `1` on any SUSPICIOUS or MALICIOUS verdict. It also exits `1` on a degraded scan, because a degraded scan is never SAFE: its verdict is at least SUSPICIOUS. Pass `--fail-on malicious` only after the user has reviewed a SUSPICIOUS result and decided to accept it.
 
 Useful flags: `--demo-mode` (offline canned demo), `--no-cache` (force full re-scan), `--sarif-out report.sarif`, `--format json`, `--backend local|cloud`.
 
@@ -64,4 +66,4 @@ Always surface to the user: the verdict, risk score, top findings with `file:lin
 - All canary credentials served during analysis are fake by construction (marker `SKS-<8hex>`).
 - Audited packages are executed **only** inside the hardened sandbox (60 s, 512 MB, 1 CPU, sinkhole-only egress).
 
-*Fully local analysis · open weights.*
+*Local analysis by default · open weights. Cloud analysis is opt-in and is labelled as such.*

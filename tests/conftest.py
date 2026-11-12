@@ -42,7 +42,7 @@ def demo_app():
 
 @pytest.fixture()
 def client(demo_app) -> Iterator[TestClient]:
-    with TestClient(demo_app) as test_client:
+    with TestClient(demo_app, base_url="http://localhost") as test_client:
         yield test_client
 
 

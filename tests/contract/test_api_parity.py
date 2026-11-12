@@ -12,7 +12,7 @@ from skill_sentry_cli.server.live_backend import LiveBackend
 @pytest.fixture()
 def demo_client() -> TestClient:
     backend = DemoBackend(speed=0)
-    with TestClient(create_app(backend)) as client:
+    with TestClient(create_app(backend), base_url="http://localhost") as client:
         yield client
 
 
@@ -21,7 +21,7 @@ def generic_client() -> TestClient:
     # Same backend, but create_app is not told anything about demo mode: this
     # proves the routes/contracts do not branch on the demo flag.
     backend = DemoBackend(speed=0)
-    with TestClient(create_app(backend)) as client:
+    with TestClient(create_app(backend), base_url="http://localhost") as client:
         yield client
 
 
@@ -82,7 +82,7 @@ def test_export_headers_are_identical(demo_client, generic_client):
 
 
 def test_meta_exposes_demo_flag_but_same_contract(demo_client):
-    with TestClient(create_app(LiveBackend())) as live_client:
+    with TestClient(create_app(LiveBackend()), base_url="http://localhost") as live_client:
         live = live_client.get("/meta").json()
     demo = demo_client.get("/meta").json()
     assert demo["demoMode"] is True

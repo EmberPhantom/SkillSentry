@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID
 
+from skill_sentry_cli.core.sandbox.images import SIDECAR_BASE_IMAGE
+
 MAX_SIDECAR_LOG_BYTES = 8 * 1024 * 1024
 MAX_SIDECAR_EVENTS = 10_000
 MAX_SIDECAR_TAIL_LINES = 10_000
@@ -58,7 +60,7 @@ class SinkholeObservation:
 
 @dataclass(frozen=True)
 class SinkholeConfig:
-    image: str = "python:3.11-slim"
+    image: str = SIDECAR_BASE_IMAGE
     ip: str = "172.30.77.2"
     subnet: str = "172.30.77.0/24"
     dns_port: int = 53

@@ -45,6 +45,7 @@ from skill_sentry_cli.core.poisoned_well.canary_gen import (
 )
 from skill_sentry_cli.core.sandbox.canary_fs import build_canary_tar
 from skill_sentry_cli.core.sandbox.context_honeypot import runtime_environment
+from skill_sentry_cli.core.sandbox.images import SIDECAR_BASE_IMAGE
 from skill_sentry_cli.core.sandbox.masquerade import (
     FAKE_CGROUP_CONTENT,
     FAKE_MOUNTINFO_CONTENT,
@@ -116,7 +117,7 @@ class SandboxConfig:
     dns_server: str | None = None
     sidecar_subnet: str = "172.30.77.0/24"
     sidecar_ip: str = "172.30.77.2"
-    sidecar_image: str = "python:3.11-slim"
+    sidecar_image: str = SIDECAR_BASE_IMAGE
     verify_masquerade: bool = True
     cleanup_stale: bool = True
     cleanup_network: bool = True

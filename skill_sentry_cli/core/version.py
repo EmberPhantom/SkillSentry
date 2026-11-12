@@ -14,7 +14,14 @@ from collections.abc import Mapping
 __version__ = "2.1.1"
 ENGINE_VERSION = __version__
 CONTRACT_VERSION = "1"
+# Privacy badge text per analysis backend.  ``GEMMA_BADGE`` is kept for
+# compatibility; callers that know the backend should use ``badge_for_backend``.
 GEMMA_BADGE = "Fully local analysis · open weights"
+CLOUD_BADGE = "Cloud analysis · code excerpts sent to the Gemini API"
+UNKNOWN_BADGE = "Analysis backend unknown"
+
+_LOCAL_BACKENDS = frozenset({"local", "ollama", "mock", "demo"})
+_CLOUD_BACKENDS = frozenset({"cloud", "gemini-api"})
 
 DEFAULT_WEIGHTS: dict[str, float] = {
     "anchors": 0.15,
@@ -22,6 +29,22 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "vision": 0.20,
     "sandbox": 0.25,
 }
+
+
+def badge_for_backend(backend: str | None) -> str:
+    """Return the privacy badge that matches the analysis backend in use.
+
+    Local (``local``/``ollama``) and mock/demo backends keep ``GEMMA_BADGE``.
+    Cloud (``cloud``/``gemini-api``) sends code excerpts off the machine, so it
+    gets ``CLOUD_BADGE``.  Anything else (``auto``, ``unavailable``, unknown,
+    or ``None``) is reported as unknown rather than claiming local analysis.
+    """
+    normalized = (backend or "").strip().lower()
+    if normalized in _CLOUD_BACKENDS:
+        return CLOUD_BADGE
+    if normalized in _LOCAL_BACKENDS:
+        return GEMMA_BADGE
+    return UNKNOWN_BADGE
 
 
 def weights_fingerprint(weights: Mapping[str, float] | None = None) -> str:

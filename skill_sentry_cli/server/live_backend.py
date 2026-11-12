@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from skill_sentry_cli.core.cache.sqlite_store import StoreError
 from skill_sentry_cli.core.config import SkillsEntryConfig, load_config
 from skill_sentry_cli.core.contracts import (
     CacheStatsResponse,
@@ -42,11 +43,19 @@ from skill_sentry_cli.core.contracts import (
 from skill_sentry_cli.core.engine import ScanEngine, ScanError, ScanOutcome
 from skill_sentry_cli.core.reports import RenderedReport, render_report
 from skill_sentry_cli.core.verdict.stix_report import NoIOCsError
-from skill_sentry_cli.core.version import CONTRACT_VERSION, GEMMA_BADGE, __version__, engine_version
+from skill_sentry_cli.core.version import (
+    CONTRACT_VERSION,
+    __version__,
+    badge_for_backend,
+    engine_version,
+)
 from skill_sentry_cli.server.errors import ApiError
 
 _MAX_EVENTS = 5_000
 _STREAM_HEARTBEAT_S = 20.0
+# How long a cancel waits for the engine to reach its next checkpoint before the
+# scan is recorded as cancelled without it.
+_CANCEL_GRACE_S = 2.0
 
 
 @dataclass
@@ -64,6 +73,13 @@ class _LiveScan:
     error: str | None = None
     task: asyncio.Task[None] | None = None
     elapsed_ms: int = 0
+    # Set once a terminal status is recorded. The first writer wins, so a cancelled
+    # scan cannot later be overwritten by its worker's completion or error.
+    final: bool = False
+    cancel_requested: bool = False
+    # True while the engine thread may still be running, even after the scan has been
+    # recorded as cancelled. A second scan of the same path waits for this to clear.
+    worker_running: bool = False
 
 
 def _ollama_ready(config: SkillsEntryConfig) -> bool:
@@ -147,10 +163,11 @@ class LiveBackend:
                 degraded=True,
             )
         if not (path / "SKILL.md").is_file():
-            # Allow a folder-of-skills by selecting the first package, but make
-            # the limitation explicit rather than silently scanning one child.
+            # The API scans one skill folder per request and returns one scan_id.
+            # Scanning one child of a folder of skills would report success for
+            # packages the caller never asked about, so refuse and name them.
             children = sorted(
-                child
+                child.name
                 for child in path.iterdir()
                 if child.is_dir() and (child / "SKILL.md").is_file()
             )
@@ -162,10 +179,18 @@ class LiveBackend:
                     stage=Stage.SPEC,
                     degraded=True,
                 )
-            path = children[0]
+            shown = ", ".join(children[:10]) + (" ..." if len(children) > 10 else "")
+            raise ApiError(
+                422,
+                "folder_of_skills",
+                f"{path} is a folder of {len(children)} skills ({shown}). Scan one skill "
+                "folder per request.",
+                stage=Stage.SPEC,
+                degraded=True,
+            )
 
         for existing in self._scans.values():
-            if existing.path == path and not existing.done.is_set():
+            if existing.path == path and existing.worker_running:
                 raise ApiError(
                     409,
                     "scan_in_progress",
@@ -176,7 +201,7 @@ class LiveBackend:
                 )
 
         scan_id = uuid4()
-        item = _LiveScan(scan_id=scan_id, path=path, started_at=utc_now())
+        item = _LiveScan(scan_id=scan_id, path=path, started_at=utc_now(), worker_running=True)
         self._scans[scan_id] = item
         self._loop = asyncio.get_running_loop()
         item.task = asyncio.create_task(self._run_scan(item, request))
@@ -193,7 +218,7 @@ class LiveBackend:
             loop.call_soon_threadsafe(self._on_event, item, message)
 
         try:
-            item.status = ScanStatus.RUNNING
+            self._finish(item, ScanStatus.RUNNING, stage=None)
             engine = self._engine_for(request)
             outcome = await asyncio.to_thread(
                 engine.scan,
@@ -203,48 +228,62 @@ class LiveBackend:
                 callback=callback,
                 cancel=item.cancel_event,
             )
-            item.outcome = outcome
-            item.status = outcome.status
-            item.current_stage = Stage.VERDICT
-            item.elapsed_ms = outcome.duration_ms
-            self._by_skill[outcome.skill_id] = item.scan_id
+            if not item.final:
+                item.outcome = outcome
+                item.elapsed_ms = outcome.duration_ms
+                self._by_skill[outcome.skill_id] = item.scan_id
+                self._finish(item, outcome.status, stage=Stage.VERDICT)
         except ScanError as exc:
-            item.status = ScanStatus.FAILED
-            item.error = str(exc)
-            item.current_stage = exc.stage or Stage.VERDICT
-            message = WSMessage(
-                stage=exc.stage or Stage.VERDICT,
-                skill=item.path.name,
-                event=WSEventType.ERROR,
-                ts=utc_now(),
-                detail={
-                    "code": exc.code,
-                    "message": str(exc),
-                    "degraded": exc.degraded,
-                },
-            )
-            self._on_event(item, message)
+            if not item.final:
+                self._finish(item, ScanStatus.FAILED, stage=exc.stage or Stage.VERDICT)
+                item.error = str(exc)
+                self._on_event(
+                    item,
+                    WSMessage(
+                        stage=exc.stage or Stage.VERDICT,
+                        skill=item.path.name,
+                        event=WSEventType.ERROR,
+                        ts=utc_now(),
+                        detail={
+                            "code": exc.code,
+                            "message": str(exc),
+                            "degraded": exc.degraded,
+                        },
+                    ),
+                )
         except Exception as exc:  # pragma: no cover - defensive
-            item.status = ScanStatus.FAILED
-            item.error = f"internal scan error: {exc}"
-            item.current_stage = Stage.VERDICT
-            self._on_event(
-                item,
-                WSMessage(
-                    stage=Stage.VERDICT,
-                    skill=item.path.name,
-                    event=WSEventType.ERROR,
-                    ts=utc_now(),
-                    detail={"code": "internal_error", "message": str(exc), "degraded": True},
-                ),
-            )
+            if not item.final:
+                self._finish(item, ScanStatus.FAILED, stage=Stage.VERDICT)
+                item.error = f"internal scan error: {exc}"
+                self._on_event(
+                    item,
+                    WSMessage(
+                        stage=Stage.VERDICT,
+                        skill=item.path.name,
+                        event=WSEventType.ERROR,
+                        ts=utc_now(),
+                        detail={"code": "internal_error", "message": str(exc), "degraded": True},
+                    ),
+                )
         finally:
+            item.worker_running = False
             item.elapsed_ms = max(
                 item.elapsed_ms,
                 int((utc_now() - item.started_at).total_seconds() * 1000),
             )
             item.done.set()
             item.changed.set()
+
+    @staticmethod
+    def _finish(item: _LiveScan, status: ScanStatus, *, stage: Stage | None) -> None:
+        """Record a status unless a terminal one is already recorded."""
+
+        if item.final:
+            return
+        item.status = status
+        item.current_stage = stage or item.current_stage
+        if status in {ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CACHED_HIT}:
+            item.final = True
 
     def _engine_for(self, request: ScanRequest) -> ScanEngine:
         if self._engine is not None:
@@ -264,7 +303,7 @@ class LiveBackend:
         return engine
 
     def _on_event(self, item: _LiveScan, message: WSMessage) -> None:
-        if len(item.events) >= _MAX_EVENTS:
+        if len(item.events) >= _MAX_EVENTS or item.done.is_set():
             return
         item.events.append(message)
         item.current_stage = message.stage
@@ -351,9 +390,13 @@ class LiveBackend:
                     key_finding=row["key_finding"],
                 )
             )
-        # Surface a just-started scan before its engine row is visible.  The
-        # store has already applied pagination; only page zero may include the
-        # in-memory rows, and the final list must not be sliced a second time.
+        # Running scans come from the store: the engine records each scan (with its
+        # skill id) before it starts the stages, so a running scan is listed with
+        # status "running" from then on.  The in-memory pass only adds finished
+        # outcomes whose row is missing.  A scan still before that row has no
+        # skill id yet, and ScanSummary requires one, so it is not listed.  The store
+        # has already applied pagination, so only page zero may add rows here, and the
+        # final list must not be sliced a second time.
         if offset == 0:
             seen = {summary.scan_id for summary in summaries}
             live: list[ScanSummary] = []
@@ -433,17 +476,31 @@ class LiveBackend:
             raise ApiError(404, "unknown_scan", f"unknown scan: {scan_id}")
         if item.done.is_set():
             return
+        item.cancel_requested = True
         item.cancel_event.set()
-        # Give the worker one boundary to observe cancellation; if it is stuck
-        # in a third-party call, report it as failed rather than leaving the UI
-        # spinning forever.  The worker's own error path wins if it arrives.
-        await asyncio.sleep(0)
-        if not item.done.is_set():
-            item.status = ScanStatus.FAILED
-            item.error = "cancelled by client"
-            item.current_stage = Stage.VERDICT
-            item.done.set()
-            item.changed.set()
+        # The engine checks for cancellation between stages. Wait a short grace
+        # period for that checkpoint; the worker's own outcome is kept if it arrives.
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(item.done.wait(), timeout=_CANCEL_GRACE_S)
+        if item.done.is_set():
+            return
+        # The worker is stuck in a long call. Record the cancellation now so the
+        # client is not left waiting. Its later writes are ignored by _finish, and
+        # worker_running keeps a duplicate scan of the same path out until it exits.
+        self._finish(item, ScanStatus.FAILED, stage=Stage.VERDICT)
+        item.error = "cancelled by client"
+        self._on_event(
+            item,
+            WSMessage(
+                stage=Stage.VERDICT,
+                skill=item.path.name,
+                event=WSEventType.ERROR,
+                ts=utc_now(),
+                detail={"code": "cancelled", "message": "cancelled by client", "degraded": True},
+            ),
+        )
+        item.done.set()
+        item.changed.set()
 
     # -- meta / health -----------------------------------------------------
     async def health(self) -> HealthResponse:
@@ -514,10 +571,15 @@ class LiveBackend:
 
     async def meta(self) -> MetaResponse:
         backend = await asyncio.to_thread(self._active_backend)
+        # Under ``auto`` with no model selected yet, the unprobed selection assumes
+        # local but a scan may fall back to cloud.  Do not let the badge claim local
+        # for that case; report it as unknown instead.
+        selected = self._engine is not None and getattr(self._engine, "_model_selected", False)
+        badge_source = backend if selected or self.config.model.backend != "auto" else "auto"
         return MetaResponse(
             version=__version__,
             backend_active=backend,
-            gemma_badge=GEMMA_BADGE,
+            gemma_badge=badge_for_backend(badge_source),
             demo_mode=False,
             contract_version=CONTRACT_VERSION,
         )
@@ -546,7 +608,9 @@ class LiveBackend:
     async def clear_cache(self, older_than: str | None = None) -> DeleteCacheResponse:
         try:
             deleted, retained = await asyncio.to_thread(self.store.clear_cache, older_than)
-        except Exception as exc:
+        except StoreError as exc:
+            # The store raises StoreError only for an unreadable duration. Any other
+            # failure is a server fault and must surface as a 500, not a client error.
             raise ApiError(422, "invalid_duration", str(exc), degraded=True) from exc
         return DeleteCacheResponse(deleted=deleted, retained=retained)
 
