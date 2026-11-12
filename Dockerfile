@@ -25,11 +25,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /app
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE requirements-runtime.txt ./
 COPY packaging ./packaging
 COPY skill_sentry_cli ./skill_sentry_cli
 COPY --from=ui /src/skill_sentry_cli/ui/dist ./skill_sentry_cli/ui/dist
-RUN pip install . \
+# Dependencies come from the hash-locked file; the project itself is installed without resolving.
+RUN pip install --require-hashes -r requirements-runtime.txt \
+ && pip install --no-deps . \
  && useradd --system --uid 10001 --home-dir /home/skillsentry skillsentry \
  && mkdir -p /home/skillsentry && chown skillsentry /home/skillsentry
 USER skillsentry
