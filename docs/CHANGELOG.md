@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed
+- CI's dependency audit failed on `main` because the runner's preinstalled setuptools 79.0.1 has known vulnerabilities (PYSEC-2026-3447, GHSA-xmj3-9gf7-h52w). The lint and release checks now upgrade setuptools along with pip before auditing.
+
 ## [2.1.1] — 2026-11-12
 
 ### Security
