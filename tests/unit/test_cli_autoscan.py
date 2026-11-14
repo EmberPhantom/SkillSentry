@@ -480,3 +480,23 @@ def test_path_only_flags_are_usage_errors_without_a_path(flags, tmp_path, monkey
     result = CliRunner().invoke(cli.app, ["scan", *flags])
     assert result.exit_code == 2
     assert "need a skill path" in result.output
+
+
+def test_report_folders_never_collide_within_one_timestamp(
+    fake_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import UTC, datetime
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            return datetime(2026, 11, 14, 12, 0, 0, 123456, tzinfo=UTC)
+
+    monkeypatch.setattr(cli, "datetime", _Frozen)
+
+    first = cli._new_report_folder()
+    second = cli._new_report_folder()
+    third = cli._new_report_folder()
+
+    assert len({first, second, third}) == 3
+    assert all(folder.is_dir() for folder in (first, second, third))

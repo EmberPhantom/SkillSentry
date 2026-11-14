@@ -1210,6 +1210,23 @@ def _scan_roots(
     return outcomes, indexes, failed
 
 
+def _new_report_folder() -> Path:
+    """Create a fresh private report folder. An existing folder is never reused."""
+
+    ensure_private_dir(reports_dir())
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
+    for attempt in range(1000):
+        suffix = "" if attempt == 0 else f"-{attempt}"
+        directory = reports_dir(f"scan-{stamp}{suffix}")
+        try:
+            directory.mkdir(mode=0o700)
+        except FileExistsError:
+            continue
+        ensure_private_dir(directory)
+        return directory
+    raise OSError("could not create a unique report folder")
+
+
 def _save_reports_now(
     fmt: str,
     outcomes: list[ScanOutcome],
@@ -1222,10 +1239,7 @@ def _save_reports_now(
 
     Markdown gives one file per skill plus summary.md; SARIF gives one merged file.
     """
-    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    directory = reports_dir(f"scan-{stamp}")
-    ensure_private_dir(reports_dir())
-    ensure_private_dir(directory)
+    directory = _new_report_folder()
     if fmt == "markdown":
         _write_report_dir(directory, outcomes, skipped=skipped, backend=backend)
         written = directory
