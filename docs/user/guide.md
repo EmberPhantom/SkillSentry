@@ -271,9 +271,9 @@ The experimental locations are searched only with `--include-experimental`, or w
 - Anything skipped (a broken link, a folder without `SKILL.md`, an unreadable folder) is printed as a `note:` line on standard error.
 - With several skills, the command prints `[i/n] name ...` progress on standard error and ends with `Scanned X, failed Y, skipped Z.`. These lines appear even when the output is piped. `--quiet` hides them.
 
-**Machine-readable output.** `--format json` gives each verdict an `install` object (the agent, scope, declared path, real path, whether it is a symbolic link, and any aliases, all as full paths) and a `notes` list. SARIF records the declared path, agent and scope on each run and result, and points each result at the real folder. With no skills found, `--format json` prints `[]`.
+**Machine-readable output.** `--format json` gives each verdict an `install` object (the agent, scope, declared path, real path, whether it is a symbolic link, and any aliases, all as full paths) one `notes` list and a `summary` of how many skills were scanned, failed and set aside, in one envelope (`skills`, `notes`, `summary`) that has the same shape for one skill, several or none. SARIF records the declared path, agent and scope on each run and result, and points each result at the real folder. With no skills found, `--format json` prints the envelope with an empty `skills` array.
 
-**Scope.** Use `--agent` to scan only some agents. The names are listed in the [CLI reference](../reference/cli.md); `custom` selects only your own folders. Use `--project DIR` to check another project. A `--project` folder that does not exist exits `3`. Without `--project`, the project is the folder you run the command from.
+**Scope.** Use `--agent` to scan only some agents. The names are listed in the [CLI reference](../reference/cli.md); `custom` selects only your own folders. Use `--project DIR` to check another project. A `--project` folder that does not exist is a usage error (exit `2`), as it is for `discover`. Without `--project`, the project is the folder you run the command from.
 
 **Time.** Each skill gets a full scan, with the sandbox and the local model, so scanning many skills can be slow. Verdicts for unchanged skills are reused from the cache unless you pass `--no-cache`. The cost can be changed in two ways:
 
@@ -288,7 +288,7 @@ Save a report? [m]arkdown / [s]arif / [n]o (default n)
 
 Answer `m` for Markdown or `s` for SARIF. Enter, `n`, or Ctrl+C means no. To decide in advance, pass `--save-report markdown`, `--save-report sarif`, or `--save-report none`. Pass `--no-prompt` to skip the question. Reports are saved in a new private folder, `~/.skillsentry/reports/scan-<timestamp>/`, where the timestamp holds the UTC date, time and microseconds. A numeric suffix is added if that name is taken, and an existing folder is never reused. Markdown writes one file per skill and a `summary.md`. SARIF writes `skills.sarif`.
 
-**CI.** The question is never asked when standard input or output is not a terminal, so a CI job does not hang. Use `--save-report` to keep files, or `--format sarif > results.sarif` to send SARIF to a file. The exit codes are the same as for a path scan, with two differences. Finding no skills exits `0`, with a message on standard error. A `--project` folder that does not exist exits `3`, and so does a configured `extra_paths` folder that does not exist when no other skill is found. See section 12.
+**CI.** The question is never asked when standard input or output is not a terminal, so a CI job does not hang. Use `--save-report` to keep files, or `--format sarif > results.sarif` to send SARIF to a file. The exit codes are the same as for a path scan, with two differences. Finding no skills exits `0`, with a message on standard error. A configured `extra_paths` folder that does not exist exits `3` when no other skill is found. A `--project` folder that does not exist exits `2`. See section 12.
 
 **Custom locations.** To scan a project outside the current directory, use `--project DIR`. To add folders, set them in `skillsentry.toml`:
 

@@ -73,7 +73,7 @@ skill-sentry-cli scan my-skill --no-sandbox -q
 skill-sentry-cli scan cloud-sync-pro --demo-mode
 ```
 
-**Usage errors (exit `2`).** `--project`, `--agent` and `--include-experimental` with a `PATH`. `--demo-mode` without a `PATH`. An unknown `--agent` name. A `--project` that is not a folder (for `discover`; `scan` with no path exits `3` for this, see below). A `--save-report` value other than `markdown`, `sarif` or `none`. A `[discovery]` section that does not validate, or a configuration file that cannot be read.
+**Usage errors (exit `2`).** `--project`, `--agent` and `--include-experimental` with a `PATH`. `--demo-mode` without a `PATH`. An unknown `--agent` name. A `--project` that is not a folder (both `scan` with no path and `discover`). A `--save-report` value other than `markdown`, `sarif` or `none`. A `[discovery]` section that does not validate, or a configuration file that cannot be read.
 
 A folder scan ends with a summary line. `INVALID` appears only when at least one skill has a malformed `SKILL.md`, and `failed` appears only when a skill could not be scanned. A text path scan on a terminal also prints a one-line tip about `scan` with no path on standard error. Redirected or piped runs get no tip.
 
@@ -99,10 +99,35 @@ Each text result starts with one of these markers:
 - Enabled Claude Code plugins are read from `enabledPlugins` in `~/.claude/settings.json`, `<project>/.claude/settings.json` and `<project>/.claude/settings.local.json`. The most specific file that mentions a plugin decides (local, then project, then user). `true` enables the plugin and `false` disables it.
 - Hidden (dot) folders inside the built-in locations are skipped at every depth. For example, Codex's bundled `.system` skills are not listed, because they were not installed by the user. A folder named with `--project` or `extra_paths` is scanned even when its own name starts with a dot.
 - The text output starts with `Found N skills (...)`. Skipped entries (broken links, folders without `SKILL.md`, unreadable folders, plugin problems) are printed as `note:` lines on standard error, unless `--quiet` is set.
-- With more than one skill, each scan prints `[i/n] <folder name> ...` on standard error. This happens in every format, whether or not standard error is a terminal, so standard output stays clean JSON or SARIF. The run ends with `Scanned X, failed Y, skipped Z.` on standard error: X skills were scanned, Y could not be scanned, and Z entries were set aside by discovery. `--quiet` suppresses both lines.
+- With more than one skill, each scan prints `[i/n] <folder name> ...` on standard error. This happens in every format, whether or not standard error is a terminal, so standard output stays clean JSON or SARIF. The run ends with `Scanned X, failed Y, skipped Z.` on standard error: X skills were scanned, Y could not be scanned, and Z entries were set aside by discovery (broken links, folders without `SKILL.md`, entries that could not be read). Plugin notes and the cap note are not counted in Z. `--quiet` suppresses both lines.
 - If the 500-skill cap stops discovery, a note says how many more skills were not scanned, or `at least N more` when the count itself stopped early. The note appears in the JSON `notes` and on standard error (unless `--quiet`).
-- `--format json` prints one object per verdict. Each object has an `install` object (`agent`, `scope`, `declared_path`, `real_path`, `is_symlink`, `aliases`, all as full paths) and `notes` (the discovery notes, repeated on every entry). One skill prints one object, as a path scan does; several skills print an array. A path scan's JSON has neither field. SARIF runs and results carry `declaredPath`, `agent` and `scope` properties, and each result's artifact URI is a `file:` URI under the real path of the skill folder. With more than one skill, the Markdown summary table has `Agent`, `Scope` and `Path` columns.
-- When no skill is found, the command lists the locations it checked on standard error and exits `0`, as `discover` does. `--format json` prints `[]`, and `--format sarif` prints an empty SARIF log. Two cases exit `3` instead: a `--project` folder that does not exist (even when skills were found elsewhere), and an `extra_paths` or `SKILLSENTRY_EXTRA_SKILL_PATHS` folder that does not exist when nothing was found.
+- `--format json` always prints one envelope with the keys `skills`, `notes` and `summary`, whether one skill, several or none were scanned. Each entry in `skills` is the verdict object a path scan prints, plus an `install` object (`agent`, `scope`, `declared_path`, `real_path`, `is_symlink`, `aliases`, all as full paths). `notes` lists the discovery notes once. `summary` has `scanned`, `failed` and `skipped`, the same numbers as the `Scanned X, failed Y, skipped Z.` line. A path scan's JSON keeps its own shape (one object for one skill, an array for several) and has none of these keys. Example:
+
+```json
+{
+  "skills": [
+    {
+      "skill": "notes-summarizer",
+      "verdict": "SAFE",
+      "riskScore": 0,
+      "...": "the same fields as a path scan's verdict",
+      "install": {
+        "agent": "claude",
+        "scope": "user",
+        "declared_path": "/home/you/.claude/skills/notes-summarizer",
+        "real_path": "/srv/shared/notes-summarizer",
+        "is_symlink": true,
+        "aliases": ["/home/you/.agents/skills/notes-summarizer"]
+      }
+    }
+  ],
+  "notes": ["/home/you/.claude/skills/broken-link: broken symlink"],
+  "summary": {"scanned": 1, "failed": 0, "skipped": 1}
+}
+```
+
+   SARIF runs and results carry `declaredPath`, `agent` and `scope` properties, and each result's artifact URI is a `file:` URI under the real path of the skill folder. With more than one skill, the Markdown summary table has `Agent`, `Scope` and `Path` columns.
+- When no skill is found, the command lists the locations it checked on standard error and exits `0`, as `discover` does. `--format json` prints the envelope with an empty `skills` array, and `--format sarif` prints an empty SARIF log. One case exits `3` instead: an `extra_paths` or `SKILLSENTRY_EXTRA_SKILL_PATHS` folder that does not exist when nothing was found. A `--project` folder that does not exist is a usage error (exit `2`), as it is for `discover`.
 
 **Exit codes for a scan with no path:**
 
@@ -111,7 +136,7 @@ Each text result starts with one of these markers:
 | `0` | Every verdict is below the `--fail-on` gate, or no installed skill was found. |
 | `1` | At least one verdict meets the `--fail-on` gate, and every skill was scanned. |
 | `2` | Usage error (see above). |
-| `3` | A `--project` folder does not exist; or an `extra_paths` folder does not exist and no skill was found; or no skill could be scanned; or at least one skill could not be scanned. A scan failure takes precedence over exit `1`. |
+| `3` | An `extra_paths` folder does not exist and no skill was found; or no skill could be scanned; or at least one skill could not be scanned. A scan failure takes precedence over exit `1`. |
 
 **Saving a report.** In a text run on an interactive terminal (standard input and output are both terminals), the command asks after the verdicts:
 
@@ -142,7 +167,7 @@ skill-sentry-cli discover [OPTIONS]
 
 The command exits `0` whenever it prints the listing, including when nothing is found. It exits `2` for a bad `--format`, an unknown `--agent`, a `--project` that is not a folder, or a configuration that does not load.
 
-The text output is a table with the columns `AGENT`, `SCOPE`, `SKILL` and `PATH`. For a symlinked install, `PATH` reads `<link> -> <real folder>`. Below the table, `notes:` lists skipped entries, and a `N duplicates merged` line follows when any path was merged. When nothing is found, the table is replaced by the list of locations checked.
+The text output is a table with the columns `AGENT`, `SCOPE`, `SKILL` and `PATH`. For a symlinked install, `PATH` reads `<link> -> <real folder>`. Below the table, `notes:` lists skipped entries, and a `1 duplicate merged` or `N duplicates merged` line follows when any path was merged. When nothing is found, the table is replaced by the list of locations checked.
 
 `--format json` prints one object:
 
