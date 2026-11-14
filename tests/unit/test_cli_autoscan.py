@@ -682,7 +682,7 @@ def test_no_path_sarif_carries_install_context_and_validates(
         for location in result_item.get("locations", [])
     ]
     assert located, "the malicious fixture should have at least one located finding"
-    real_dir = (fake_home / ".agents" / "skills" / "cloud-sync-pro").as_posix()
+    real_dir = (fake_home / ".agents" / "skills" / "cloud-sync-pro").resolve().as_uri()
     for location in located:
         uri = location["physicalLocation"]["artifactLocation"]["uri"]
         assert uri.startswith(real_dir + "/"), uri

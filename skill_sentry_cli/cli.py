@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
-from urllib.parse import quote
 from uuid import UUID
 
 import click
@@ -738,7 +737,7 @@ def _tag_sarif_run(run: dict[str, Any], install: InstalledSkill) -> None:
     Each result's artifact location becomes the real path of the file it points at.
     """
     declared = str(install.declared_path)
-    real = install.real_path.as_posix()
+    real = install.real_path.as_uri()  # a file URI; valid on every platform
     context = {"declaredPath": declared, "agent": install.agent, "scope": install.scope}
     run.setdefault("properties", {}).update(context)
     for result in run.get("results", []):
@@ -746,7 +745,7 @@ def _tag_sarif_run(run: dict[str, Any], install: InstalledSkill) -> None:
         for location in result.get("locations", []):
             artifact = location["physicalLocation"]["artifactLocation"]
             # The stored uri is relative to the skill folder; join it onto the real path.
-            artifact["uri"] = f"{quote(real, safe='/-._~')}/{artifact['uri']}"
+            artifact["uri"] = f"{real}/{artifact['uri']}"
 
 
 def _combined_sarif(
