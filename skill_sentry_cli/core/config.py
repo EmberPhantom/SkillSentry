@@ -18,6 +18,10 @@ from skill_sentry_cli.core.version import DEFAULT_WEIGHTS, engine_version
 
 APP_DIR_NAME = ".skillsentry"
 ALLOWED_SCAN_ROOTS_ENV = "SKILLSENTRY_ALLOWED_SCAN_ROOTS"
+EXTRA_SKILL_PATHS_ENV = "SKILLSENTRY_EXTRA_SKILL_PATHS"
+DISCOVERY_AGENTS = frozenset(
+    {"claude", "codex", "agents", "gemini", "cursor", "opencode", "copilot", "custom"}
+)
 
 
 class ConfigError(RuntimeError):
@@ -165,6 +169,45 @@ class ServerSettings(_ConfigModel):
         return cleaned
 
 
+class DiscoverySettings(_ConfigModel):
+    """Settings for ``scan`` with no path (installed-skill discovery).
+
+    ``extra_paths`` are folders of skills, or single skill folders, checked in addition
+    to the built-in locations. Each entry must be absolute after ``~`` expansion.
+    ``agents`` restricts discovery to the named agents; empty means all of them.
+    """
+
+    extra_paths: list[str] = Field(default_factory=list)
+    agents: list[str] = Field(default_factory=list)
+    include_experimental: bool = False
+
+    @field_validator("extra_paths")
+    @classmethod
+    def _validate_extra_paths(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for entry in value:
+            text = entry.strip()
+            if not text:
+                raise ValueError("discovery.extra_paths must not contain an empty path")
+            if not Path(text).expanduser().is_absolute():
+                raise ValueError(f"discovery.extra_paths must be absolute paths: {text!r}")
+            cleaned.append(text)
+        return cleaned
+
+    @field_validator("agents")
+    @classmethod
+    def _validate_agents(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for entry in value:
+            name = entry.strip().lower()
+            if name not in DISCOVERY_AGENTS:
+                raise ValueError(
+                    f"discovery.agents must be among {sorted(DISCOVERY_AGENTS)}: {entry!r}"
+                )
+            cleaned.append(name)
+        return cleaned
+
+
 class CISettings(_ConfigModel):
     """Accepted so that existing files with a ``[ci]`` section still load.
 
@@ -184,6 +227,7 @@ class SkillsEntryConfig(_ConfigModel):
     scoring: ScoringSettings = Field(default_factory=ScoringSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
+    discovery: DiscoverySettings = Field(default_factory=DiscoverySettings)
     ci: CISettings = Field(default_factory=CISettings)
 
     @property
@@ -243,6 +287,11 @@ backend_strict = false
 
 # [server]
 # allowed_scan_roots = ["/srv/skills"]   # API scans only inside these folders; empty = any folder
+
+# [discovery]
+# extra_paths = ["~/work/skills"]        # extra skill folders, or folders of skills, for `scan` with no path
+# agents = []                            # empty = all; claude | codex | agents | gemini | cursor | opencode | copilot | custom
+# include_experimental = false           # also look in the experimental Gemini, Cursor, OpenCode and Copilot locations
 """
 
 
@@ -330,6 +379,11 @@ def _env_overrides() -> dict[str, Any]:
         roots = [part for part in scan_roots.split(os.pathsep) if part.strip()]
         if roots:
             set_value("server", "allowed_scan_roots", roots)
+    if extra_paths := os.getenv(EXTRA_SKILL_PATHS_ENV):
+        # Same convention as SKILLSENTRY_ALLOWED_SCAN_ROOTS: os.pathsep separated.
+        paths = [part for part in extra_paths.split(os.pathsep) if part.strip()]
+        if paths:
+            set_value("discovery", "extra_paths", paths)
     return overrides
 
 
