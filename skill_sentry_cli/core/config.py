@@ -290,6 +290,8 @@ backend_strict = false
 
 # [discovery]
 # extra_paths = ["~/work/skills"]        # extra skill folders, or folders of skills, for `scan` with no path
+#                                        # Windows: use a single-quoted TOML string, which keeps backslashes:
+#                                        #   extra_paths = ['C:\\Users\\you\\skills']   (or forward slashes: "C:/Users/you/skills")
 # agents = []                            # empty = all; claude | codex | agents | gemini | cursor | opencode | copilot | custom
 # include_experimental = false           # also look in the experimental Gemini, Cursor, OpenCode and Copilot locations
 """
