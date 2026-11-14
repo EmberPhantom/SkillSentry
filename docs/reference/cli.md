@@ -24,7 +24,7 @@ Scripts and CI should branch on these.
 | `0` | Every verdict is below the `--fail-on` gate, or the command succeeded. |
 | `1` | At least one verdict meets the `--fail-on` gate. |
 | `2` | Usage error: a bad option or value, a missing configuration file, or an unknown scan ID. |
-| `3` | Operational error: a bad path, Docker or database failure, or nothing could be scanned. |
+| `3` | Operational error: a bad path, a missing `--project` or `extra_paths` folder (see [Scan with no path](#scan-with-no-path)), Docker or database failure, or nothing could be scanned. |
 
 Code `4` is defined in the source but is never returned. A scan that cannot reach the local model completes with an `UNSCANNED` verdict and exits with the code for its verdict.
 
@@ -73,9 +73,9 @@ skill-sentry-cli scan my-skill --no-sandbox -q
 skill-sentry-cli scan cloud-sync-pro --demo-mode
 ```
 
-**Usage errors (exit `2`).** `--project`, `--agent` and `--include-experimental` with a `PATH`. `--demo-mode` without a `PATH`. An unknown `--agent` name. A `--project` that is not a folder. A `--save-report` value other than `markdown`, `sarif` or `none`. A `[discovery]` section that does not validate, or a configuration file that cannot be read.
+**Usage errors (exit `2`).** `--project`, `--agent` and `--include-experimental` with a `PATH`. `--demo-mode` without a `PATH`. An unknown `--agent` name. A `--project` that is not a folder (for `discover`; `scan` with no path exits `3` for this, see below). A `--save-report` value other than `markdown`, `sarif` or `none`. A `[discovery]` section that does not validate, or a configuration file that cannot be read.
 
-A folder scan ends with a summary line. `INVALID` appears only when at least one skill has a malformed `SKILL.md`, and `failed` appears only when a skill could not be scanned.
+A folder scan ends with a summary line. `INVALID` appears only when at least one skill has a malformed `SKILL.md`, and `failed` appears only when a skill could not be scanned. A text path scan on a terminal also prints a one-line tip about `scan` with no path on standard error. Redirected or piped runs get no tip.
 
 ```text
 Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
@@ -95,18 +95,23 @@ Each text result starts with one of these markers:
 `skill-sentry-cli scan` finds the installed skills (the same list that [`discover`](#discover) prints), scans each one, and prints a verdict for each. The skills scanned are the ones `discover` lists. The search covers verified locations by default and experimental ones only with `--include-experimental`; see [`discover`](#discover).
 
 - Each skill is scanned at its real folder. A symlinked install is resolved first. The text output adds `installed at <link>` under a verdict when the link differs from the real folder.
-- A folder reached by more than one path is scanned once.
+- A folder reached by more than one path is scanned once. A skill counts toward `duplicates merged` only when it is reached under a different path. When the project folder is the home folder, user skills stay user-scope: the project sources that point at the same folders are dropped.
+- Enabled Claude Code plugins are read from `enabledPlugins` in `~/.claude/settings.json`, `<project>/.claude/settings.json` and `<project>/.claude/settings.local.json`. The most specific file that mentions a plugin decides (local, then project, then user). `true` enables the plugin and `false` disables it.
+- Hidden (dot) folders inside the built-in locations are skipped at every depth. For example, Codex's bundled `.system` skills are not listed, because they were not installed by the user. A folder named with `--project` or `extra_paths` is scanned even when its own name starts with a dot.
 - The text output starts with `Found N skills (...)`. Skipped entries (broken links, folders without `SKILL.md`, unreadable folders, plugin problems) are printed as `note:` lines on standard error, unless `--quiet` is set.
-- When no skill is found, the command lists the locations it checked on standard error and exits `3`.
+- With more than one skill, each scan prints `[i/n] <folder name> ...` on standard error. This happens in every format, whether or not standard error is a terminal, so standard output stays clean JSON or SARIF. The run ends with `Scanned X, failed Y, skipped Z.` on standard error: X skills were scanned, Y could not be scanned, and Z entries were set aside by discovery. `--quiet` suppresses both lines.
+- If the 500-skill cap stops discovery, a note says how many more skills were not scanned, or `at least N more` when the count itself stopped early. The note appears in the JSON `notes` and on standard error (unless `--quiet`).
+- `--format json` prints one object per verdict. Each object has an `install` object (`agent`, `scope`, `declared_path`, `real_path`, `is_symlink`, `aliases`, all as full paths) and `notes` (the discovery notes, repeated on every entry). One skill prints one object, as a path scan does; several skills print an array. A path scan's JSON has neither field. SARIF runs and results carry `declaredPath`, `agent` and `scope` properties, and each result's artifact URI is the real path of the skill folder. With more than one skill, the Markdown summary table has `Agent`, `Scope` and `Path` columns.
+- When no skill is found, the command lists the locations it checked on standard error and exits `0`, as `discover` does. `--format json` prints `[]`, and `--format sarif` prints an empty SARIF log. Two cases exit `3` instead: a `--project` folder that does not exist (even when skills were found elsewhere), and an `extra_paths` or `SKILLSENTRY_EXTRA_SKILL_PATHS` folder that does not exist when nothing was found.
 
 **Exit codes for a scan with no path:**
 
 | Code | Meaning |
 |:---|:---|
-| `0` | Every verdict is below the `--fail-on` gate. |
+| `0` | Every verdict is below the `--fail-on` gate, or no installed skill was found. |
 | `1` | At least one verdict meets the `--fail-on` gate, and every skill was scanned. |
 | `2` | Usage error (see above). |
-| `3` | No installed skills were found, no skill could be scanned, or at least one skill could not be scanned. A scan failure takes precedence over exit `1`. |
+| `3` | A `--project` folder does not exist; or an `extra_paths` folder does not exist and no skill was found; or no skill could be scanned; or at least one skill could not be scanned. A scan failure takes precedence over exit `1`. |
 
 **Saving a report.** In a text run on an interactive terminal (standard input and output are both terminals), the command asks after the verdicts:
 
@@ -118,7 +123,7 @@ Pressing Enter, answering `n`, pressing Ctrl+C, reaching end of input, or giving
 
 When standard input or output is not a terminal, nothing is asked. A text run prints `Tip: add --save-report markdown to keep a report.` on standard error instead.
 
-Saved reports go into a new private folder, `~/.skillsentry/reports/scan-<timestamp>/`. Markdown writes one file per skill and a `summary.md`. SARIF writes one file, `skills.sarif`. The text output names the folder.
+Saved reports go into a new private folder, `~/.skillsentry/reports/scan-<timestamp>/`. The timestamp is the UTC date, time and microseconds, written as `scan-YYYYMMDD-HHMMSS-ffffff`. If that name is taken, a numeric suffix (`-1`, `-2`, and so on) is added. An existing folder is never reused or overwritten. Markdown writes one file per skill and a `summary.md`. SARIF writes one file, `skills.sarif`. The text output names the folder.
 
 ## `discover`
 
@@ -145,7 +150,7 @@ The text output is a table with the columns `AGENT`, `SCOPE`, `SKILL` and `PATH`
 |:---|:---|
 | `skills` | One object per skill: `name`, `agent`, `scope` (`user`, `project`, `plugin` or `custom`), `declared_path` (where it was found), `real_path` (the folder that is scanned), `is_symlink`, and `aliases` (other paths that resolve to the same folder). |
 | `checked` | Every location that was looked at, including locations that do not exist. |
-| `notes` | Strings that say what was skipped and why, including a note when the 500-skill cap stopped the search. |
+| `notes` | Strings that say what was skipped and why, including a note when the 500-skill cap stopped the search, with how many more skills were not scanned. |
 | `duplicates_merged` | How many paths were merged into a skill that was already listed. |
 
 ```bash
@@ -274,7 +279,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[scoring]` | `tiers` | `safe_max = 30`, `malicious_min = 70` | Score boundaries for the verdicts. |
 | `[cache]` | `db_path` | `~/.skillsentry/skillsentry.db` | Scan history and cache database. |
 | `[server]` | `allowed_scan_roots` | `[]` (any folder) | Absolute folders the API may scan. A scan path must resolve, with symlinks followed, to one of them or to a folder inside one. Read by `serve`; the CLI `scan` command is not limited. See [§5.2 of the API reference](api.md). |
-| `[discovery]` | `extra_paths` | `[]` | Extra folders for `scan` and `discover` with no path. Each is a skill folder (one with `SKILL.md`) or a folder of skills. Each must be absolute after `~` expansion; otherwise the configuration is refused (exit `2`). A folder that does not exist is listed as a note, not an error. |
+| `[discovery]` | `extra_paths` | `[]` | Extra folders for `scan` and `discover` with no path. Each is a skill folder (one with `SKILL.md`) or a folder of skills. Each must be absolute after `~` expansion; otherwise the configuration is refused (exit `2`). A folder that does not exist is listed as a note, not an error. If no other skill is found, `scan` exits `3`; `discover` still exits `0`. |
 | `[discovery]` | `agents` | `[]` (all agents) | Limits discovery to these agents. Names as for `scan --agent`. `--agent` on the command line replaces this list. |
 | `[discovery]` | `include_experimental` | `false` | Also look in the experimental agent locations. `--include-experimental` turns them on for one run. |
 

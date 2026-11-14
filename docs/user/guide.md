@@ -248,7 +248,7 @@ To see the list without scanning anything, run `skill-sentry-cli discover`. It p
 | Where | Notes |
 |:---|:---|
 | `~/.claude/skills` | Claude Code user skills. Skills synced to your account are stored in group folders here, such as `~/.claude/skills/synced/<id>/<skill>`, and are found. |
-| Enabled Claude Code plugins | The `skills` folder of each plugin that is enabled in `~/.claude/settings.json`. A plugin that is only present in a marketplace checkout is not searched. |
+| Enabled Claude Code plugins | The `skills` folder of each plugin that is enabled in `~/.claude/settings.json`, or in the project's `.claude/settings.json` or `.claude/settings.local.json`. The most specific file that mentions a plugin decides. A plugin that is only present in a marketplace checkout is not searched. |
 | `~/.codex/skills` | Codex skills. |
 | `~/.agents/skills` | Shared agent skills. |
 | `.claude/skills` and `.agents/skills` in the project folder | Project skills. The project folder is the current directory, or the folder named by `--project`. |
@@ -264,12 +264,16 @@ The experimental locations are searched only with `--include-experimental`, or w
 **How the search works.**
 
 - Symlinks are followed. A skill that is installed as a link is scanned in the folder the link points to. The text output shows `installed at <link>` under its verdict.
-- A folder reached by more than one path is scanned once.
+- A folder reached by more than one path is scanned once. When the project folder is your home folder, your user skills stay user skills.
 - A folder without a `SKILL.md` is searched for skills up to two levels down, so `<group>/<group>/<skill>` is found.
-- At most 500 skills are scanned. A note says when the search stopped at that limit.
+- Hidden (dot) folders inside the built-in locations are skipped. Codex's bundled `.system` skills are not listed, because you did not install them. A folder you name with `--project` or `extra_paths` is scanned even when its name starts with a dot.
+- At most 500 skills are scanned. A note says when the search stopped at that limit, and how many more skills were not scanned.
 - Anything skipped (a broken link, a folder without `SKILL.md`, an unreadable folder) is printed as a `note:` line on standard error.
+- With several skills, the command prints `[i/n] name ...` progress on standard error and ends with `Scanned X, failed Y, skipped Z.`. These lines appear even when the output is piped. `--quiet` hides them.
 
-**Scope.** Use `--agent` to scan only some agents. The names are listed in the [CLI reference](../reference/cli.md); `custom` selects only your own folders. Use `--project DIR` to check another project. Without `--project`, the project is the folder you run the command from.
+**Machine-readable output.** `--format json` gives each verdict an `install` object (the agent, scope, declared path, real path, whether it is a symbolic link, and any aliases, all as full paths) and a `notes` list. SARIF records the declared path, agent and scope on each run and result, and points each result at the real folder. With no skills found, `--format json` prints `[]`.
+
+**Scope.** Use `--agent` to scan only some agents. The names are listed in the [CLI reference](../reference/cli.md); `custom` selects only your own folders. Use `--project DIR` to check another project. A `--project` folder that does not exist exits `3`. Without `--project`, the project is the folder you run the command from.
 
 **Time.** Each skill gets a full scan, with the sandbox and the local model, so scanning many skills can be slow. Verdicts for unchanged skills are reused from the cache unless you pass `--no-cache`. The cost can be changed in two ways:
 
@@ -282,9 +286,9 @@ The experimental locations are searched only with `--include-experimental`, or w
 Save a report? [m]arkdown / [s]arif / [n]o (default n)
 ```
 
-Answer `m` for Markdown or `s` for SARIF. Enter, `n`, or Ctrl+C means no. To decide in advance, pass `--save-report markdown`, `--save-report sarif`, or `--save-report none`. Pass `--no-prompt` to skip the question. Reports are saved in a new private folder, `~/.skillsentry/reports/scan-<timestamp>/`. Markdown writes one file per skill and a `summary.md`. SARIF writes `skills.sarif`.
+Answer `m` for Markdown or `s` for SARIF. Enter, `n`, or Ctrl+C means no. To decide in advance, pass `--save-report markdown`, `--save-report sarif`, or `--save-report none`. Pass `--no-prompt` to skip the question. Reports are saved in a new private folder, `~/.skillsentry/reports/scan-<timestamp>/`, where the timestamp holds the UTC date, time and microseconds. A numeric suffix is added if that name is taken, and an existing folder is never reused. Markdown writes one file per skill and a `summary.md`. SARIF writes `skills.sarif`.
 
-**CI.** The question is never asked when standard input or output is not a terminal, so a CI job does not hang. Use `--save-report` to keep files, or `--format sarif > results.sarif` to send SARIF to a file. The exit codes are the same as for a path scan, and a missing skill set exits `3`; see section 12.
+**CI.** The question is never asked when standard input or output is not a terminal, so a CI job does not hang. Use `--save-report` to keep files, or `--format sarif > results.sarif` to send SARIF to a file. The exit codes are the same as for a path scan, with two differences. Finding no skills exits `0`, with a message on standard error. A `--project` folder that does not exist exits `3`, and so does a configured `extra_paths` folder that does not exist when no other skill is found. See section 12.
 
 **Custom locations.** To scan a project outside the current directory, use `--project DIR`. To add folders, set them in `skillsentry.toml`:
 
@@ -295,7 +299,7 @@ agents = []                                            # empty means all agents
 include_experimental = false
 ```
 
-On Windows, write the path as a single-quoted TOML string, which keeps backslashes as they are, for example `extra_paths = ['~\work\skills']`. A double-quoted string treats the backslash as an escape and fails to load; forward slashes (`"~/work/skills"`) also work. Each extra path is either one skill folder or a folder of skills. The `skillsentry.toml` file is read from the current directory, or from the file named by `SKILLSENTRY_CONFIG`. Run the command from a folder that has the file, or set that variable, for the `[discovery]` settings to apply. `SKILLSENTRY_EXTRA_SKILL_PATHS` replaces `extra_paths` and separates entries with the path separator (`:` on Linux and macOS).
+On Windows, write the path as a single-quoted TOML string, which keeps backslashes as they are, for example `extra_paths = ['~\work\skills']`. A double-quoted string treats the backslash as an escape and fails to load; forward slashes (`"~/work/skills"`) also work. Each extra path is either one skill folder or a folder of skills. A missing extra folder is listed as a note; if no skill is found at all, `scan` exits `3`. The `skillsentry.toml` file is read from the current directory, or from the file named by `SKILLSENTRY_CONFIG`. Run the command from a folder that has the file, or set that variable, for the `[discovery]` settings to apply. `SKILLSENTRY_EXTRA_SKILL_PATHS` replaces `extra_paths` and separates entries with the path separator (`:` on Linux and macOS).
 
 ---
 
