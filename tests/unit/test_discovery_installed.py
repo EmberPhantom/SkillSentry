@@ -228,7 +228,52 @@ def test_cap_stops_discovery_and_notes_truncation(tmp_path: Path, monkeypatch):
     result = discover_installed(home=home, project_dir=None)
 
     assert len(result.skills) == 3
-    assert any("stopped after 3 skills" in note for note in result.skipped)
+    assert result.not_scanned == 2
+    assert any(
+        "stopped after 3 skills; 2 more not scanned; narrow the search (for example with --agent)"
+        in note
+        for note in result.skipped
+    )
+
+
+def test_cap_count_is_capped_and_reported_as_at_least(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(finder, "MAX_DISCOVERED_SKILLS", 2)
+    monkeypatch.setattr(finder, "_COUNT_BOUND", 3)
+    home = tmp_path / "home"
+    for index in range(10):
+        _skill(home / ".codex" / "skills" / f"skill-{index:02d}")
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert len(result.skills) == 2
+    assert result.not_scanned == 3
+    assert any("stopped after 2 skills; at least 3 more not scanned" in n for n in result.skipped)
+
+
+def test_cap_counts_unique_skills_beyond_the_cap_once(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(finder, "MAX_DISCOVERED_SKILLS", 1)
+    home = tmp_path / "home"
+    _skill(home / ".claude" / "skills" / "kept")
+    _skill(home / ".codex" / "skills" / "extra")
+    _skill(home / ".agents" / "skills" / "extra-dupe-path")
+    target = home / ".agents" / "skills" / "extra-dupe-path"
+    # The same folder under a second base must count once, not twice.
+    (home / ".codex" / "skills" / "extra-link").symlink_to(target)
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert _names(result) == {"kept"}
+    assert result.not_scanned == 2
+    assert any("stopped after 1 skills; 2 more not scanned" in n for n in result.skipped)
+
+
+def test_no_cap_note_when_everything_fits(tmp_path: Path):
+    home = _home_with_three_skills(tmp_path)
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert result.not_scanned == 0
+    assert not any("stopped after" in note for note in result.skipped)
 
 
 def test_unreadable_skill_folder_is_skipped_not_raised(tmp_path: Path):
@@ -434,3 +479,163 @@ def test_same_skill_linked_from_two_agents_is_one_skill_one_duplicate(tmp_path: 
     assert result.skills[0].scope == "user"
     assert result.duplicates_merged == 1
     assert len(result.skills[0].aliases) == 1
+
+
+# B1: project-level enabledPlugins ----------------------------------------------------------
+
+
+def _write_project_settings(project: Path, name: str, text: str) -> None:
+    (project / ".claude").mkdir(parents=True, exist_ok=True)
+    (project / ".claude" / name).write_text(text, encoding="utf-8")
+
+
+def _plugin_checkout(home: Path, plugin: str, skill: str) -> None:
+    checkout = home / ".claude" / "plugins" / "marketplaces" / "market"
+    _skill(checkout / "plugins" / plugin / "skills" / skill)
+
+
+def test_project_settings_enable_a_plugin_the_user_file_does_not_mention(tmp_path: Path):
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    _write_settings(home, json.dumps({"enabledPlugins": {}}))
+    _write_project_settings(
+        project, "settings.json", json.dumps({"enabledPlugins": {"p@market": True}})
+    )
+    _plugin_checkout(home, "p", "proj-plugin-skill")
+
+    roots, notes = enabled_plugin_skill_roots(home, project)
+
+    assert len(roots) == 1 and notes == []
+    result = discover_installed(home=home, project_dir=project)
+    assert _names(result, "plugin") == {"proj-plugin-skill"}
+
+
+def test_project_local_settings_disable_what_project_settings_enable(tmp_path: Path):
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    _write_project_settings(
+        project, "settings.json", json.dumps({"enabledPlugins": {"p@market": True}})
+    )
+    _write_project_settings(
+        project, "settings.local.json", json.dumps({"enabledPlugins": {"p@market": False}})
+    )
+    _plugin_checkout(home, "p", "local-off-skill")
+
+    roots, _ = enabled_plugin_skill_roots(home, project)
+
+    assert roots == []
+    assert _names(discover_installed(home=home, project_dir=project), "plugin") == set()
+
+
+def test_project_false_disables_a_plugin_the_user_enabled(tmp_path: Path):
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    _write_settings(home, json.dumps({"enabledPlugins": {"p@market": True}}))
+    _write_project_settings(
+        project, "settings.json", json.dumps({"enabledPlugins": {"p@market": False}})
+    )
+    _plugin_checkout(home, "p", "user-on-skill")
+
+    roots, notes = enabled_plugin_skill_roots(home, project)
+
+    assert roots == [] and notes == []
+    assert _names(discover_installed(home=home, project_dir=project), "plugin") == set()
+
+
+def test_local_settings_enable_overrides_user_false(tmp_path: Path):
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    _write_settings(home, json.dumps({"enabledPlugins": {"p@market": False}}))
+    _write_project_settings(
+        project, "settings.local.json", json.dumps({"enabledPlugins": {"p@market": True}})
+    )
+    _plugin_checkout(home, "p", "local-on-skill")
+
+    assert _names(discover_installed(home=home, project_dir=project), "plugin") == {
+        "local-on-skill"
+    }
+
+
+def test_malformed_project_settings_gives_a_note_and_others_still_work(tmp_path: Path):
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    _write_settings(home, json.dumps({"enabledPlugins": {"p@market": True}}))
+    _write_project_settings(project, "settings.json", "{ broken")
+    _write_project_settings(project, "settings.local.json", json.dumps({"enabledPlugins": {}}))
+    _plugin_checkout(home, "p", "still-on-skill")
+    _skill(home / ".codex" / "skills" / "codex-skill")
+
+    roots, notes = enabled_plugin_skill_roots(home, project)
+    assert len(roots) == 1
+    assert len(notes) == 1 and "could not parse" in notes[0]
+
+    result = discover_installed(home=home, project_dir=project)
+    assert _names(result, "plugin") == {"still-on-skill"}
+    assert "codex-skill" in _names(result)
+    assert any("could not parse" in note for note in result.skipped)
+
+
+def test_missing_project_settings_are_silent(tmp_path: Path):
+    home = tmp_path / "home"
+    _write_settings(home, json.dumps({"enabledPlugins": {}}))
+
+    roots, notes = enabled_plugin_skill_roots(home, tmp_path / "project-without-claude")
+
+    assert roots == [] and notes == []
+
+
+def test_project_dir_equal_to_home_reads_settings_once(tmp_path: Path):
+    home = tmp_path / "home"
+    _write_settings(home, "{ broken")
+
+    roots, notes = enabled_plugin_skill_roots(home, home)
+
+    assert roots == []
+    assert len(notes) == 1  # One malformed file, one note: not one per read.
+
+
+# B2: hidden folders -------------------------------------------------------------------------
+
+
+def test_hidden_system_bundle_under_codex_is_not_listed(tmp_path: Path):
+    home = tmp_path / "home"
+    _skill(home / ".codex" / "skills" / ".system" / "bundled-by-codex")
+    _skill(home / ".codex" / "skills" / "user-installed")
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert _names(result) == {"user-installed"}
+    assert not any(".system" in note for note in result.skipped)
+
+
+def test_hidden_files_and_folders_at_depth_zero_are_skipped_silently(tmp_path: Path):
+    home = tmp_path / "home"
+    base = home / ".codex" / "skills"
+    _skill(base / ".hidden-skill")
+    (base / ".DS_Store").write_text("x", encoding="utf-8")
+    (base / ".empty-hidden").mkdir()
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert _names(result) == set()
+    assert not any(".hidden" in note or ".DS_Store" in note for note in result.skipped)
+
+
+def test_extra_path_pointing_at_hidden_skill_folder_is_listed(tmp_path: Path):
+    home = tmp_path / "home"
+    hidden = _skill(tmp_path / "stash" / ".hidden-skill")
+
+    result = discover_installed(home=home, project_dir=None, extra_paths=[hidden])
+
+    assert _names(result, "custom") == {".hidden-skill"}
+
+
+def test_extra_path_inside_a_hidden_folder_is_scanned(tmp_path: Path):
+    home = tmp_path / "home"
+    bundle = tmp_path / "stash" / ".vendor" / "skills"
+    _skill(bundle / "vendored")
+    _skill(bundle / ".private")
+
+    result = discover_installed(home=home, project_dir=None, extra_paths=[bundle])
+
+    assert _names(result, "custom") == {"vendored"}

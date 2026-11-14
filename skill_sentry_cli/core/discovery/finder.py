@@ -8,8 +8,11 @@ Rules:
   Nothing here raises for filesystem trouble.
 * Skills are deduplicated by resolved path. The first declaration wins; the others
   are kept as ``aliases`` and counted in ``duplicates_merged``.
-* At most :data:`MAX_DISCOVERED_SKILLS` unique skills are kept. A note says when the
-  cap cut the search short.
+* At most :data:`MAX_DISCOVERED_SKILLS` unique skills are kept. When the cap cuts the
+  search short, the remaining unique skills are counted (up to a fixed bound) and reported
+  in :attr:`DiscoveryResult.not_scanned`.
+* Hidden (dot) folders and files inside a source base are skipped silently, at every
+  depth. Dot folders named directly as extra paths are still scanned.
 """
 
 from __future__ import annotations
@@ -29,6 +32,8 @@ _SCOPE_RANK = {"project": 0, "user": 1, "plugin": 2}
 _AGENT_RANK = {"claude": 0, "codex": 1, "agents": 2}
 # How many folder levels below a source base a skill may sit (``synced/<id>/<skill>``).
 _GROUP_DEPTH = 2
+# Upper bound on how many skills beyond the cap are counted (not recorded) for the note.
+_COUNT_BOUND = 10_000
 
 
 @dataclass(frozen=True)
@@ -48,8 +53,13 @@ class DiscoveryResult:
     checked: list[Path] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     duplicates_merged: int = 0
+    # Unique skills found beyond the cap (counted, not recorded) when the search was cut short.
+    not_scanned: int = 0
     # Resolved real path -> index into ``skills``; keeps the duplicate check O(1).
     _index: dict[Path, int] = field(default_factory=dict, repr=False, compare=False)
+    _capped: bool = field(default=False, repr=False, compare=False)
+    _count_bound_hit: bool = field(default=False, repr=False, compare=False)
+    _beyond_cap: set[Path] = field(default_factory=set, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -79,7 +89,7 @@ def discover_installed(
         if selected(source.agent) and (include_experimental or not source.experimental)
     ]
     if selected("claude"):
-        plugin_roots, notes = enabled_plugin_skill_roots(home)
+        plugin_roots, notes = enabled_plugin_skill_roots(home, project_dir)
         sources.extend(plugin_roots)
         result.skipped.extend(notes)
 
@@ -95,25 +105,25 @@ def discover_installed(
     # next. Experimental sources come last.
     jobs.sort(key=_job_rank)
 
-    truncated = False
     for job in jobs:
         result.checked.append(job.path)
         if job.direct:
             if _consider(job.path, job.source, result):
-                truncated = True
                 break
             continue
         if job.source.agent == "custom" and not _is_dir(job.path):
             result.skipped.append(f"{job.path}: custom path not found or not a folder")
             continue
-        truncated = _scan_base(job.source, result) or truncated
-        if truncated:
+        if _scan_base(job.source, result):
             break
 
-    if truncated:
+    if result._capped:
+        counted = len(result._beyond_cap)
+        result.not_scanned = counted
+        qualifier = "at least " if result._count_bound_hit else ""
         result.skipped.append(
-            f"stopped after {MAX_DISCOVERED_SKILLS} skills; scan fewer locations "
-            "(for example with --agent) to see the rest"
+            f"stopped after {MAX_DISCOVERED_SKILLS} skills; {qualifier}{counted} more not "
+            "scanned; narrow the search (for example with --agent)"
         )
     return result
 
@@ -165,6 +175,8 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
         return False
 
     for child in children:
+        if child.name.startswith("."):
+            continue  # Hidden entries are never skills here, however deep they sit.
         try:
             if child.is_symlink() and not child.exists():
                 result.skipped.append(f"{child}: broken symlink")
@@ -173,15 +185,13 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
                 if depth == 0:
                     result.skipped.append(f"{child}: not a skill folder")
                 continue
-            if child.name.startswith(".") and depth > 0:
-                continue
             if not (child / SKILL_MANIFEST).is_file() and depth < _GROUP_DEPTH:
                 # A group folder (for example ``skills/synced/<id>/<skill>``): look one
                 # level further down, within a fixed bound.
-                before = (len(result.skills), result.duplicates_merged)
+                before = _progress(result)
                 if _scan_folder(child, source, result, depth + 1):
                     return True
-                if depth == 0 and before == (len(result.skills), result.duplicates_merged):
+                if depth == 0 and before == _progress(result):
                     result.skipped.append(f"{child}: no {SKILL_MANIFEST}")
                 continue
         except OSError as exc:
@@ -192,8 +202,17 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
     return False
 
 
+def _progress(result: DiscoveryResult) -> tuple[int, int, int]:
+    """Changes that show a folder held skills, whether recorded, merged or only counted."""
+    return (len(result.skills), result.duplicates_merged, len(result._beyond_cap))
+
+
 def _consider(declared: Path, source: SkillSource, result: DiscoveryResult) -> bool:
-    """Record ``declared`` as a skill, or as a duplicate or skip. True when the cap stops us."""
+    """Record ``declared`` as a skill, a duplicate or a skip.
+
+    Returns True only when the search must stop altogether: the cap was reached and the
+    count of skills beyond it reached :data:`_COUNT_BOUND`.
+    """
 
     try:
         real = declared.resolve()
@@ -218,7 +237,14 @@ def _consider(declared: Path, source: SkillSource, result: DiscoveryResult) -> b
         return False
 
     if len(result.skills) >= MAX_DISCOVERED_SKILLS:
-        return True
+        result._capped = True
+        if real in result._beyond_cap:
+            return False
+        if len(result._beyond_cap) >= _COUNT_BOUND:
+            result._count_bound_hit = True
+            return True
+        result._beyond_cap.add(real)
+        return False
     result._index[real] = len(result.skills)
     result.skills.append(
         InstalledSkill(
