@@ -15,6 +15,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Added
+- `scan` with no path audits every installed skill. It searches Claude Code user skills (including account-synced skills), enabled Claude Code plugins, Codex and shared `~/.agents` skills, and the project's `.claude/skills` and `.agents/skills`. Gemini, Cursor, OpenCode and Copilot locations are searched only with `--include-experimental`. Each skill is scanned at its real folder, and a folder reached by more than one path is scanned once.
+- `discover` lists the installed skills that `scan` with no path would check, as a table or with `--format json`. It scans nothing.
+- `scan` with no path, in a text run on an interactive terminal, asks whether to save a report. `--save-report markdown|sarif|none` decides without asking, and `--no-prompt` skips the question. Reports are saved under `~/.skillsentry/reports/`. The question is never asked when the input or output is not a terminal.
+- `scan` with no path accepts `--project DIR`, `--agent NAME` (repeatable) and `--include-experimental`. These flags are usage errors (exit `2`) when a path is given.
+- `[discovery]` configuration section with `extra_paths`, `agents` and `include_experimental`, and the `SKILLSENTRY_EXTRA_SKILL_PATHS` environment variable for extra skill folders. Extra paths must be absolute after `~` expansion.
+- Symlink-aware scanning: an installed skill that is a symbolic link is scanned at the folder the link resolves to, and the text output shows the link location.
 - `[server] allowed_scan_roots` (or `SKILLSENTRY_ALLOWED_SCAN_ROOTS`, separated by the path separator) limits which folders the API may scan. A `POST /scan` path must resolve, with symlinks followed, to one of the roots or inside one. Otherwise it gets `403 path_not_allowed`, whether or not the path exists. The default is empty, which allows any folder, as before. The CLI `scan` command is not limited.
 
 ### Fixed

@@ -7,7 +7,7 @@ SkillSentry audits agent skills before you install them. This index groups the d
 | Document | What it covers |
 |:---|:---|
 | [Overview](user/overview.md) | What SkillSentry does, what ships today, and what is planned. |
-| [User guide](user/guide.md) | Installing, the first scans, reading verdicts, reports, the dashboard, CI use, and troubleshooting (section 14). |
+| [User guide](user/guide.md) | Installing, the first scans, reading verdicts, reports, the dashboard, CI use, and troubleshooting (section 15). |
 
 ## For reference
 
