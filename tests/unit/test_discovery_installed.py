@@ -371,3 +371,66 @@ def test_agents_filter_keeps_custom_paths(tmp_path: Path):
 def test_missing_claude_settings_is_silent(tmp_path: Path):
     roots, notes = enabled_plugin_skill_roots(tmp_path / "home")
     assert roots == [] and notes == []
+
+
+def _home_with_three_skills(tmp_path: Path) -> Path:
+    home = tmp_path / "home"
+    _skill(home / ".claude" / "skills" / "one")
+    _skill(home / ".claude" / "skills" / "two")
+    _skill(home / ".codex" / "skills" / "three")
+    return home
+
+
+def test_project_dir_equal_to_home_keeps_user_scope_and_counts_no_duplicates(tmp_path: Path):
+    home = _home_with_three_skills(tmp_path)
+
+    result = discover_installed(home=home, project_dir=home)
+
+    assert len(result.skills) == 3
+    assert {s.scope for s in result.skills} == {"user"}
+    assert result.duplicates_merged == 0
+    assert all(skill.aliases == () for skill in result.skills)
+
+
+@needs_symlinks
+def test_project_dir_equal_to_home_with_agents_symlink_counts_one_duplicate(tmp_path: Path):
+    home = _home_with_three_skills(tmp_path)
+    (home / ".agents" / "skills").mkdir(parents=True)
+    os.symlink(home / ".claude" / "skills" / "one", home / ".agents" / "skills" / "one")
+
+    result = discover_installed(home=home, project_dir=home)
+
+    assert len(result.skills) == 3
+    assert {s.scope for s in result.skills} == {"user"}
+    assert result.duplicates_merged == 1
+    one = next(s for s in result.skills if s.name == "one")
+    assert one.aliases == (home / ".agents" / "skills" / "one",)
+
+
+def test_project_inside_home_keeps_project_scope(tmp_path: Path):
+    home = _home_with_three_skills(tmp_path)
+    project = home / "work" / "app"
+    _skill(project / ".claude" / "skills" / "local-only")
+
+    result = discover_installed(home=home, project_dir=project)
+
+    by_name = {s.name: s.scope for s in result.skills}
+    assert by_name["local-only"] == "project"
+    assert by_name["one"] == by_name["two"] == by_name["three"] == "user"
+    assert result.duplicates_merged == 0
+
+
+@needs_symlinks
+def test_same_skill_linked_from_two_agents_is_one_skill_one_duplicate(tmp_path: Path):
+    home = tmp_path / "home"
+    target = _skill(tmp_path / "store" / "shared")
+    for base in (".claude/skills", ".codex/skills"):
+        (home / base).mkdir(parents=True)
+        os.symlink(target, home / base / "shared")
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert [s.name for s in result.skills] == ["shared"]
+    assert result.skills[0].scope == "user"
+    assert result.duplicates_merged == 1
+    assert len(result.skills[0].aliases) == 1

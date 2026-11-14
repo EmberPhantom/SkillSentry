@@ -48,6 +48,8 @@ class DiscoveryResult:
     checked: list[Path] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     duplicates_merged: int = 0
+    # Resolved real path -> index into ``skills``; keeps the duplicate check O(1).
+    _index: dict[Path, int] = field(default_factory=dict, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -81,6 +83,7 @@ def discover_installed(
         sources.extend(plugin_roots)
         result.skipped.extend(notes)
 
+    sources = _drop_project_sources_shadowed_by_user(sources)
     jobs: list[_Job] = [_Job(source, source.base, direct=False) for source in sources]
     # Custom paths were named by the user, so ``agents`` never filters them out.
     for raw in extra_paths:
@@ -113,6 +116,28 @@ def discover_installed(
             "(for example with --agent) to see the rest"
         )
     return result
+
+
+def _drop_project_sources_shadowed_by_user(sources: list[SkillSource]) -> list[SkillSource]:
+    """Remove project sources that point at the same folder as a user source.
+
+    When the project folder is the home folder (or a link to it), ``<project>/.claude/skills``
+    is ``~/.claude/skills``. The user scope wins so the skills are not labelled project skills.
+    """
+
+    user_bases = {_resolved(source.base) for source in sources if source.scope == "user"}
+    return [
+        source
+        for source in sources
+        if not (source.scope == "project" and _resolved(source.base) in user_bases)
+    ]
+
+
+def _resolved(path: Path) -> Path:
+    try:
+        return path.resolve()
+    except OSError:
+        return path
 
 
 def _job_rank(job: _Job) -> tuple[bool, int, int]:
@@ -180,17 +205,21 @@ def _consider(declared: Path, source: SkillSource, result: DiscoveryResult) -> b
         result.skipped.append(f"{declared}: no {SKILL_MANIFEST}")
         return False
 
-    for index, existing in enumerate(result.skills):
-        if existing.real_path == real:
+    known = result._index.get(real)
+    if known is not None:
+        existing = result.skills[known]
+        # Only a different declared path is a duplicate. Meeting the same path again
+        # (two sources that cover one folder) is not.
+        if declared != existing.declared_path and declared not in existing.aliases:
             result.duplicates_merged += 1
-            if declared != existing.declared_path and declared not in existing.aliases:
-                result.skills[index] = dataclasses.replace(
-                    existing, aliases=(*existing.aliases, declared)
-                )
-            return False
+            result.skills[known] = dataclasses.replace(
+                existing, aliases=(*existing.aliases, declared)
+            )
+        return False
 
     if len(result.skills) >= MAX_DISCOVERED_SKILLS:
         return True
+    result._index[real] = len(result.skills)
     result.skills.append(
         InstalledSkill(
             name=declared.name,
