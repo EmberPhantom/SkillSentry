@@ -53,6 +53,11 @@ class DiscoveryResult:
     checked: list[Path] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     duplicates_merged: int = 0
+    # Entries discovery looked at and left out (broken links, folders without SKILL.md,
+    # unreadable entries). Plugin notes and the cap note are in ``skipped`` but not counted.
+    set_aside: int = 0
+    # Custom paths (extra_paths) the user named that are not folders.
+    missing_paths: list[Path] = field(default_factory=list)
     # Unique skills found beyond the cap (counted, not recorded) when the search was cut short.
     not_scanned: int = 0
     # Resolved real path -> index into ``skills``; keeps the duplicate check O(1).
@@ -112,6 +117,7 @@ def discover_installed(
                 break
             continue
         if job.source.agent == "custom" and not _is_dir(job.path):
+            result.missing_paths.append(job.path)
             result.skipped.append(f"{job.path}: custom path not found or not a folder")
             continue
         if _scan_base(job.source, result):
@@ -126,6 +132,11 @@ def discover_installed(
             "scanned; narrow the search (for example with --agent)"
         )
     return result
+
+
+def _set_aside(result: DiscoveryResult, note: str) -> None:
+    result.skipped.append(note)
+    result.set_aside += 1
 
 
 def _drop_project_sources_shadowed_by_user(sources: list[SkillSource]) -> list[SkillSource]:
@@ -171,7 +182,7 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
     try:
         children = sorted(folder.iterdir(), key=lambda child: child.name)
     except OSError as exc:
-        result.skipped.append(f"{folder}: cannot list folder ({_reason(exc)})")
+        _set_aside(result, f"{folder}: cannot list folder ({_reason(exc)})")
         return False
 
     for child in children:
@@ -179,11 +190,11 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
             continue  # Hidden entries are never skills here, however deep they sit.
         try:
             if child.is_symlink() and not child.exists():
-                result.skipped.append(f"{child}: broken symlink")
+                _set_aside(result, f"{child}: broken symlink")
                 continue
             if not child.is_dir():
                 if depth == 0:
-                    result.skipped.append(f"{child}: not a skill folder")
+                    _set_aside(result, f"{child}: not a skill folder")
                 continue
             if not (child / SKILL_MANIFEST).is_file() and depth < _GROUP_DEPTH:
                 # A group folder (for example ``skills/synced/<id>/<skill>``): look one
@@ -192,10 +203,10 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
                 if _scan_folder(child, source, result, depth + 1):
                     return True
                 if depth == 0 and before == _progress(result):
-                    result.skipped.append(f"{child}: no {SKILL_MANIFEST}")
+                    _set_aside(result, f"{child}: no {SKILL_MANIFEST}")
                 continue
         except OSError as exc:
-            result.skipped.append(f"{child}: cannot read ({_reason(exc)})")
+            _set_aside(result, f"{child}: cannot read ({_reason(exc)})")
             continue
         if _consider(child, source, result):
             return True
@@ -218,10 +229,10 @@ def _consider(declared: Path, source: SkillSource, result: DiscoveryResult) -> b
         real = declared.resolve()
         has_manifest = (real / SKILL_MANIFEST).is_file()
     except OSError as exc:
-        result.skipped.append(f"{declared}: cannot read ({_reason(exc)})")
+        _set_aside(result, f"{declared}: cannot read ({_reason(exc)})")
         return False
     if not has_manifest:
-        result.skipped.append(f"{declared}: no {SKILL_MANIFEST}")
+        _set_aside(result, f"{declared}: no {SKILL_MANIFEST}")
         return False
 
     known = result._index.get(real)

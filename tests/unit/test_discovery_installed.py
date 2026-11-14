@@ -190,7 +190,56 @@ def test_missing_extra_path_is_noted(tmp_path: Path):
         home=tmp_path / "home", project_dir=None, extra_paths=[tmp_path / "absent"]
     )
     assert result.skills == []
+    assert result.missing_paths == [tmp_path / "absent"]
     assert any("absent" in note and "not found" in note for note in result.skipped)
+    assert result.set_aside == 0
+
+
+@needs_symlinks
+def test_set_aside_counts_broken_links_and_folders_without_manifest(tmp_path: Path):
+    home = tmp_path / "home"
+    base = home / ".claude" / "skills"
+    _skill(base / "real-one")
+    (base / "empty-dir").mkdir()
+    (base / "notes.txt").write_text("hi", encoding="utf-8")
+    os.symlink(tmp_path / "nowhere", base / "gone", target_is_directory=True)
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert _names(result) == {"real-one"}
+    assert result.set_aside == 3
+    assert len(result.skipped) == 3
+    assert result.missing_paths == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="permissions are not enforced on Windows")
+def test_set_aside_counts_unreadable_entries(tmp_path: Path):
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        pytest.skip("permissions are not enforced for root")
+    home = tmp_path / "home"
+    locked = _skill(home / ".codex" / "skills" / "locked")
+    locked.chmod(0o000)
+    try:
+        result = discover_installed(home=home, project_dir=None)
+    finally:
+        locked.chmod(0o755)
+
+    assert result.set_aside == 1
+    assert any("locked" in note for note in result.skipped)
+
+
+def test_set_aside_ignores_plugin_notes_and_the_cap_note(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(finder, "MAX_DISCOVERED_SKILLS", 2)
+    home = tmp_path / "home"
+    _write_settings(home, json.dumps({"enabledPlugins": {"ghost@market": True}}))
+    for index in range(4):
+        _skill(home / ".codex" / "skills" / f"skill-{index}")
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert any("ghost@market" in note for note in result.skipped)
+    assert any("stopped after 2 skills" in note for note in result.skipped)
+    assert result.set_aside == 0
 
 
 def test_agents_filter_limits_sources(tmp_path: Path):

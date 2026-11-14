@@ -122,7 +122,9 @@ def test_no_path_finds_and_scans_every_installed_skill(fake_home: Path, tmp_path
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert sorted(item["skill"] for item in payload) == ["alpha", "beta"]
+    assert set(payload) == {"skills", "notes", "summary"}
+    assert sorted(item["skill"] for item in payload["skills"]) == ["alpha", "beta"]
+    assert payload["summary"] == {"scanned": 2, "failed": 0, "skipped": 0}
 
 
 def test_no_path_text_prints_found_line_and_summary(fake_home: Path, tmp_path: Path) -> None:
@@ -167,7 +169,7 @@ def test_symlinked_install_is_scanned_once(fake_home: Path, tmp_path: Path) -> N
 
     as_json = _invoke(tmp_path, [*SCAN, "--format", "json"])
     assert as_json.exit_code == 0, as_json.output
-    assert json.loads(as_json.stdout)["skill"] == "gamma"
+    assert [item["skill"] for item in json.loads(as_json.stdout)["skills"]] == ["gamma"]
 
     as_text = _invoke(tmp_path, SCAN)
     assert "Found 1 skill (Claude Code: 1; 2 duplicates merged)" in as_text.output
@@ -191,19 +193,36 @@ def test_no_path_zero_skills_keeps_stdout_machine_readable(fake_home: Path, tmp_
     as_sarif = _invoke(tmp_path, [*SCAN, "--format", "sarif"])
 
     assert as_json.exit_code == 0, as_json.output
-    assert json.loads(as_json.stdout) == []
+    assert json.loads(as_json.stdout) == {
+        "skills": [],
+        "notes": [],
+        "summary": {"scanned": 0, "failed": 0, "skipped": 0},
+    }
     assert "No installed skills found. Looked in:" in as_json.stderr
     assert as_sarif.exit_code == 0, as_sarif.output
     assert json.loads(as_sarif.stdout)["runs"] == []
 
 
-def test_missing_project_folder_exits_3_for_scan(fake_home: Path, tmp_path: Path) -> None:
+def test_missing_project_folder_exits_2_for_scan(fake_home: Path, tmp_path: Path) -> None:
     _two_installed(fake_home)
 
     result = _invoke(tmp_path, [*SCAN, "--project", str(tmp_path / "nope")])
 
-    assert result.exit_code == int(cli.ExitCode.OPERATIONAL), result.output
-    assert "--project is not a folder" in result.stderr
+    assert result.exit_code == int(cli.ExitCode.USAGE), result.output
+    assert "error: --project is not a folder" in result.stderr
+
+
+def test_missing_project_folder_exits_2_for_scan_and_discover_alike(
+    fake_home: Path, tmp_path: Path
+) -> None:
+    missing = str(tmp_path / "nope")
+
+    listed = _invoke(tmp_path, ["discover", "--project", missing])
+    scanned = _invoke(tmp_path, [*SCAN, "--project", missing])
+
+    assert listed.exit_code == int(cli.ExitCode.USAGE), listed.output
+    assert scanned.exit_code == listed.exit_code, scanned.output
+    assert "--project is not a folder" in scanned.stderr
 
 
 def test_missing_extra_path_exits_3_when_nothing_is_found(
@@ -217,6 +236,45 @@ def test_missing_extra_path_exits_3_when_nothing_is_found(
     assert result.exit_code == int(cli.ExitCode.OPERATIONAL), result.output
     assert "custom path not found" in result.stderr
     assert "No installed skills found. Looked in:" in result.stderr
+
+
+def test_missing_extra_path_with_no_skills_exits_3_and_prints_the_envelope(
+    fake_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing = tmp_path / "gone"
+    monkeypatch.setenv("SKILLSENTRY_EXTRA_SKILL_PATHS", str(missing))
+
+    result = _invoke(tmp_path, [*SCAN, "--format", "json"])
+
+    assert result.exit_code == int(cli.ExitCode.OPERATIONAL), result.output
+    payload = json.loads(result.stdout)
+    assert payload["skills"] == []
+    assert payload["summary"] == {"scanned": 0, "failed": 0, "skipped": 0}
+    assert any("custom path not found" in note for note in payload["notes"])
+
+
+@pytest.mark.parametrize("malicious, expected", [(False, 0), (True, 1)])
+def test_missing_extra_path_with_skills_found_follows_the_verdicts(
+    fake_home: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    malicious: bool,
+    expected: int,
+) -> None:
+    _two_installed(fake_home)
+    if malicious:
+        shutil.copytree(
+            ROOT / "fixtures" / "malicious" / "cloud-sync-pro",
+            fake_home / ".agents" / "skills" / "cloud-sync-pro",
+        )
+    monkeypatch.setenv("SKILLSENTRY_EXTRA_SKILL_PATHS", str(tmp_path / "gone"))
+
+    result = _invoke(tmp_path, [*SCAN, "--fail-on", "malicious", "--format", "json"])
+
+    assert result.exit_code == expected, result.output
+    payload = json.loads(result.stdout)
+    assert len(payload["skills"]) == (3 if malicious else 2)
+    assert any("custom path not found" in note for note in payload["notes"])
 
 
 def test_existing_empty_extra_path_still_exits_0(
@@ -270,7 +328,7 @@ def test_agent_filter_limits_scan_and_listing(fake_home: Path, tmp_path: Path) -
 
     assert [item["name"] for item in json.loads(listed.stdout)["skills"]] == ["beta"]
     assert scanned.exit_code == 0, scanned.output
-    assert json.loads(scanned.stdout)["skill"] == "beta"
+    assert [item["skill"] for item in json.loads(scanned.stdout)["skills"]] == ["beta"]
 
 
 def test_project_folder_skills_are_included(fake_home: Path, tmp_path: Path) -> None:
@@ -356,6 +414,30 @@ def test_discover_with_zero_skills_exits_zero(fake_home: Path, tmp_path: Path) -
     payload = json.loads(as_json.stdout)
     assert payload["skills"] == []
     assert str(fake_home / ".codex" / "skills") in payload["checked"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlinks need extra rights on Windows")
+@pytest.mark.parametrize(
+    "bases, line",
+    [
+        ((".claude/skills", ".codex/skills"), "1 duplicate merged"),
+        ((".claude/skills", ".codex/skills", ".agents/skills"), "2 duplicates merged"),
+    ],
+)
+def test_discover_text_pluralises_duplicates_merged(
+    fake_home: Path, tmp_path: Path, bases: tuple[str, ...], line: str
+) -> None:
+    real = _skill(tmp_path / "system" / "gamma")
+    for base in bases:
+        link = fake_home / base / "gamma"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(real, link, target_is_directory=True)
+
+    result = _invoke(tmp_path, ["discover"])
+
+    assert result.exit_code == 0, result.output
+    assert line in result.output.splitlines()
+    assert "1 duplicates merged" not in result.output
 
 
 def test_discover_rejects_an_unknown_format(fake_home: Path, tmp_path: Path) -> None:
@@ -510,7 +592,7 @@ def test_save_report_keeps_json_stdout_clean(fake_home: Path, tmp_path: Path) ->
     result = _invoke(tmp_path, [*SCAN, "--format", "json", "--save-report", "markdown"])
 
     assert result.exit_code == 0, result.output
-    assert len(json.loads(result.stdout)) == 2
+    assert len(json.loads(result.stdout)["skills"]) == 2
     assert len(_report_dirs(fake_home)) == 1
 
 
@@ -595,7 +677,9 @@ def test_no_path_json_adds_install_context_to_each_skill(fake_home: Path, tmp_pa
     )
 
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.stdout)
+    envelope = json.loads(result.stdout)
+    assert set(envelope) == {"skills", "notes", "summary"}
+    payload = envelope["skills"]
     by_name = {item["skill"]: item for item in payload}
     assert by_name["alpha"]["install"] == {
         "agent": "claude",
@@ -611,7 +695,7 @@ def test_no_path_json_adds_install_context_to_each_skill(fake_home: Path, tmp_pa
     )
     # Every key a path scan has is still there; the additions are the only new keys.
     path_keys = set(json.loads(path_scan.stdout))
-    assert set(by_name["alpha"]) == path_keys | {"install", "notes"}
+    assert set(by_name["alpha"]) == path_keys | {"install"}
     assert "~" not in json.dumps([item["install"] for item in payload])
 
 
@@ -625,17 +709,19 @@ def test_path_scan_json_has_no_install_or_notes(fake_home: Path, tmp_path: Path)
     assert "notes" not in payload
 
 
-def test_no_path_single_skill_json_is_still_one_object_with_install(
-    fake_home: Path, tmp_path: Path
-) -> None:
+def test_no_path_single_skill_json_uses_the_same_envelope(fake_home: Path, tmp_path: Path) -> None:
     _skill(fake_home / ".claude" / "skills" / "alpha")
 
     result = _invoke(tmp_path, [*SCAN, "--format", "json"])
 
+    assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["skill"] == "alpha"
-    assert payload["install"]["agent"] == "claude"
+    assert set(payload) == {"skills", "notes", "summary"}
+    assert len(payload["skills"]) == 1
+    assert payload["skills"][0]["skill"] == "alpha"
+    assert payload["skills"][0]["install"]["agent"] == "claude"
     assert payload["notes"] == []
+    assert payload["summary"] == {"scanned": 1, "failed": 0, "skipped": 0}
 
 
 @pytest.mark.skipif(os.name == "nt", reason="symlinks need extra rights on Windows")
@@ -649,7 +735,7 @@ def test_no_path_symlink_install_records_declared_and_real_paths(
 
     result = _invoke(tmp_path, [*SCAN, "--format", "json"])
 
-    install = json.loads(result.stdout)["install"]
+    install = json.loads(result.stdout)["skills"][0]["install"]
     assert install["declared_path"] == str(link)
     assert install["real_path"] == str(real.resolve())
     assert install["is_symlink"] is True
@@ -773,7 +859,7 @@ def test_no_path_quiet_suppresses_progress_and_summary(fake_home: Path, tmp_path
     assert result.exit_code == 0, result.output
     assert "[1/2]" not in result.stderr
     assert "Scanned 2" not in result.stderr
-    assert len(json.loads(result.stdout)) == 2
+    assert len(json.loads(result.stdout)["skills"]) == 2
 
 
 def test_path_scan_of_several_skills_shows_no_progress_without_a_terminal(
@@ -809,8 +895,9 @@ def test_no_path_discovery_notes_appear_in_json_and_stderr(
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert len(payload) == 2
-    assert all(item["notes"] == [note] for item in payload)
+    assert len(payload["skills"]) == 2
+    assert payload["notes"] == [note]
+    assert all("notes" not in item for item in payload["skills"])
     assert "note: " in result.stderr
     assert "stopped after 500 skills" in result.stderr
 
@@ -825,3 +912,53 @@ def test_no_path_summary_counts_entries_discovery_set_aside(
 
     assert result.exit_code == 0, result.output
     assert "Scanned 2, failed 0, skipped 1." in result.stderr
+
+
+def test_plugin_notes_do_not_count_as_skipped(fake_home: Path, tmp_path: Path) -> None:
+    # An enabled plugin with no installed files is a note, not an entry discovery set aside.
+    _skill(fake_home / ".claude" / "skills" / "alpha")
+    (fake_home / ".claude" / "settings.json").write_text(
+        json.dumps({"enabledPlugins": {"ghost@mk": True}}), encoding="utf-8"
+    )
+
+    as_json = _invoke(tmp_path, [*SCAN, "--format", "json"])
+    as_text = _invoke(tmp_path, SCAN)
+
+    assert as_json.exit_code == 0, as_json.output
+    payload = json.loads(as_json.stdout)
+    assert any("ghost@mk" in note for note in payload["notes"])
+    assert payload["summary"]["skipped"] == 0
+    assert "Scanned 1, failed 0, skipped 0." in as_json.stderr
+    assert "skipped 0." in as_text.stderr
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlinks need extra rights on Windows")
+def test_broken_link_and_folder_without_manifest_count_as_skipped(
+    fake_home: Path, tmp_path: Path
+) -> None:
+    _two_installed(fake_home)
+    os.symlink(
+        tmp_path / "missing", fake_home / ".claude" / "skills" / "ghost", target_is_directory=True
+    )
+    (fake_home / ".codex" / "skills" / "not-a-skill").mkdir(parents=True)
+
+    result = _invoke(tmp_path, [*SCAN, "--format", "json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["summary"] == {"scanned": 2, "failed": 0, "skipped": 2}
+    assert "Scanned 2, failed 0, skipped 2." in result.stderr
+
+
+def test_missing_extra_path_is_noted_but_not_counted_as_skipped(
+    fake_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _two_installed(fake_home)
+    monkeypatch.setenv("SKILLSENTRY_EXTRA_SKILL_PATHS", str(tmp_path / "gone"))
+
+    result = _invoke(tmp_path, [*SCAN, "--format", "json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["summary"]["skipped"] == 0
+    assert "Scanned 2, failed 0, skipped 0." in result.stderr

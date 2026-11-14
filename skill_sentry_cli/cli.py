@@ -95,8 +95,6 @@ _AGENT_LABELS = {
     "custom": "Custom path",
 }
 _SCAN_TIP = "Tip: run `skill-sentry-cli scan` with no path to check everything installed."
-# Discovery note for an extra_paths entry (or a configured location) that is not a folder.
-_MISSING_EXTRA_PATH = "custom path not found"
 
 
 def _version_callback(value: bool) -> None:
@@ -600,6 +598,18 @@ def _write_file(path: Path, text: str) -> None:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
 
 
+def _no_path_envelope(
+    entries: list[dict[str, Any]], notes: Sequence[str], summary: dict[str, int] | None
+) -> dict[str, Any]:
+    """The one stable JSON shape of a no-path scan, whatever the number of skills."""
+
+    return {
+        "skills": entries,
+        "notes": list(notes),
+        "summary": summary or {"scanned": 0, "failed": 0, "skipped": 0},
+    }
+
+
 def _emit_outcomes(
     outcomes: list[ScanOutcome],
     *,
@@ -612,9 +622,10 @@ def _emit_outcomes(
     footer: str | None = None,
     installs: Sequence[InstalledSkill] | None = None,
     notes: Sequence[str] = (),
+    summary: dict[str, int] | None = None,
 ) -> None:
     """Render the run. ``installs`` (one per outcome, no-path flow only) adds where each
-    skill was found; ``notes`` are the discovery notes for that run."""
+    skill was found; ``notes`` and ``summary`` complete the no-path JSON envelope."""
     if sarif_out is not None:
         _write_file(sarif_out, _combined_sarif(outcomes))
         if not quiet and output_format == "text":
@@ -622,11 +633,13 @@ def _emit_outcomes(
 
     if output_format == "json":
         entries = [outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes]
+        payload: object
         if installs is not None:
             for entry, install in zip(entries, installs, strict=True):
                 entry["install"] = _install_payload(install)
-                entry["notes"] = list(notes)
-        payload: object = entries[0] if len(entries) == 1 else entries
+            payload = _no_path_envelope(entries, notes, summary)
+        else:
+            payload = entries[0] if len(entries) == 1 else entries
         rendered = json.dumps(payload, indent=2, ensure_ascii=False)
     elif output_format == "sarif":
         rendered = _combined_sarif(outcomes, installs)
@@ -1433,11 +1446,10 @@ def _scan_installed(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE)) from exc
 
-    # A --project that is not a folder is an explicit location the user named and it is
-    # missing: an operational error, whether or not other skills were found.
+    # A --project that is not a folder is a bad argument, as it is for ``discover``.
     if project is not None and not _is_dir(project.expanduser()):
         typer.echo(f"error: --project is not a folder: {project}", err=True)
-        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+        raise typer.Exit(code=int(ExitCode.USAGE))
 
     result = _discover_with_options(
         config,
@@ -1461,13 +1473,14 @@ def _scan_installed(
                 typer.echo(f"note: {_tilde_text(note)}", err=True)
         # An extra_paths entry the user configured that does not exist is an error. An
         # empty result with nothing named is not: it exits 0, like discover.
-        if any(_MISSING_EXTRA_PATH in note for note in result.skipped):
-            raise typer.Exit(code=int(ExitCode.OPERATIONAL))
         # Machine-readable formats still get a valid, empty document on stdout.
         if output_format == "json":
-            typer.echo("[]")
+            empty = {"scanned": 0, "failed": 0, "skipped": result.set_aside}
+            typer.echo(json.dumps(_no_path_envelope([], result.skipped, empty), indent=2))
         elif output_format == "sarif":
             typer.echo(_combined_sarif([]))
+        if result.missing_paths:
+            raise typer.Exit(code=int(ExitCode.OPERATIONAL))
         raise typer.Exit(code=int(ExitCode.OK))
 
     if text and not quiet:
@@ -1496,14 +1509,17 @@ def _scan_installed(
     engine.close()
 
     skipped = len(roots) - len(outcomes)
+    summary = {"scanned": len(outcomes), "failed": skipped, "skipped": result.set_aside}
     if not quiet:
         # "skipped" is what discovery set aside (broken links, folders without SKILL.md,
         # unreadable entries); the notes above say why.
         typer.echo(
-            f"Scanned {len(outcomes)}, failed {skipped}, skipped {len(result.skipped)}.",
+            f"Scanned {len(outcomes)}, failed {skipped}, skipped {result.set_aside}.",
             err=True,
         )
     if not outcomes:
+        if output_format == "json":
+            typer.echo(json.dumps(_no_path_envelope([], result.skipped, summary), indent=2))
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
 
     installs = [result.skills[index] for index in indexes]
@@ -1519,6 +1535,7 @@ def _scan_installed(
         footer=footer,
         installs=installs,
         notes=result.skipped,
+        summary=summary,
     )
 
     chosen = save_report
@@ -1620,7 +1637,8 @@ def _print_discovery_text(result: DiscoveryResult) -> None:
         for note in result.skipped:
             typer.echo(f"  - {_tilde_text(note)}")
     if result.duplicates_merged:
-        typer.echo(f"{result.duplicates_merged} duplicates merged")
+        dups = result.duplicates_merged
+        typer.echo(f"{dups} duplicate{'s' if dups != 1 else ''} merged")
 
 
 def _discovery_payload(result: DiscoveryResult) -> dict[str, object]:
