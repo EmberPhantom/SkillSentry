@@ -213,9 +213,15 @@ def _scan_folder(folder: Path, source: SkillSource, result: DiscoveryResult, dep
     return False
 
 
-def _progress(result: DiscoveryResult) -> tuple[int, int, int]:
-    """Changes that show a folder held skills, whether recorded, merged or only counted."""
-    return (len(result.skills), result.duplicates_merged, len(result._beyond_cap))
+def _progress(result: DiscoveryResult) -> tuple[int, int, int, int]:
+    """Changes that show a folder was looked at: skills recorded, merged or only counted,
+    or entries set aside with their own note (so one folder is never noted twice)."""
+    return (
+        len(result.skills),
+        result.duplicates_merged,
+        len(result._beyond_cap),
+        result.set_aside,
+    )
 
 
 def _consider(declared: Path, source: SkillSource, result: DiscoveryResult) -> bool:

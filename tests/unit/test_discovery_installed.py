@@ -688,3 +688,31 @@ def test_extra_path_inside_a_hidden_folder_is_scanned(tmp_path: Path):
     result = discover_installed(home=home, project_dir=None, extra_paths=[bundle])
 
     assert _names(result, "custom") == {"vendored"}
+
+
+def test_unreadable_group_folder_is_noted_once_on_every_python(tmp_path: Path, monkeypatch):
+    # Python 3.14 returns False from Path.is_file() on a permission error where older
+    # versions raise. Force that behaviour so the count is checked on every version.
+    home = tmp_path / "home"
+    (home / ".codex" / "skills" / "locked").mkdir(parents=True)
+    real_iterdir = Path.iterdir
+    real_is_file = Path.is_file
+
+    def fake_iterdir(self: Path):
+        if self.name == "locked":
+            raise PermissionError(13, "Permission denied")
+        return real_iterdir(self)
+
+    def quiet_is_file(self: Path, *args, **kwargs):
+        try:
+            return real_is_file(self, *args, **kwargs)
+        except PermissionError:
+            return False
+
+    monkeypatch.setattr(Path, "iterdir", fake_iterdir)
+    monkeypatch.setattr(Path, "is_file", quiet_is_file)
+
+    result = discover_installed(home=home, project_dir=None)
+
+    assert result.set_aside == 1
+    assert len([note for note in result.skipped if "locked" in note]) == 1
