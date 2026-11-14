@@ -295,7 +295,7 @@ agents = []                                            # empty means all agents
 include_experimental = false
 ```
 
-Each extra path is either one skill folder or a folder of skills. The `skillsentry.toml` file is read from the current directory, or from the file named by `SKILLSENTRY_CONFIG`. Run the command from a folder that has the file, or set that variable, for the `[discovery]` settings to apply. `SKILLSENTRY_EXTRA_SKILL_PATHS` replaces `extra_paths` and separates entries with the path separator (`:` on Linux and macOS).
+On Windows, write the path as a single-quoted TOML string, which keeps backslashes as they are, for example `extra_paths = ['~\work\skills']`. A double-quoted string treats the backslash as an escape and fails to load; forward slashes (`"~/work/skills"`) also work. Each extra path is either one skill folder or a folder of skills. The `skillsentry.toml` file is read from the current directory, or from the file named by `SKILLSENTRY_CONFIG`. Run the command from a folder that has the file, or set that variable, for the `[discovery]` settings to apply. `SKILLSENTRY_EXTRA_SKILL_PATHS` replaces `extra_paths` and separates entries with the path separator (`:` on Linux and macOS).
 
 ---
 
