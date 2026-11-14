@@ -16,6 +16,7 @@ from typing import Any
 
 import click
 import pytest
+import typer
 from skill_sentry_cli import cli
 from typer.testing import CliRunner
 
@@ -456,7 +457,9 @@ def test_three_bad_answers_mean_no(fake_home: Path, tmp_path: Path, tty: None) -
     assert _report_dirs(fake_home) == []
 
 
-@pytest.mark.parametrize("error", [EOFError, KeyboardInterrupt, click.exceptions.Abort])
+@pytest.mark.parametrize(
+    "error", [EOFError, KeyboardInterrupt, click.exceptions.Abort, typer.Abort]
+)
 def test_interrupted_prompt_means_no(
     fake_home: Path, tmp_path: Path, tty: None, monkeypatch: pytest.MonkeyPatch, error: type
 ) -> None:
@@ -544,7 +547,7 @@ def test_path_only_flags_are_usage_errors_without_a_path(flags, tmp_path, monkey
     monkeypatch.setenv("SKILLSENTRY_DB", str(tmp_path / "db.sqlite"))
     result = CliRunner().invoke(cli.app, ["scan", *flags])
     assert result.exit_code == 2
-    assert "need a skill path" in result.output
+    assert "apply only when scanning a skill path" in result.output
 
 
 def test_report_folders_never_collide_within_one_timestamp(

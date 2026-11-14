@@ -265,7 +265,7 @@ def scan(
         ]
         if unsupported:
             typer.echo(
-                f"error: {', '.join(unsupported)} need a skill path. "
+                f"error: {', '.join(unsupported)} apply only when scanning a skill path. "
                 "With no path use --save-report to keep a report.",
                 err=True,
             )
@@ -1368,7 +1368,7 @@ def _offer_report() -> str:
                 default="n",
                 show_default=False,
             )
-        except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
+        except (typer.Abort, click.exceptions.Abort, EOFError, KeyboardInterrupt):
             return "none"
         choice = _REPORT_ANSWERS.get(str(answer).strip().lower())
         if choice is not None:
