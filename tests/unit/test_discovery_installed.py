@@ -305,13 +305,15 @@ def test_discovery_settings_defaults_and_validation():
 
 def test_discovery_section_loads_from_file_and_rejects_bad_keys(tmp_path: Path):
     file = tmp_path / "skillsentry.toml"
+    # TOML literal (single-quoted) strings keep Windows backslashes intact.
+    extra = str(tmp_path / "opt-skills")
     file.write_text(
-        '[discovery]\nextra_paths = ["/opt/skills"]\nagents = ["claude"]\n'
+        f"[discovery]\nextra_paths = ['{extra}']\nagents = [\"claude\"]\n"
         "include_experimental = true\n",
         encoding="utf-8",
     )
     config = load_config(file)
-    assert config.discovery.extra_paths == ["/opt/skills"]
+    assert config.discovery.extra_paths == [extra]
     assert config.discovery.agents == ["claude"]
     assert config.discovery.include_experimental is True
 
@@ -333,7 +335,7 @@ def test_extra_skill_paths_env_override(tmp_path: Path, monkeypatch):
 def test_env_override_beats_file(tmp_path: Path, monkeypatch):
     from_env = str(tmp_path / "env")
     file = tmp_path / "skillsentry.toml"
-    file.write_text(f'[discovery]\nextra_paths = ["{tmp_path / "file"}"]\n', encoding="utf-8")
+    file.write_text(f"[discovery]\nextra_paths = ['{tmp_path / 'file'}']\n", encoding="utf-8")
     monkeypatch.setenv("SKILLSENTRY_EXTRA_SKILL_PATHS", from_env)
 
     assert load_config(file).discovery.extra_paths == [from_env]

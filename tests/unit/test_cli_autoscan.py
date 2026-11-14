@@ -174,7 +174,7 @@ def test_no_path_zero_skills_exits_3_with_guidance(fake_home: Path, tmp_path: Pa
 
     assert result.exit_code == int(cli.ExitCode.OPERATIONAL)
     assert "No installed skills found. Looked in:" in result.output
-    assert "~/.claude/skills" in result.output
+    assert "~" + os.sep + ".claude" + os.sep + "skills" in result.output
     assert "--project" in result.output
     assert "extra_paths" in result.output
     assert "Traceback" not in result.output
