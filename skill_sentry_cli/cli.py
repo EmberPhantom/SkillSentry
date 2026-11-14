@@ -17,7 +17,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
+from urllib.parse import quote
 from uuid import UUID
 
 import click
@@ -95,6 +96,8 @@ _AGENT_LABELS = {
     "custom": "Custom path",
 }
 _SCAN_TIP = "Tip: run `skill-sentry-cli scan` with no path to check everything installed."
+# Discovery note for an extra_paths entry (or a configured location) that is not a folder.
+_MISSING_EXTRA_PATH = "custom path not found"
 
 
 def _version_callback(value: bool) -> None:
@@ -364,7 +367,8 @@ def scan(
     if not outcomes:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
 
-    if output_format == "text" and not quiet:
+    # The tip is for a person at a terminal. Piped or redirected runs get no extra line.
+    if output_format == "text" and not quiet and _stream_is_tty(sys.stderr):
         typer.echo(_SCAN_TIP, err=True)
     footer = None
     if output is None and report_dir is None:
@@ -547,18 +551,40 @@ def _folder_summary(outcomes: list[ScanOutcome], skipped: int) -> str:
     return f"{line}, {skipped} failed" if skipped else line
 
 
-def _folder_summary_table(outcomes: list[ScanOutcome], skipped: int) -> str:
-    rows = [
-        f"| {outcome.verdict.skill} | {_outcome_status(outcome)} | {outcome.verdict.risk_score} |"
-        for outcome in outcomes
-    ]
+def _md_cell(value: object) -> str:
+    return str(value).replace("|", "\\|")
+
+
+def _folder_summary_table(
+    outcomes: list[ScanOutcome],
+    skipped: int,
+    installs: Sequence[InstalledSkill] | None = None,
+) -> str:
+    if installs is None:
+        rows = [
+            f"| {outcome.verdict.skill} | {_outcome_status(outcome)} | {outcome.verdict.risk_score} |"
+            for outcome in outcomes
+        ]
+        header = ["| Skill | Verdict | Risk |", "|:---|:---|---:|"]
+    else:
+        # The no-path flow adds where each skill was found. Pipes in a path are escaped
+        # so they cannot split the row.
+        rows = [
+            f"| {outcome.verdict.skill} | {_outcome_status(outcome)} | "
+            f"{outcome.verdict.risk_score} | {_AGENT_LABELS.get(install.agent, install.agent)} | "
+            f"{install.scope} | {_md_cell(install.declared_path)} |"
+            for outcome, install in zip(outcomes, installs, strict=True)
+        ]
+        header = [
+            "| Skill | Verdict | Risk | Agent | Scope | Path |",
+            "|:---|:---|---:|:---|:---|:---|",
+        ]
     lines = [
         "# SkillSentry folder summary",
         "",
         _folder_summary(outcomes, skipped),
         "",
-        "| Skill | Verdict | Risk |",
-        "|:---|:---|---:|",
+        *header,
         *rows,
     ]
     return "\n".join(lines)
@@ -585,22 +611,26 @@ def _emit_outcomes(
     sarif_out: Path | None,
     skipped: int = 0,
     footer: str | None = None,
-    installed_at: Sequence[str | None] | None = None,
+    installs: Sequence[InstalledSkill] | None = None,
+    notes: Sequence[str] = (),
 ) -> None:
+    """Render the run. ``installs`` (one per outcome, no-path flow only) adds where each
+    skill was found; ``notes`` are the discovery notes for that run."""
     if sarif_out is not None:
         _write_file(sarif_out, _combined_sarif(outcomes))
         if not quiet and output_format == "text":
             typer.echo(f"wrote {sarif_out}")
 
     if output_format == "json":
-        payload: object = outcomes[0].verdict.model_dump(by_alias=True, mode="json")
-        if len(outcomes) > 1:
-            payload = [
-                outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes
-            ]
+        entries = [outcome.verdict.model_dump(by_alias=True, mode="json") for outcome in outcomes]
+        if installs is not None:
+            for entry, install in zip(entries, installs, strict=True):
+                entry["install"] = _install_payload(install)
+                entry["notes"] = list(notes)
+        payload: object = entries[0] if len(entries) == 1 else entries
         rendered = json.dumps(payload, indent=2, ensure_ascii=False)
     elif output_format == "sarif":
-        rendered = _combined_sarif(outcomes)
+        rendered = _combined_sarif(outcomes, installs)
     elif output_format == "markdown":
         reports = [
             render_report(
@@ -612,14 +642,14 @@ def _emit_outcomes(
             for outcome in outcomes
         ]
         if len(outcomes) > 1:
-            reports.insert(0, _folder_summary_table(outcomes, skipped))
+            reports.insert(0, _folder_summary_table(outcomes, skipped, installs))
         rendered = "\n\n---\n\n".join(reports)
     else:
         # One banner for the whole run, not one per skill.
         lines = []
         for index, outcome in enumerate(outcomes):
             line = _verdict_text(outcome, quiet=True, backend=backend)
-            location = installed_at[index] if installed_at is not None else None
+            location = _installed_location(installs[index]) if installs is not None else None
             if location and not quiet:
                 line += f"\n   installed at {location}"
             lines.append(line)
@@ -662,6 +692,7 @@ def _write_report_dir(
     *,
     skipped: int,
     backend: str | None = None,
+    installs: Sequence[InstalledSkill] | None = None,
 ) -> None:
     for outcome in outcomes:
         name = f"{outcome.verdict.skill}-{outcome.scan_id}.md"
@@ -673,7 +704,7 @@ def _write_report_dir(
         ).content.decode("utf-8")
         _write_file(directory / name, rendered)
     if len(outcomes) > 1:
-        _write_file(directory / "summary.md", _folder_summary_table(outcomes, skipped))
+        _write_file(directory / "summary.md", _folder_summary_table(outcomes, skipped, installs))
 
 
 def _scan_error_hint(exc: ScanError) -> str:
@@ -684,15 +715,56 @@ def _scan_error_hint(exc: ScanError) -> str:
     return hints.get(exc.code, "run `skill-sentry-cli doctor` to check the setup.")
 
 
-def _combined_sarif(outcomes: list[ScanOutcome]) -> str:
-    if len(outcomes) == 1:
+def _install_payload(skill: InstalledSkill) -> dict[str, object]:
+    """Where an installed skill was found. Paths are full, never shortened with ``~``."""
+    return {
+        "agent": skill.agent,
+        "scope": skill.scope,
+        "declared_path": str(skill.declared_path),
+        "real_path": str(skill.real_path),
+        "is_symlink": skill.is_symlink,
+        "aliases": [str(alias) for alias in skill.aliases],
+    }
+
+
+def _installed_location(skill: InstalledSkill) -> str | None:
+    """The declared path shown as ``~``, when it differs from the real path (a symlink)."""
+    return _tilde(skill.declared_path) if skill.declared_path != skill.real_path else None
+
+
+def _tag_sarif_run(run: dict[str, Any], install: InstalledSkill) -> None:
+    """Add where a skill was found to one SARIF run and its results.
+
+    Each result's artifact location becomes the real path of the file it points at.
+    """
+    declared = str(install.declared_path)
+    real = install.real_path.as_posix()
+    context = {"declaredPath": declared, "agent": install.agent, "scope": install.scope}
+    run.setdefault("properties", {}).update(context)
+    for result in run.get("results", []):
+        result.setdefault("properties", {}).update(context)
+        for location in result.get("locations", []):
+            artifact = location["physicalLocation"]["artifactLocation"]
+            # The stored uri is relative to the skill folder; join it onto the real path.
+            artifact["uri"] = f"{quote(real, safe='/-._~')}/{artifact['uri']}"
+
+
+def _combined_sarif(
+    outcomes: list[ScanOutcome], installs: Sequence[InstalledSkill] | None = None
+) -> str:
+    """One SARIF document for the run. ``installs`` (no-path flow) tags each run with where
+    its skill was found; without it the output is unchanged."""
+    if len(outcomes) == 1 and installs is None:
         return render_report(outcomes[0].verdict, ExportFormat.SARIF).content.decode("utf-8")
     runs = []
-    for outcome in outcomes:
+    for index, outcome in enumerate(outcomes):
         payload = json.loads(
             render_report(outcome.verdict, ExportFormat.SARIF).content.decode("utf-8")
         )
-        runs.extend(payload.get("runs", []))
+        for run in payload.get("runs", []):
+            if installs is not None:
+                _tag_sarif_run(run, installs[index])
+            runs.append(run)
     return json.dumps(
         {
             "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
@@ -1187,14 +1259,24 @@ def _scan_roots(
     options: ScanOptions,
     output_format: str,
     quiet: bool,
+    always_progress: bool = False,
 ) -> tuple[list[ScanOutcome], list[int], bool]:
     """Scan each root in turn. Returns the outcomes, the index of each root that scanned,
-    and whether any root failed. A failed root is reported and skipped, not fatal."""
+    and whether any root failed. A failed root is reported and skipped, not fatal.
+
+    Progress goes to stderr. By default it shows only for a text run on a terminal.
+    ``always_progress`` (the no-path flow) shows it for every format, terminal or not.
+    """
 
     outcomes: list[ScanOutcome] = []
     indexes: list[int] = []
     failed = False
-    show_progress = len(roots) > 1 and output_format == "text" and not quiet and sys.stderr.isatty()
+    if always_progress:
+        show_progress = len(roots) > 1 and not quiet
+    else:
+        show_progress = (
+            len(roots) > 1 and output_format == "text" and not quiet and sys.stderr.isatty()
+        )
     for index, root in enumerate(roots):
         if show_progress:
             typer.echo(f"[{index + 1}/{len(roots)}] {root.name} ...", err=True)
@@ -1234,6 +1316,7 @@ def _save_reports_now(
     skipped: int,
     backend: str | None,
     announce: bool,
+    installs: Sequence[InstalledSkill] | None = None,
 ) -> Path:
     """Write the run's reports into a new private folder under the reports directory.
 
@@ -1241,11 +1324,11 @@ def _save_reports_now(
     """
     directory = _new_report_folder()
     if fmt == "markdown":
-        _write_report_dir(directory, outcomes, skipped=skipped, backend=backend)
+        _write_report_dir(directory, outcomes, skipped=skipped, backend=backend, installs=installs)
         written = directory
     else:
         written = directory / "skills.sarif"
-        _write_file(written, _combined_sarif(outcomes))
+        _write_file(written, _combined_sarif(outcomes, installs))
     if announce:
         typer.echo(f"Saved report to {written}")
     return written
@@ -1351,12 +1434,19 @@ def _scan_installed(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.USAGE)) from exc
 
+    # A --project that is not a folder is an explicit location the user named and it is
+    # missing: an operational error, whether or not other skills were found.
+    if project is not None and not _is_dir(project.expanduser()):
+        typer.echo(f"error: --project is not a folder: {project}", err=True)
+        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+
     result = _discover_with_options(
         config,
         project=project,
         agents=agents,
         include_experimental=include_experimental,
     )
+    text = output_format == "text"
     if not result.skills:
         typer.echo("No installed skills found. Looked in:", err=True)
         for location in result.checked:
@@ -1367,9 +1457,20 @@ def _scan_installed(
             "`skill-sentry-cli scan <path>`.",
             err=True,
         )
-        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+        if not quiet:
+            for note in result.skipped:
+                typer.echo(f"note: {_tilde_text(note)}", err=True)
+        # An extra_paths entry the user configured that does not exist is an error. An
+        # empty result with nothing named is not: it exits 0, like discover.
+        if any(_MISSING_EXTRA_PATH in note for note in result.skipped):
+            raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+        # Machine-readable formats still get a valid, empty document on stdout.
+        if output_format == "json":
+            typer.echo("[]")
+        elif output_format == "sarif":
+            typer.echo(_combined_sarif([]))
+        raise typer.Exit(code=int(ExitCode.OK))
 
-    text = output_format == "text"
     if text and not quiet:
         typer.echo(_found_line(result))
     if not quiet:
@@ -1377,10 +1478,6 @@ def _scan_installed(
             typer.echo(f"note: {_tilde_text(note)}", err=True)
 
     roots = [skill.real_path for skill in result.skills]
-    installed_at = [
-        _tilde(skill.declared_path) if skill.declared_path != skill.real_path else None
-        for skill in result.skills
-    ]
     engine = _make_engine(config, backend)
     options = ScanOptions(
         no_cache=no_cache,
@@ -1389,15 +1486,28 @@ def _scan_installed(
         timeout_s=timeout_s,
     )
     outcomes, indexes, failed = _scan_roots(
-        engine, roots, options=options, output_format=output_format, quiet=quiet
+        engine,
+        roots,
+        options=options,
+        output_format=output_format,
+        quiet=quiet,
+        always_progress=True,
     )
     ran_backend = _ran_backend(engine) if outcomes else backend
     engine.close()
 
+    skipped = len(roots) - len(outcomes)
+    if not quiet:
+        # "skipped" is what discovery set aside (broken links, folders without SKILL.md,
+        # unreadable entries); the notes above say why.
+        typer.echo(
+            f"Scanned {len(outcomes)}, failed {skipped}, skipped {len(result.skipped)}.",
+            err=True,
+        )
     if not outcomes:
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
 
-    skipped = len(roots) - len(outcomes)
+    installs = [result.skills[index] for index in indexes]
     footer = _report_footer(Path("."), outcomes) if len(outcomes) == 1 else None
     _emit_outcomes(
         outcomes,
@@ -1408,7 +1518,8 @@ def _scan_installed(
         sarif_out=None,
         skipped=skipped,
         footer=footer,
-        installed_at=[installed_at[index] for index in indexes],
+        installs=installs,
+        notes=result.skipped,
     )
 
     chosen = save_report
@@ -1424,6 +1535,7 @@ def _scan_installed(
             skipped=skipped,
             backend=ran_backend,
             announce=text and not quiet,
+            installs=installs,
         )
 
     if failed:
@@ -1514,18 +1626,7 @@ def _print_discovery_text(result: DiscoveryResult) -> None:
 
 def _discovery_payload(result: DiscoveryResult) -> dict[str, object]:
     return {
-        "skills": [
-            {
-                "name": skill.name,
-                "agent": skill.agent,
-                "scope": skill.scope,
-                "declared_path": str(skill.declared_path),
-                "real_path": str(skill.real_path),
-                "is_symlink": skill.is_symlink,
-                "aliases": [str(alias) for alias in skill.aliases],
-            }
-            for skill in result.skills
-        ],
+        "skills": [{"name": skill.name, **_install_payload(skill)} for skill in result.skills],
         "checked": [str(location) for location in result.checked],
         "notes": list(result.skipped),
         "duplicates_merged": result.duplicates_merged,
