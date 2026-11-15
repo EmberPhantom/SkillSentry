@@ -17,7 +17,17 @@ from typer.testing import CliRunner
 
 runner = CliRunner()
 
-TOP_LEVEL_COMMANDS = ["serve", "init", "scan", "self-audit", "export", "doctor", "cache", "sandbox"]
+TOP_LEVEL_COMMANDS = [
+    "serve",
+    "init",
+    "scan",
+    "discover",
+    "self-audit",
+    "export",
+    "doctor",
+    "cache",
+    "sandbox",
+]
 
 SUBCOMMANDS = {
     "cache": ["stats", "list", "clear"],
@@ -35,6 +45,11 @@ SCAN_FLAGS = [
     "--output",
     "--sarif-out",
     "--demo-mode",
+    "--project",
+    "--agent",
+    "--include-experimental",
+    "--save-report",
+    "--no-prompt",
 ]
 
 SERVE_FLAGS = ["--host", "--port", "--demo-mode", "--speed"]

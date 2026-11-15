@@ -28,9 +28,12 @@ Your skills stay on your machine. The cloud model backend is opt-in and off by d
 pipx install skill-sentry-cli     # or: sh install.sh from the latest release
 skill-sentry-cli setup            # guided; asks before each download or build
 skill-sentry-cli doctor           # what is ready, and what is missing
+skill-sentry-cli scan             # every skill installed for Claude Code, Codex and shared agent folders
 skill-sentry-cli scan path/to/skill
 skill-sentry-cli serve            # dashboard at http://127.0.0.1:8000
 ```
+
+With no path, `scan` checks every installed skill it can find. Pass a path to check one skill or folder.
 
 No Docker or model? Try the offline demo:
 

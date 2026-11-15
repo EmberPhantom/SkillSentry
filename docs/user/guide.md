@@ -10,7 +10,7 @@
 
 SkillSentry reads an agent skill (a folder with a `SKILL.md` file and any scripts it ships), checks it statically, runs its entrypoint inside a locked-down Docker sandbox, asks a local language model to judge whether the text matches what the code does, and returns one verdict: `SAFE`, `SUSPICIOUS`, or `MALICIOUS`, with the evidence it found.
 
-**What stays on your machine:** the skill, the scan, the model, and the reports. Nothing is uploaded unless you turn on the optional cloud backend (section 14).
+**What stays on your machine:** the skill, the scan, the model, and the reports. Nothing is uploaded unless you turn on the optional cloud backend (section 15).
 
 ---
 
@@ -140,7 +140,7 @@ skill-sentry-cli doctor
 
 If the last line says `FAIL model: … is not pulled; run: ollama pull …`, run the command it prints. Pulling a model downloads several gigabytes; do this once.
 
-If you want a different model, set `ollama_model` in the `[model]` section of `skillsentry.toml` to the name you pulled (section 13).
+If you want a different model, set `ollama_model` in the `[model]` section of `skillsentry.toml` to the name you pulled (section 14).
 
 ---
 
@@ -162,7 +162,7 @@ Each line is one check:
 | Line | Meaning | What to do |
 |:---|:---|:---|
 | `PASS model: … is pulled` | The local model is ready | Nothing |
-| `FAIL model: cannot reach the model server at …` | Ollama is not running, or the address is wrong | Start Ollama, or fix `ollama_url` (section 13) |
+| `FAIL model: cannot reach the model server at …` | Ollama is not running, or the address is wrong | Start Ollama, or fix `ollama_url` (section 14) |
 | `FAIL model: … is not pulled; run: ollama pull …` | The configured model is missing | Run the command it prints |
 | `PASS dashboard: built` | The dashboard is built | Nothing; otherwise run the dashboard build (section 3) |
 | `PASS database: writable at …` | Scan history can be saved | Nothing |
@@ -214,7 +214,7 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 | Line | Meaning |
 |:---|:---|
 | `[OK]` / `[!]` / `[X]` | `SAFE`, `SUSPICIOUS`, `MALICIOUS` |
-| `[?] … UNSCANNED` | The verdict is shown, but the scan did not finish every check. See section 14 |
+| `[?] … UNSCANNED` | The verdict is shown, but the scan did not finish every check. See section 15 |
 | `risk N` | 0 to 100; higher is worse |
 | `confidence X` | How much of the pipeline contributed to the verdict |
 | `(cached)` | The same skill, unchanged, was scanned before |
@@ -229,11 +229,81 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 | `UNSCANNED` | The scan is incomplete (model, sandbox, or a file was not read) | Fix the reason shown, then scan again; do not install meanwhile |
 | `INVALID SKILL` | The SKILL.md is malformed (for example a missing `name:`). No behaviour was judged; the verdict is about the package format | Fix the frontmatter named in the line, then scan again. It still fails the CI gate |
 
-Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. See section 11.
+Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. See section 12.
 
 ---
 
-## 8. Scan your own skills
+## 8. Scan everything installed
+
+With no path, `scan` finds the skills that agents on this machine have installed, and scans each one:
+
+```bash
+skill-sentry-cli scan
+```
+
+To see the list without scanning anything, run `skill-sentry-cli discover`. It prints a table, or JSON with `--format json`.
+
+**What it searches.** The verified locations are on by default:
+
+| Where | Notes |
+|:---|:---|
+| `~/.claude/skills` | Claude Code user skills. Skills synced to your account are stored in group folders here, such as `~/.claude/skills/synced/<id>/<skill>`, and are found. |
+| Enabled Claude Code plugins | The `skills` folder of each plugin that is enabled in `~/.claude/settings.json`, or in the project's `.claude/settings.json` or `.claude/settings.local.json`. The most specific file that mentions a plugin decides. A plugin that is only present in a marketplace checkout is not searched. |
+| `~/.codex/skills` | Codex skills. |
+| `~/.agents/skills` | Shared agent skills. |
+| `.claude/skills` and `.agents/skills` in the project folder | Project skills. The project folder is the current directory, or the folder named by `--project`. |
+| `[discovery] extra_paths` and `SKILLSENTRY_EXTRA_SKILL_PATHS` | Your own folders. See **Custom locations** below. |
+
+The experimental locations are searched only with `--include-experimental`, or with `include_experimental = true` in `[discovery]`. They have not yet been checked against each tool's documentation:
+
+- Cursor: `~/.cursor/skills`
+- OpenCode: `~/.config/opencode/skills` and `~/.config/opencode/skill`
+- Copilot: `.github/skills` in the project folder
+- One more agent, whose folders are under its home directory. Its name is listed with the other `--agent` names in the [CLI reference](../reference/cli.md).
+
+**How the search works.**
+
+- Symlinks are followed. A skill that is installed as a link is scanned in the folder the link points to. The text output shows `installed at <link>` under its verdict.
+- A folder reached by more than one path is scanned once. When the project folder is your home folder, your user skills stay user skills.
+- A folder without a `SKILL.md` is searched for skills up to two levels down, so `<group>/<group>/<skill>` is found.
+- Hidden (dot) folders inside the built-in locations are skipped. Codex's bundled `.system` skills are not listed, because you did not install them. A folder you name with `--project` or `extra_paths` is scanned even when its name starts with a dot.
+- At most 500 skills are scanned. A note says when the search stopped at that limit, and how many more skills were not scanned.
+- Anything skipped (a broken link, a folder without `SKILL.md`, an unreadable folder) is printed as a `note:` line on standard error.
+- With several skills, the command prints `[i/n] name ...` progress on standard error and ends with `Scanned X, failed Y, skipped Z.`. These lines appear even when the output is piped. `--quiet` hides them.
+
+**Machine-readable output.** `--format json` gives each verdict an `install` object (the agent, scope, declared path, real path, whether it is a symbolic link, and any aliases, all as full paths) one `notes` list and a `summary` of how many skills were scanned, failed and set aside, in one envelope (`skills`, `notes`, `summary`) that has the same shape for one skill, several or none. SARIF records the declared path, agent and scope on each run and result, and points each result at the real folder. With no skills found, `--format json` prints the envelope with an empty `skills` array.
+
+**Scope.** Use `--agent` to scan only some agents. The names are listed in the [CLI reference](../reference/cli.md); `custom` selects only your own folders. Use `--project DIR` to check another project. A `--project` folder that does not exist is a usage error (exit `2`), as it is for `discover`. Without `--project`, the project is the folder you run the command from.
+
+**Time.** Each skill gets a full scan, with the sandbox and the local model, so scanning many skills can be slow. Verdicts for unchanged skills are reused from the cache unless you pass `--no-cache`. The cost can be changed in two ways:
+
+- `--no-sandbox` skips Docker and the sandbox run. The verdicts are weaker; see the table in section 9.
+- `--backend local|cloud` chooses the model. `cloud` sends code excerpts to a hosted model service and needs the API key set in the environment (see the [CLI reference](../reference/cli.md)). The default, `auto`, tries the local model first, and uses the hosted model only when its key is set and the local model cannot be reached.
+
+**Saving a report.** In a text run on an interactive terminal, the command asks after the verdicts:
+
+```text
+Save a report? [m]arkdown / [s]arif / [n]o (default n)
+```
+
+Answer `m` for Markdown or `s` for SARIF. Enter, `n`, or Ctrl+C means no. To decide in advance, pass `--save-report markdown`, `--save-report sarif`, or `--save-report none`. Pass `--no-prompt` to skip the question. Reports are saved in a new private folder, `~/.skillsentry/reports/scan-<timestamp>/`, where the timestamp holds the UTC date, time and microseconds. A numeric suffix is added if that name is taken, and an existing folder is never reused. Markdown writes one file per skill and a `summary.md`. SARIF writes `skills.sarif`.
+
+**CI.** The question is never asked when standard input or output is not a terminal, so a CI job does not hang. Use `--save-report` to keep files, or `--format sarif > results.sarif` to send SARIF to a file. The exit codes are the same as for a path scan, with two differences. Finding no skills exits `0`, with a message on standard error. A configured `extra_paths` folder that does not exist exits `3` when no other skill is found. A `--project` folder that does not exist exits `2`. See section 12.
+
+**Custom locations.** To scan a project outside the current directory, use `--project DIR`. To add folders, set them in `skillsentry.toml`:
+
+```toml
+[discovery]
+extra_paths = ["/srv/team-skills", "~/work/skills"]   # absolute after ~ expansion
+agents = []                                            # empty means all agents
+include_experimental = false
+```
+
+On Windows, write the path as a single-quoted TOML string, which keeps backslashes as they are, for example `extra_paths = ['~\work\skills']`. A double-quoted string treats the backslash as an escape and fails to load; forward slashes (`"~/work/skills"`) also work. Each extra path is either one skill folder or a folder of skills. A missing extra folder is listed as a note; if no skill is found at all, `scan` exits `3`. The `skillsentry.toml` file is read from the current directory, or from the file named by `SKILLSENTRY_CONFIG`. Run the command from a folder that has the file, or set that variable, for the `[discovery]` settings to apply. `SKILLSENTRY_EXTRA_SKILL_PATHS` replaces `extra_paths` and separates entries with the path separator (`:` on Linux and macOS).
+
+---
+
+## 9. Scan your own skills
 
 **One skill:**
 
@@ -271,7 +341,7 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 |:---|:---|
 | `--fail-on suspicious` (default) | Exit `1` for `SUSPICIOUS` and `MALICIOUS` |
 | `--fail-on safe` | Exit `1` for any verdict other than `SAFE` |
-| `--fail-on malicious` | Exit `1` only for `MALICIOUS` (not recommended in CI; see section 11) |
+| `--fail-on malicious` | Exit `1` only for `MALICIOUS` (not recommended in CI; see section 12) |
 | `--no-cache` | Ignore saved results and scan again |
 | `--timeout 120` | Sandbox time limit in seconds (5 to 600; default 60) |
 | `--no-sandbox` | Static analysis and the model only; the entrypoint is never run. Verdicts are weaker. |
@@ -281,7 +351,7 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 
 ---
 
-## 9. Reports and stored scans
+## 10. Reports and stored scans
 
 **Where the report is.** Every text scan ends with the command that writes its report. A plain `scan` prints the verdict in the terminal and stores the scan; it does not write a file. To write files in one run:
 
@@ -320,7 +390,7 @@ skill-sentry-cli cache clear --older-than 7d # remove old saved results
 
 ---
 
-## 10. The dashboard
+## 11. The dashboard
 
 ```bash
 skill-sentry-cli serve
@@ -340,7 +410,7 @@ If the port is taken, you see `address already in use`. Pick another port.
 
 ---
 
-## 11. Use SkillSentry in CI
+## 12. Use SkillSentry in CI
 
 A CI runner needs Docker and a local model server to produce full verdicts. Hosted runners usually have neither, so a hosted run will report `UNSCANNED` unless you provide a model server. Plan for that before you rely on the gate.
 
@@ -381,7 +451,7 @@ jobs:
 
 ---
 
-## 12. The offline demo
+## 13. The offline demo
 
 To see the output without Docker or a model:
 
@@ -393,7 +463,7 @@ skill-sentry-cli scan cloud-sync-pro --demo-mode
 
 ---
 
-## 13. Configuration
+## 14. Configuration
 
 ```bash
 skill-sentry-cli init            # writes skillsentry.toml in the current folder
@@ -426,7 +496,7 @@ Useful environment variables:
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 Each message below was produced on purpose and quoted exactly. The first line of a scan's reason names the first stage that did not finish; the report lists every stage.
 
@@ -460,7 +530,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 
 ---
 
-## 15. Safety notes
+## 16. Safety notes
 
 - The malicious sample is test material. It only runs inside the sandbox through `skill-sentry-cli scan`. Do not copy its scripts out and run them.
 - The sandbox has no route to the internet. A skill that tries to reach an outside host fails inside the sandbox and is reported as a finding.
@@ -470,7 +540,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 
 ---
 
-## 16. Command cheat sheet
+## 17. Command cheat sheet
 
 ```bash
 skill-sentry-cli --version
@@ -480,6 +550,8 @@ skill-sentry-cli sandbox build
 skill-sentry-cli scan <skill-or-folder> [--format text|json|markdown|sarif] [--output FILE] [--sarif-out FILE]
 skill-sentry-cli scan <skill-or-folder> [--fail-on safe|suspicious|malicious] [--no-cache] [--timeout N] [--no-sandbox] [-q]
 skill-sentry-cli scan <skill-name> --demo-mode
+skill-sentry-cli scan [--project DIR] [--agent NAME]... [--include-experimental] [--save-report markdown|sarif|none] [--no-prompt]
+skill-sentry-cli discover [--project DIR] [--agent NAME]... [--include-experimental] [--format text|json]
 skill-sentry-cli self-audit
 skill-sentry-cli cache list [--limit N]
 skill-sentry-cli cache stats
