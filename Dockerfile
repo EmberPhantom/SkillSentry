@@ -1,7 +1,8 @@
 # SkillSentry server image.
 #
-# Stage 1 builds the dashboard into skill_sentry_cli/ui/dist.  Stage 2 installs the
-# Python package and runs the server as a non-root user.
+# Stage 1 builds the dashboard into skill_sentry_cli/ui/dist.  Stage 2 builds the wheel.
+# Stage 3 installs it with the hash-locked runtime dependencies and runs the server as a
+# non-root user.
 #
 # The sandbox needs a Docker engine.  Mounting /var/run/docker.sock gives this
 # container root-equivalent control of the host, so the socket is NOT mounted by
@@ -20,18 +21,34 @@ RUN mkdir -p skill_sentry_cli/ui \
  && npm ci --no-audit --no-fund \
  && npm run build
 
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS wheel
+# Stage 2 builds the wheel with the hash-locked build tools. The runtime stage installs
+# the finished wheel, so the final image holds no build backend (hatchling, setuptools).
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY pyproject.toml README.md LICENSE requirements-tools.txt ./
+COPY packaging ./packaging
+COPY skill_sentry_cli ./skill_sentry_cli
+COPY --from=ui /src/skill_sentry_cli/ui/dist ./skill_sentry_cli/ui/dist
+RUN pip install --require-hashes -r requirements-tools.txt \
+ && python -m build --no-isolation --wheel --outdir /wheel .
+
 FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /app
-COPY pyproject.toml README.md LICENSE requirements-runtime.txt ./
-COPY packaging ./packaging
-COPY skill_sentry_cli ./skill_sentry_cli
-COPY --from=ui /src/skill_sentry_cli/ui/dist ./skill_sentry_cli/ui/dist
-# Dependencies come from the hash-locked file; the project itself is installed without resolving.
+COPY requirements-runtime.txt ./
+COPY --from=wheel /wheel /wheel
+# Dependencies come from the hash-locked file. The project wheel was built in the previous
+# stage, so its hash is written into a requirements line and installed with --require-hashes
+# and --no-deps: pip checks the file it installs and resolves nothing.
 RUN pip install --require-hashes -r requirements-runtime.txt \
- && pip install --no-deps --no-build-isolation . \
+ && cd /wheel \
+ && printf '%s --hash=sha256:%s\n' "/wheel/$(ls *.whl)" "$(sha256sum ./*.whl | cut -d' ' -f1)" > /tmp/project.txt \
+ && pip install --require-hashes --no-deps -r /tmp/project.txt \
+ && rm -rf /tmp/project.txt /wheel \
  && useradd --system --uid 10001 --home-dir /home/skillsentry skillsentry \
  && mkdir -p /home/skillsentry && chown skillsentry /home/skillsentry
 USER skillsentry

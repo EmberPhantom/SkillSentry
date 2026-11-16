@@ -27,13 +27,10 @@ skill-sentry-cli init                   # writes skillsentry.toml (not committed
 scripts/check.sh                        # lint, format, tests, schema drift, demo smoke
 ```
 
-To change a dependency, edit `pyproject.toml` or the `.in` input files, then regenerate the locks with uv on Python 3.11 so the hashes cover every platform:
+To change a dependency, edit `pyproject.toml` or the `.in` input files, then regenerate the locks. The script runs uv on Python 3.11 with `--universal`, so the hashes cover every platform:
 
 ```bash
-uv pip compile --universal --generate-hashes --python-version 3.11 --extra dev pyproject.toml requirements-bootstrap.in -o requirements-dev.txt
-uv pip compile --universal --generate-hashes --python-version 3.11 pyproject.toml requirements-bootstrap.in -o requirements-runtime.txt
-uv pip compile --universal --generate-hashes --python-version 3.11 requirements-tools.in requirements-bootstrap.in -o requirements-tools.txt
-uv pip compile --universal --generate-hashes --python-version 3.11 skill_sentry_cli/core/sandbox/assets/requirements-sandbox.in -o skill_sentry_cli/core/sandbox/assets/requirements-sandbox.txt
+scripts/lock.sh   # needs uv; rewrites every requirements-*.txt lock
 ```
 
 Commit the regenerated files with the change. Leave the project's own entry out of the locks; it is installed with `--no-deps`.

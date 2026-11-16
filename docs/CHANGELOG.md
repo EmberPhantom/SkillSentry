@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Security
+- Hash-pinned installs are complete. The server image builds the project wheel in its own stage and installs it by hash with `--no-deps`, so the runtime image has no build backend (its lock now holds only the project's dependencies and `pip`), and the release SBOM tool installs from a hash-locked file (`requirements-sbom.txt`). `scripts/lock.sh` regenerates every lock. The decision for each OpenSSF Scorecard check is recorded in `docs/security/scorecard.md`, and `SECURITY.md` links the private reporting form.
+
 ### Changed
 - The Markdown report is easier to scan. A multi-skill run (and any no-path run, even for one skill or none) opens with a summary: a counts table of scanned, failed and skipped, the verdict totals, then a table of skills with the most serious verdict first (MALICIOUS, SUSPICIOUS, UNSCANNED, INVALID SKILL, SAFE), highest risk first within a verdict. Skills that failed to scan are named under a `Failed` heading, and discovery notes appear under `Notes`. The per-skill reports follow in the same order. A no-path scan with nothing to scan prints a summary that says so instead of nothing. For skills found by a no-path scan, each per-skill report also lists the agent, scope and install path. Findings, citations and verdicts are unchanged, and so are JSON, SARIF, exit codes and text output. The `summary.md` saved by `--save-report markdown` and `--report-dir` has the same layout.
 

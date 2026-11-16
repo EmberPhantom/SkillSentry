@@ -16,7 +16,7 @@ SkillSentry is a security tool that **executes untrusted code by design** (insid
 
 **Please report privately — do NOT open a public issue.**
 
-- **Channel:** GitHub Security Advisories → *"Report a vulnerability"* on this repository.
+- **Channel:** GitHub Security Advisories. Use the private form at <https://github.com/EmberPhantom/SkillSentry/security/advisories/new> (*"Report a vulnerability"*).
 - **Include:** reproduction steps, affected version/commit, impact, and (for sandbox issues) whether the escape requires special host configuration.
 - **SLA (target):** acknowledge ≤ 72 h · triage ≤ 7 days · coordinated disclosure with a **90-day default embargo** · reporters credited in release notes.
 

@@ -1,0 +1,3 @@
+# Only the installer is locked beyond the project dependencies. The server image installs
+# the project from a prebuilt wheel, so it needs no build backend (hatchling, setuptools).
+pip
