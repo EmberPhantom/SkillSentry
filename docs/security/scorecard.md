@@ -11,7 +11,7 @@ Every dependency install is hash-locked and uses `--require-hashes`:
 | CI tests and lint | `pip install --require-hashes -r requirements-dev.txt`, then the project with `--no-deps` | `requirements-dev.txt` |
 | CI and release build tools | `pip install --require-hashes -r requirements-tools.txt` | `requirements-tools.txt` |
 | Release SBOM tool | `pip install --require-hashes -r requirements-sbom.txt` | `requirements-sbom.txt` |
-| Server image (`Dockerfile`) | runtime dependencies from `requirements-runtime.txt`; the project wheel, built in an earlier stage, is installed by its hash with `--no-deps` | `requirements-runtime.txt` |
+| Server image (`Dockerfile`) | runtime dependencies from `requirements-runtime.txt` (the project's dependencies and `pip`, with no build backend); the project wheel, built in an earlier stage, is installed by its hash with `--no-deps` | `requirements-runtime.txt` |
 | Sandbox image (`Dockerfile.sandbox`) | `pip install --require-hashes -r requirements-sandbox.txt` | `skill_sentry_cli/core/sandbox/assets/requirements-sandbox.txt` |
 
 These installs are deliberately not hash-locked, because their job is to resolve the wheel the way a user does:
@@ -36,4 +36,14 @@ Regenerate every lock with `scripts/lock.sh` (needs `uv`). Dependabot's `pip` en
 
 ## Alerts expected to remain
 
-After this change, the open code-scanning alerts should be the Scorecard checks marked Accepted above (Code-Review, Maintained, Fuzzing, CII-Best-Practices). Security-Policy and the Dockerfile pinning alert should clear on the next Scorecard run. One CodeQL alert in a test file (`py/incomplete-url-substring-sanitization`) is separate from Scorecard and is not covered here.
+After this change, the open code-scanning alerts should be the Scorecard checks marked Accepted above (Code-Review, Maintained, Fuzzing, CII-Best-Practices). Security-Policy and the Dockerfile pinning alert should clear on the next Scorecard run.
+
+The unlocked installs listed under Pinned dependencies may or may not be flagged. Scorecard does not flag any of them today. When the Scorecard workflow reads these, it could report:
+
+- `install.sh` and `install.ps1` (`pip install --force-reinstall` of the released wheel), and the wheel check in `scripts/build_release.sh`.
+- The clean-environment wheel install in `ci.yml`.
+- The SBOM wheel environment in `release.yml`. It uses `$RUNNER_TEMP/.../bin/pip`, which Scorecard has not recognised as a pip command so far.
+
+We expect any such alert to stay open, because the unhashed resolve is the purpose of each install. They would need a decision with the maintainer before anything is dismissed. Nothing has been dismissed.
+
+One CodeQL alert in a test file (`py/incomplete-url-substring-sanitization`) is separate from Scorecard and is not covered here.

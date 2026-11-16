@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 compile() { uv pip compile --universal --generate-hashes --python-version 3.11 "$@"; }
 
 compile --extra dev pyproject.toml requirements-bootstrap.in -o requirements-dev.txt
-compile pyproject.toml requirements-bootstrap.in -o requirements-runtime.txt
+compile pyproject.toml requirements-runtime.in -o requirements-runtime.txt
 compile requirements-tools.in requirements-bootstrap.in -o requirements-tools.txt
 compile requirements-sbom.in requirements-bootstrap.in -o requirements-sbom.txt
 compile skill_sentry_cli/core/sandbox/assets/requirements-sandbox.in \
