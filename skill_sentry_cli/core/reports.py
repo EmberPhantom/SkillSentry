@@ -6,7 +6,7 @@ Files live under ``~/.skillsentry/reports/<scan_id>/`` (docs/03 §3.1).
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,19 +52,25 @@ def render_report(
     *,
     stage_results: Sequence[StageResult] | None = None,
     backend: str | None = None,
+    location: Mapping[str, str] | None = None,
 ) -> RenderedReport:
     """Render one report in memory.  Raises ``NoIOCsError`` for empty STIX.
 
     Pass ``stage_results`` to include the decision-layer summary.  Without them
     the report states that the decision layer was not recorded.  ``backend`` names
-    the analysis backend that ran; only the Markdown footer uses it.
+    the analysis backend that ran; only the Markdown footer uses it. ``location`` adds where
+    the skill was found to the Markdown header table.
     """
     decision = decision_summary(stage_results) if stage_results is not None else None
     if fmt is ExportFormat.SARIF:
         content = json.dumps(build_sarif(verdict, decision=decision), indent=2) + "\n"
     elif fmt is ExportFormat.MARKDOWN:
         content = build_markdown(
-            verdict, decision=decision, stage_results=stage_results, backend=backend
+            verdict,
+            decision=decision,
+            stage_results=stage_results,
+            backend=backend,
+            location=location,
         )
     elif fmt is ExportFormat.STIX:
         content = json.dumps(build_stix(verdict), indent=2) + "\n"

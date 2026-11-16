@@ -138,6 +138,8 @@ Each text result starts with one of these markers:
 | `2` | Usage error (see above). |
 | `3` | An `extra_paths` folder does not exist and no skill was found; or no skill could be scanned; or at least one skill could not be scanned. A scan failure takes precedence over exit `1`. |
 
+**Markdown report layout.** `--format markdown`, `--save-report markdown` and `--report-dir` share one layout. A run of more than one skill, and every no-path run, starts with a summary: a table of scanned, failed and skipped counts, the verdict totals, and a table of skills ordered with the most serious verdict first (MALICIOUS, SUSPICIOUS, UNSCANNED, INVALID SKILL, SAFE) and the highest risk first within a verdict. Skills that failed are listed under `Failed` and discovery notes under `Notes`. A no-path scan with nothing to scan still prints the summary, with a line saying that no skills were scanned. For a no-path scan the table adds Agent, Scope and Path columns, and each per-skill report adds Agent, Scope and Install path rows. Every finding, citation and verdict is kept. A single skill scanned by path prints only its own report.
+
 **Saving a report.** In a text run on an interactive terminal (standard input and output are both terminals), the command asks after the verdicts:
 
 ```text

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -17,7 +18,13 @@ from skill_sentry_cli.core.contracts import (
     format_utc,
     utc_now,
 )
-from skill_sentry_cli.core.verdict.status import degraded_reason, is_unscanned, shown_status
+from skill_sentry_cli.core.verdict.status import (
+    INVALID,
+    UNSCANNED,
+    degraded_reason,
+    is_unscanned,
+    shown_status,
+)
 from skill_sentry_cli.core.version import ENGINE_VERSION, badge_for_backend
 
 _SEVERITY_ORDER = [
@@ -164,6 +171,7 @@ def build_markdown(
     decision: dict[str, Any] | None = None,
     stage_results: Sequence[StageResult] | None = None,
     backend: str | None = None,
+    location: Mapping[str, str] | None = None,
 ) -> str:
     """Render a human triage report with line-accurate citations.
 
@@ -174,6 +182,9 @@ def build_markdown(
     ``backend`` is the analysis backend that ran (``ollama``, ``gemini-api``, ...). Omit
     it and the footer says the backend is not recorded; pass it and the footer names the
     privacy badge for that backend.
+
+    ``location`` is where the skill was found (``Agent``, ``Scope``, ``Install path``). It
+    adds those rows to the header table; omit it for a skill scanned by path.
     """
     generated = format_utc(generated_at or utc_now())
     lines: list[str] = [
@@ -190,8 +201,10 @@ def build_markdown(
         f"| Scan ID | {_code(str(verdict.scan_id))} |",
         f"| Engine | {_code(ENGINE_VERSION)} |",
         f"| Generated | {generated} |",
-        "",
     ]
+    for label, value in (location or {}).items():
+        lines.append(f"| {_cell(label)} | {_cell(value)} |")
+    lines.append("")
     lines += _decision_lines(decision)
     lines += ["## Findings", ""]
 
@@ -255,4 +268,81 @@ def build_markdown(
     return "\n".join(lines)
 
 
-__all__ = ["build_markdown"]
+# Most serious first. A scan that could not finish, and a broken package, rank above SAFE so
+# nothing that needs a look is buried under the clean skills.
+_STATUS_ORDER = ["MALICIOUS", "SUSPICIOUS", UNSCANNED, INVALID, "SAFE"]
+
+
+def status_rank(status: str) -> int:
+    """Sort key for a shown verdict status: lower is more serious."""
+    try:
+        return _STATUS_ORDER.index(status)
+    except ValueError:
+        return len(_STATUS_ORDER)
+
+
+@dataclass(frozen=True)
+class SummaryRow:
+    """One skill in the run summary. ``agent``, ``scope`` and ``path`` are set only for
+    skills found by the no-path scan."""
+
+    skill: str
+    status: str
+    risk: int
+    agent: str | None = None
+    scope: str | None = None
+    path: str | None = None
+
+
+def build_summary_markdown(
+    rows: Sequence[SummaryRow],
+    *,
+    headline: str,
+    scanned: int,
+    failed_count: int = 0,
+    failed: Sequence[str] = (),
+    skipped: int = 0,
+    notes: Sequence[str] = (),
+) -> str:
+    """Render the run summary: counts first, then skills with the most serious on top.
+
+    ``failed_count`` skills could not be scanned and ``failed`` names them; ``skipped`` counts what
+    discovery set aside; ``notes`` say why. An empty run still renders, so a report is
+    never a blank file.
+    """
+    ordered = sorted(rows, key=lambda row: (status_rank(row.status), -row.risk, row.skill))
+    lines = [
+        "# SkillSentry folder summary",
+        "",
+        headline,
+        "",
+        "| Scanned | Failed | Skipped |",
+        "|---:|---:|---:|",
+        f"| {scanned} | {failed_count} | {skipped} |",
+        "",
+    ]
+    if not ordered:
+        lines += ["No skills were scanned.", ""]
+    else:
+        located = any(row.agent is not None for row in ordered)
+        if located:
+            lines += [
+                "| Skill | Verdict | Risk | Agent | Scope | Path |",
+                "|:---|:---|---:|:---|:---|:---|",
+            ]
+        else:
+            lines += ["| Skill | Verdict | Risk |", "|:---|:---|---:|"]
+        for row in ordered:
+            cells = [_cell(row.skill), _cell(row.status), str(row.risk)]
+            if located:
+                cells += [_cell(row.agent or ""), _cell(row.scope or ""), _cell(row.path or "")]
+            lines.append("| " + " | ".join(cells) + " |")
+        lines.append("")
+    if failed:
+        lines += ["## Failed", "", *(f"- {_code(name)}" for name in failed), ""]
+    if notes:
+        lines += ["## Notes", "", *(f"- {_text(note)}" for note in notes), ""]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+__all__ = ["SummaryRow", "build_markdown", "build_summary_markdown", "status_rank"]
