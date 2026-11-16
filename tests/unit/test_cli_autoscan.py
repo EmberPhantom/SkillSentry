@@ -18,6 +18,7 @@ import click
 import pytest
 import typer
 from skill_sentry_cli import cli
+from skill_sentry_cli.core.verdict.markdown_report import _cell as _md_cell
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -799,14 +800,11 @@ def test_no_path_markdown_summary_table_has_agent_scope_and_path(
 
     assert result.exit_code == 0, result.output
     assert "| Skill | Verdict | Risk | Agent | Scope | Path |" in result.stdout
-    assert (
-        f"| alpha | SAFE | 0 | Claude Code | user | {fake_home / '.claude' / 'skills' / 'alpha'} |"
-        in result.stdout
-    )
-    assert (
-        f"| beta | SAFE | 0 | Codex | user | {fake_home / '.codex' / 'skills' / 'beta'} |"
-        in result.stdout
-    )
+    # Cells escape backslashes, so the expected path goes through the same escaping.
+    alpha = _md_cell(fake_home / ".claude" / "skills" / "alpha")
+    beta = _md_cell(fake_home / ".codex" / "skills" / "beta")
+    assert f"| alpha | SAFE | 0 | Claude Code | user | {alpha} |" in result.stdout
+    assert f"| beta | SAFE | 0 | Codex | user | {beta} |" in result.stdout
 
 
 def test_path_scan_markdown_summary_table_is_unchanged(fake_home: Path, tmp_path: Path) -> None:

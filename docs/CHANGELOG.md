@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Changed
+- The Markdown report is easier to scan. A multi-skill run (and any no-path run, even for one skill or none) opens with a summary: a counts table of scanned, failed and skipped, the verdict totals, then a table of skills with the most serious verdict first (MALICIOUS, SUSPICIOUS, UNSCANNED, INVALID SKILL, SAFE), highest risk first within a verdict. Skills that failed to scan are named under a `Failed` heading, and discovery notes appear under `Notes`. The per-skill reports follow in the same order. A no-path scan with nothing to scan prints a summary that says so instead of nothing. For skills found by a no-path scan, each per-skill report also lists the agent, scope and install path. Findings, citations and verdicts are unchanged, and so are JSON, SARIF, exit codes and text output. The `summary.md` saved by `--save-report markdown` and `--report-dir` has the same layout.
+
 ### Added
 - `scan` with no path audits every installed skill. It searches Claude Code user skills (including account-synced skills), enabled Claude Code plugins, Codex and shared `~/.agents` skills, and the project's `.claude/skills` and `.agents/skills`. Gemini, Cursor, OpenCode and Copilot locations are searched only with `--include-experimental`. Each skill is scanned at its real folder, and a folder reached by more than one path is scanned once.
 - `discover` lists the installed skills that `scan` with no path would check, as a table or with `--format json`. It scans nothing.
