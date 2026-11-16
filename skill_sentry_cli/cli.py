@@ -362,7 +362,8 @@ def scan(
     outcomes, indexes, failed = _scan_roots(
         engine, roots, options=options, output_format=output_format, quiet=quiet
     )
-    failed_names = [str(root) for i, root in enumerate(roots) if i not in set(indexes)]
+    scanned_at = set(indexes)
+    failed_names = [str(root) for i, root in enumerate(roots) if i not in scanned_at]
     # Resolve the backend that ran before the engine is closed. `auto` is only a request.
     ran_backend = _ran_backend(engine) if outcomes else backend
     engine.close()
@@ -1618,8 +1619,9 @@ def _scan_installed(
         raise typer.Exit(code=int(ExitCode.OPERATIONAL))
 
     installs = [result.skills[index] for index in indexes]
+    scanned_at = set(indexes)
     failed_names = [
-        str(skill.declared_path) for i, skill in enumerate(result.skills) if i not in set(indexes)
+        str(skill.declared_path) for i, skill in enumerate(result.skills) if i not in scanned_at
     ]
     footer = _report_footer(Path("."), outcomes) if len(outcomes) == 1 else None
     _emit_outcomes(

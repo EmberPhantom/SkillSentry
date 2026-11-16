@@ -16,6 +16,7 @@ from skill_sentry_cli import cli
 from skill_sentry_cli.core.engine import ScanEngine, ScanError
 from skill_sentry_cli.core.verdict.markdown_report import (
     SummaryRow,
+    _cell,
     build_markdown,
     build_summary_markdown,
     status_rank,
@@ -125,6 +126,14 @@ def test_summary_escapes_untrusted_names_and_paths() -> None:
     assert "/p\\|q" in text
 
 
+def test_summary_escapes_backslashes_and_pipes_in_a_path() -> None:
+    row = SummaryRow("a", "SAFE", 0, agent="Codex", scope="user", path="C:\\Users\\me\\s|k")
+
+    text = build_summary_markdown([row], headline="h", scanned=1)
+
+    assert "C:\\\\Users\\\\me\\\\s\\|k" in text
+
+
 def test_status_rank_orders_by_severity() -> None:
     ranks = [
         status_rank(s) for s in ("MALICIOUS", "SUSPICIOUS", "UNSCANNED", "INVALID SKILL", "SAFE")
@@ -170,7 +179,9 @@ def test_no_path_markdown_orders_by_severity_and_shows_counts(
         "# SkillSentry Triage Report — aaa-clean"
     )
     assert "| Agent | Codex |" in out and "| Agent | Claude Code |" in out
-    assert f"| Install path | {fake_home / '.codex' / 'skills' / 'cloud-sync-pro'} |" in out
+    # Cell text is escaped (backslashes in a Windows path), so build it the same way.
+    codex_path = _cell(fake_home / ".codex" / "skills" / "cloud-sync-pro")
+    assert f"| Install path | {codex_path} |" in out
 
 
 def test_no_path_markdown_for_one_skill_still_has_summary_and_location(
