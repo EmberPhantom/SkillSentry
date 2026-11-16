@@ -243,6 +243,8 @@ jobs:
 
       - name: Install the wheel into a clean virtual environment
         run: |
+          # Deliberately not hash-locked: this checks that the wheel's own metadata resolves
+          # to a working install, the way a user installs it. The locked installs are above.
           python -m venv "$RUNNER_TEMP/clean"
           "$RUNNER_TEMP/clean/bin/python" -m pip install "$RUNNER_TEMP"/wheel/*.whl
           # Run from outside the checkout so the source tree cannot satisfy an import.
