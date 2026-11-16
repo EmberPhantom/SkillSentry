@@ -127,11 +127,11 @@ def test_summary_escapes_untrusted_names_and_paths() -> None:
 
 
 def test_summary_escapes_backslashes_and_pipes_in_a_path() -> None:
-    row = SummaryRow("a", "SAFE", 0, agent="Codex", scope="user", path="C:\\Users\\me\\s|k")
+    row = SummaryRow("a", "SAFE", 0, agent="Codex", scope="user", path="skills\\sub\\s|k")
 
     text = build_summary_markdown([row], headline="h", scanned=1)
 
-    assert "C:\\\\Users\\\\me\\\\s\\|k" in text
+    assert "skills\\\\sub\\\\s\\|k" in text
 
 
 def test_status_rank_orders_by_severity() -> None:
