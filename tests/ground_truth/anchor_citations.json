@@ -13,7 +13,8 @@
     "fixtures/benign/git-helper",
     "fixtures/benign/image-resizer",
     "fixtures/benign/pdf-summarizer",
-    "fixtures/benign/weather-fetch"
+    "fixtures/benign/weather-fetch",
+    "fixtures/benign/config-checker"
   ],
   "minimum_accuracy": 0.8
 }

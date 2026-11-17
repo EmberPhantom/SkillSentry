@@ -18,6 +18,7 @@ def test_expected_corpus_covers_all_fixture_kinds():
         "git-helper",
         "image-resizer",
         "weather-fetch",
+        "config-checker",
         "cloud-sync-pro",
         "invoice-helper",
         "slack-notif-mal",

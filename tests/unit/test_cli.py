@@ -176,6 +176,7 @@ def test_live_scan_clean_folder_recurses_and_exits_zero(tmp_path: Path):
         "git-helper",
         "image-resizer",
         "weather-fetch",
+        "config-checker",
     }
     assert all(item["verdict"] == "SAFE" for item in payload)
 
@@ -213,7 +214,7 @@ def test_folder_scan_text_ends_with_a_verdict_count(tmp_path: Path):
     )
     assert result.exit_code == 0, result.output
     assert result.output.rstrip().splitlines()[-1] == (
-        "Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED"
+        "Summary: 5 scanned - 5 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED"
     )
 
 
