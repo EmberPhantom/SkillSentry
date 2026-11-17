@@ -67,11 +67,11 @@ export function TriagePage() {
         </label>
       </div>
 
-      {scans.error ? <ErrorBox error={scans.error} /> : null}
+      {scans.error ? <ErrorBox error={scans.error} onRetry={scans.reload} /> : null}
       {scans.loading && !scans.data ? <Loading label="Loading scans" /> : null}
       {scans.data && rows.length === 0 && (scans.data.scans?.length ?? 0) === 0 ? (
         <Empty>
-          No scans yet. <a href="#/new">Start a scan</a> to add a skill.
+          No scans yet. <a href="#/new">Start a scan</a> here, or run <code>skill-sentry-cli scan</code> in a terminal.
         </Empty>
       ) : null}
       {scans.data && rows.length === 0 && (scans.data.scans?.length ?? 0) > 0 ? (

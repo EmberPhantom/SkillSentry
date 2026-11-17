@@ -191,11 +191,43 @@ export class ApiError extends Error {
   }
 }
 
+/** The request never got a response: the server is down, unreachable or the connection dropped. */
+export class NetworkError extends Error {
+  constructor(message = "Network request failed") {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+/** A short, actionable message for a failed request. Server messages are shown as sent. */
+export function describeError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status >= 500) {
+      return `The server hit an error (${err.status}). Try again; if it keeps failing, check the server log.`;
+    }
+    if (err.status === 404) return `${err.message.replace(/\.+$/, "")}. It may have been removed.`;
+    return err.message;
+  }
+  // Only a failed fetch() is reported as unreachable. Any other error, including a TypeError
+  // from a bug in the dashboard, keeps its own message.
+  if (err instanceof NetworkError) {
+    return "Cannot reach the SkillSentry server. Start it with `skill-sentry-cli serve`, then try again.";
+  }
+  if (err instanceof SyntaxError) return "The server sent a response the dashboard could not read. Try again.";
+  return err instanceof Error ? err.message : "The request failed. Try again.";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: { Accept: "application/json", ...(init?.headers ?? {}) },
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: { Accept: "application/json", ...(init?.headers ?? {}) },
+    });
+  } catch (err) {
+    // Wrap only the fetch itself, so a TypeError raised anywhere else is not mistaken for this.
+    throw new NetworkError(err instanceof Error ? err.message : undefined);
+  }
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
     try {

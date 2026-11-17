@@ -478,6 +478,22 @@ tr:last-child td {
   margin: 10px 0;
 }
 
+.error {
+  border-left: 4px solid var(--bad);
+}
+
+.error p {
+  margin: 0;
+}
+
+.error p::before {
+  content: "\26A0\FE0E  ";
+}
+
+.error button {
+  margin-top: 8px;
+}
+
 .empty,
 .muted {
   color: var(--muted);
