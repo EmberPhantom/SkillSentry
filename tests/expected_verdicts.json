@@ -21,6 +21,12 @@
       "static": true,
       "note": "Declared network access must not be treated as exfiltration."
     },
+    "config-checker": {
+      "verdict": "SAFE",
+      "max_risk": 29,
+      "static": true,
+      "note": "Reading a declared project configuration file must not be flagged."
+    },
     "cloud-sync-pro": {
       "verdict": "MALICIOUS",
       "min_risk": 91,

@@ -98,6 +98,7 @@ The fixture does **not** go dormant when it sees `/.dockerenv`; touching that pa
 | `git-helper` | SAFE | < 30 | ☑ static |
 | `image-resizer` | SAFE | < 30 | ☑ static |
 | `weather-fetch` | SAFE (network declared) | < 30 | ☑ static |
+| `config-checker` | SAFE (config file read declared) | < 30 | ☑ static |
 | `cloud-sync-pro` | MALICIOUS; full sandbox also Poisoned Well triggered | 99 static / ≥ 95 full | ☑ static · ☐ full |
 | `invoice-helper` | MALICIOUS + vision finding | 95 static | ☑ static |
 | `slack-notif-mal` | MALICIOUS; full sandbox also evasion detected | 99 static / 100 full | ☑ static · ☐ full |

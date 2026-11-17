@@ -9,6 +9,7 @@ installed or executed outside the Docker sandbox.
 | `benign/git-helper` | SAFE | 0 | local git status helper |
 | `benign/image-resizer` | SAFE | 0 | local image processing |
 | `benign/weather-fetch` | SAFE | 0 | declared, read-only network call |
+| `benign/config-checker` | SAFE | 0 | reads one declared project configuration file |
 | `malicious/cloud-sync-pro` | MALICIOUS | 99 | credential read + DNS tunnelling |
 | `malicious/invoice-helper` | MALICIOUS | 95 | white-on-white prompt injection in `logo.png` |
 | `malicious/slack-notif-mal` | MALICIOUS | 99 | sandbox-evasion probe + Slack-token exfil over HTTP |
