@@ -44,6 +44,7 @@ BASELINE_CATEGORIES: tuple[InstructionCategory, ...] = (
 # Anchor finding types that call for an extra watch, on top of the baseline.
 _ANCHOR_WATCHES: dict[str, InstructionCategory] = {
     "credential-path": InstructionCategory.CREDENTIAL_CANARY_MONITOR,
+    "credential-store": InstructionCategory.CREDENTIAL_CANARY_MONITOR,
     "secret-access": InstructionCategory.CREDENTIAL_CANARY_MONITOR,
     "dns-lookup": InstructionCategory.DNS_SINKHOLE_WATCH,
     "exfil-http-post": InstructionCategory.HTTP_EXFIL_MONITOR,

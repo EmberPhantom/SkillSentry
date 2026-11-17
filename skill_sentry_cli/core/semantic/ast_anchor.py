@@ -66,6 +66,32 @@ _RULES: tuple[AnchorRule, ...] = (
         "SSH private key referenced",
     ),
     AnchorRule(
+        "credential-store",
+        Severity.HIGH,
+        # A user-level credential file named by a home-relative path. A project-relative
+        # ".npmrc" or a bare word such as "netrc" is not a match.
+        re.compile(
+            r"(?:~|\$HOME|\$\{HOME\}|/home/[^/\s]+|/root)/"
+            r"(?:\.netrc|\.git-credentials|\.pypirc|\.npmrc|\.docker/config\.json|\.kube/config|"
+            r"\.config/gcloud/|\.azure/(?:accessTokens|msal_token_cache)|\.gnupg/private-keys)",
+            re.IGNORECASE,
+        ),
+        "User credential store referenced (netrc, registry, cloud or cluster config)",
+    ),
+    AnchorRule(
+        "credential-store",
+        Severity.HIGH,
+        # The OS keychain or a browser's saved logins, read from a command or a path. The
+        # commands only count in command position, so prose that mentions them does not.
+        re.compile(
+            r"(?:^|[;&|`(]|\$\()\s*(?:sudo\s+)?(?:security\s+(?:find-(?:generic|internet)-password|"
+            r"dump-keychain)|secret-tool\s+lookup|cmdkey\s+/list)\b|"
+            r"/(?:Login Data|logins\.json|key4\.db)\b",
+            re.IGNORECASE,
+        ),
+        "OS keychain or browser saved-login store read",
+    ),
+    AnchorRule(
         "secret-access",
         Severity.CRITICAL,
         re.compile(
