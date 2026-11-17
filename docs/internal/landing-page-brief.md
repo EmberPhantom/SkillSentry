@@ -534,7 +534,7 @@ Use the sandboxed sample only after a sandboxed run confirms it. The demo output
 
 **Assets needed:** logo (none in the repo), favicon, screenshots of the dashboard (triage, live console, skill detail), a 30-second demo GIF (a placeholder comment exists in `README.md`), and an icon set for the pipeline.
 
-**Design notes:** the dashboard uses React 18, TypeScript and Vite (`ui/package.json`). The docs mention Tailwind and shadcn/ui, but neither is in `ui/package.json`. The landing page should not claim them unless they are added.
+**Design notes:** the dashboard uses React 19, TypeScript and Vite (`ui/package.json`). The docs mention Tailwind and shadcn/ui, but neither is in `ui/package.json`. The landing page should not claim them unless they are added.
 
 ---
 

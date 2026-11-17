@@ -25,7 +25,7 @@
 
 *Depends on: CL-D1-1 (mock + frozen contract) · Blocks: every later UI checklist*
 
-- [ ] Scaffold: Vite + React 18 + TypeScript (`strict: true`) + Tailwind + shadcn/ui; ESLint + Prettier; Vitest + React Testing Library; CI job in the repo pipeline
+- [ ] Scaffold: Vite + React 19 + TypeScript (`strict: true`) + Tailwind + shadcn/ui; ESLint + Prettier; Vitest + React Testing Library; CI job in the repo pipeline
 - [ ] Design tokens per [06-ui-ux §6.1](../../developer/ui-design.md): `zinc-950` bg / `zinc-900` panels / `zinc-800` borders; verdict colors emerald/amber/red; cyan live accent; Inter + JetBrains Mono (self-hosted or system fallback — preview sandbox has no network); scan-line keyframes + `prefers-reduced-motion` guard
 - [ ] `verdict.ts` single source of truth: TS types generated from Dev 1's exported JSON Schema (or hand-written + contract test comparing to mock responses)
 - [ ] API client layer: typed fetchers for every endpoint ([05-api §5.2](../../reference/api.md)) + WS wrapper with auto-reconnect; **base-URL env switch** mock ↔ real

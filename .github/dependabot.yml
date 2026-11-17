@@ -19,19 +19,6 @@ updates:
     groups:
       ui-minor-and-patch:
         update-types: ["minor", "patch"]
-    # React 19 and TypeScript 7 need a dedicated upgrade: the dashboard must move with
-    # them. Tracked in an issue labelled "help wanted".
-    ignore:
-      - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react-dom"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
 
   # The sandbox image's hash-locked Pillow requirement lives beside its Dockerfile.
   - package-ecosystem: "pip"
