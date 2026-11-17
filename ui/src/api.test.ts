@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api, describeError, openScanStream, verdictSkillId, type WSMessage } from "./api";
+import { ApiError, NetworkError, api, describeError, openScanStream, verdictSkillId, type WSMessage } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -66,7 +66,23 @@ describe("verdictSkillId", () => {
 
 describe("describeError", () => {
   it("tells the user how to start the server when it cannot be reached", () => {
-    expect(describeError(new TypeError("Failed to fetch"))).toMatch(/skill-sentry-cli serve/);
+    expect(describeError(new NetworkError("Failed to fetch"))).toMatch(/skill-sentry-cli serve/);
+  });
+
+  it("turns a rejected fetch into the unreachable-server message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const failure = await api.meta().catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(NetworkError);
+    expect(describeError(failure)).toMatch(/cannot reach the skillsentry server/i);
+  });
+
+  it("does not report a TypeError from elsewhere as an unreachable server", () => {
+    const bug = new TypeError("Cannot read properties of undefined (reading 'map')");
+    expect(describeError(bug)).toBe("Cannot read properties of undefined (reading 'map')");
+  });
+
+  it("does not double the period on a 404 message that already ends with one", () => {
+    expect(describeError(new ApiError("skill not found.", 404))).toBe("skill not found. It may have been removed.");
   });
 
   it("explains a 5xx without exposing the raw status line", () => {

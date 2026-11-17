@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { api, ApiError, type ScanSummary } from "../api";
+import { api, ApiError, NetworkError, type ScanSummary } from "../api";
 import { TriagePage } from "./TriagePage";
 
 afterEach(() => {
@@ -51,7 +51,7 @@ describe("TriagePage loading and error states", () => {
   });
 
   it("shows a network failure with a way to retry, not a spinner or the empty state", async () => {
-    const spy = vi.spyOn(api, "scans").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const spy = vi.spyOn(api, "scans").mockRejectedValueOnce(new NetworkError("Failed to fetch"));
     spy.mockResolvedValue({ scans: [row] });
     render(<TriagePage />);
     const alert = await screen.findByRole("alert");

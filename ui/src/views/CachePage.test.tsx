@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { api, type CacheStats } from "../api";
+import { api, NetworkError, type CacheStats } from "../api";
 import { CachePage } from "./CachePage";
 
 afterEach(() => {
@@ -39,7 +39,7 @@ describe("CachePage states", () => {
   });
 
   it("shows an error with a retry that loads again", async () => {
-    const spy = vi.spyOn(api, "cacheStats").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const spy = vi.spyOn(api, "cacheStats").mockRejectedValueOnce(new NetworkError("Failed to fetch"));
     spy.mockResolvedValue(stats);
     render(<CachePage />);
     const alert = await screen.findByRole("alert");
