@@ -337,7 +337,7 @@ skill_sentry_cli/
 | HTTP interception | **Fake HTTP responder** | Returns 200 OK; catches direct-IP exfil. TLS is not intercepted. |
 | Egress control | Docker `--network` restricted to sinkhole only | **Hard guarantee nothing escapes** |
 | API server | **FastAPI + WebSocket** | Live scan streaming for a reactive UI |
-| Frontend | **React 18 + Vite + TypeScript** | Small, dependency-light dashboard |
+| Frontend | **React 19 + Vite + TypeScript** | Small, dependency-light dashboard |
 | Report format | **SARIF 2.1.0-style JSON + Markdown + STIX** | Instant credibility with technical audiences |
 | Packaging | `pipx` / `pip install skill-sentry-cli`, the install script, and the server image | GitHub Action is planned, not available |
 

@@ -2,7 +2,7 @@
 
 > Design language, screen architecture, interaction rules, and accessibility for the SkillSentry dashboard.
 >
-> **Status.** The dashboard that ships has four views: triage, new scan, skill detail, and cache. It is built with React 18, Vite, and TypeScript. Items in this document marked *planned* or *proposed* are not built. The wireframes show the design the views are working toward.
+> **Status.** The dashboard that ships has four views: triage, new scan, skill detail, and cache. It is built with React 19, Vite, and TypeScript. Items in this document marked *planned* or *proposed* are not built. The wireframes show the design the views are working toward.
 
 ---
 
