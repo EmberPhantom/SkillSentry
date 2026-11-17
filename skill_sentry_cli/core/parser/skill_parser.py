@@ -133,11 +133,9 @@ class SkillPackage:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return (
-            self.frontmatter.get("metadata")
-            if isinstance(self.frontmatter.get("metadata"), dict)
-            else {}
-        )
+        # Read once into a local so the isinstance check narrows the type.
+        metadata = self.frontmatter.get("metadata")
+        return metadata if isinstance(metadata, dict) else {}
 
     @property
     def declared_network(self) -> list[str]:

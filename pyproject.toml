@@ -150,7 +150,6 @@ module = [
   "skill_sentry_cli.core.decisions.laya",
   "skill_sentry_cli.core.models.selector",
   "skill_sentry_cli.core.models.gemma_cloud",
-  "skill_sentry_cli.core.parser.skill_parser",
   "skill_sentry_cli.core.cache.sqlite_store",
 ]
 ignore_errors = true
