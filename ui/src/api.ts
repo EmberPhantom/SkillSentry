@@ -191,6 +191,23 @@ export class ApiError extends Error {
   }
 }
 
+/** A short, actionable message for a failed request. Server messages are shown as sent. */
+export function describeError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status >= 500) {
+      return `The server hit an error (${err.status}). Try again; if it keeps failing, check the server log.`;
+    }
+    if (err.status === 404) return `${err.message}. It may have been removed.`;
+    return err.message;
+  }
+  // fetch rejects with a TypeError when the server cannot be reached at all.
+  if (err instanceof TypeError) {
+    return "Cannot reach the SkillSentry server. Start it with `skill-sentry-cli serve`, then try again.";
+  }
+  if (err instanceof SyntaxError) return "The server sent a response the dashboard could not read. Try again.";
+  return err instanceof Error ? err.message : "The request failed. Try again.";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,

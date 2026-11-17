@@ -37,13 +37,26 @@ export function RiskBar({ score }: { score: number | null }) {
 }
 
 export function Loading({ label = "Loading" }: { label?: string }) {
-  return <p className="muted" role="status">{label}…</p>;
+  return (
+    <p className="muted" role="status" aria-busy="true">
+      {label}…
+    </p>
+  );
 }
 
-export function ErrorBox({ error }: { error: string }) {
+/**
+ * An error announced as an alert, with the message as text. It is marked by a border and a
+ * warning sign from the stylesheet as well as by colour. `onRetry` adds a retry button.
+ */
+export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
     <div className="error" role="alert">
-      {error}
+      <p>{error}</p>
+      {onRetry ? (
+        <button type="button" className="ghost" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
     </div>
   );
 }

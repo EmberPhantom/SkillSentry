@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { describeError } from "./api";
 
 export interface Loadable<T> {
   data: T | null;
@@ -14,7 +15,11 @@ export function useLoad<T>(load: () => Promise<T>, key: string, intervalMs?: num
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
-  const reload = useCallback(() => setTick((value) => value + 1), []);
+  // A manual retry drops the old error so the loading state shows instead of a stale failure.
+  const reload = useCallback(() => {
+    setError(null);
+    setTick((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -27,7 +32,7 @@ export function useLoad<T>(load: () => Promise<T>, key: string, intervalMs?: num
       })
       .catch((err: unknown) => {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "request failed");
+        setError(describeError(err));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -41,9 +46,10 @@ export function useLoad<T>(load: () => Promise<T>, key: string, intervalMs?: num
 
   useEffect(() => {
     if (!intervalMs) return undefined;
-    const timer = window.setInterval(reload, intervalMs);
+    // A background refresh keeps any shown error until it succeeds, so the banner does not flicker.
+    const timer = window.setInterval(() => setTick((value) => value + 1), intervalMs);
     return () => window.clearInterval(timer);
-  }, [intervalMs, reload]);
+  }, [intervalMs]);
 
   return { data, error, loading, reload };
 }

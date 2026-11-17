@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, openScanStream, verdictSkillId, type ScanOptions, type ScanStream, type WSMessage } from "../api";
+import { api, describeError, openScanStream, verdictSkillId, type ScanOptions, type ScanStream, type WSMessage } from "../api";
 import { ErrorBox, formatTime } from "../components";
 import { TIMEOUT_MAX_S, TIMEOUT_MIN_S, parseTimeout } from "../scanOptions";
 
@@ -89,7 +89,7 @@ export function NewScanPage() {
       );
     } catch (err) {
       // Server validation errors arrive as readable "field: message" strings; show them unchanged.
-      setError(err instanceof Error ? err.message : "Could not start the scan.");
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -174,7 +174,7 @@ export function NewScanPage() {
       {error ? <ErrorBox error={error} /> : null}
 
       {scanId ? (
-        <section className="card" aria-live="polite">
+        <section className="card" aria-live="polite" aria-busy={running}>
           <div className="card-head">
             <h2>Live console</h2>
             <div className="head-meta">
@@ -187,7 +187,11 @@ export function NewScanPage() {
             </div>
           </div>
           <ol className="console">
-            {events.length === 0 ? <li className="muted">Waiting for the first stage…</li> : null}
+            {events.length === 0 ? (
+              <li className="muted" role="status">
+                Waiting for the first stage…
+              </li>
+            ) : null}
             {events.map((message, index) => (
               <li key={`${message.ts}-${index}`}>
                 <span className="muted nowrap">{formatTime(message.ts)}</span>{" "}

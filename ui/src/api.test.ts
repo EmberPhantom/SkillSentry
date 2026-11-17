@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, openScanStream, verdictSkillId, type WSMessage } from "./api";
+import { ApiError, api, describeError, openScanStream, verdictSkillId, type WSMessage } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -61,5 +61,28 @@ describe("verdictSkillId", () => {
 
   it("returns null when the event carries no verdict", () => {
     expect(verdictSkillId(base)).toBeNull();
+  });
+});
+
+describe("describeError", () => {
+  it("tells the user how to start the server when it cannot be reached", () => {
+    expect(describeError(new TypeError("Failed to fetch"))).toMatch(/skill-sentry-cli serve/);
+  });
+
+  it("explains a 5xx without exposing the raw status line", () => {
+    const text = describeError(new ApiError("502 Bad Gateway", 502));
+    expect(text).toMatch(/server hit an error \(502\)/i);
+    expect(text).not.toContain("Bad Gateway");
+  });
+
+  it("keeps a 4xx server message and adds a hint for 404", () => {
+    expect(describeError(new ApiError("path is not allowed", 403))).toBe("path is not allowed");
+    expect(describeError(new ApiError("skill not found", 404))).toBe("skill not found. It may have been removed.");
+  });
+
+  it("handles an unreadable body and unknown values", () => {
+    expect(describeError(new SyntaxError("Unexpected token"))).toMatch(/could not read/i);
+    expect(describeError("nope")).toMatch(/request failed/i);
+    expect(describeError(new Error("plain"))).toBe("plain");
   });
 });

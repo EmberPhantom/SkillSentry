@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import { Card, ErrorBox, Loading } from "../components";
+import { Card, Empty, ErrorBox, Loading } from "../components";
 import { useLoad } from "../hooks";
 
 export function CachePage() {
@@ -29,17 +29,20 @@ export function CachePage() {
       <div className="page-head">
         <h1>Cache</h1>
       </div>
-      {stats.error ? <ErrorBox error={stats.error} /> : null}
+      {stats.error ? <ErrorBox error={stats.error} onRetry={stats.reload} /> : null}
       {stats.loading && !stats.data ? <Loading /> : null}
       {stats.data ? (
         <Card
           title="Verdict cache"
           actions={
-            <button type="button" className="danger" onClick={clear} disabled={busy}>
+            <button type="button" className="danger" onClick={clear} disabled={busy || stats.data.entries === 0}>
               Clear cache
             </button>
           }
         >
+          {stats.data.entries === 0 ? (
+            <Empty>The cache is empty. A verdict is stored here after a scan finishes, so run a scan to fill it.</Empty>
+          ) : null}
           <dl className="facts">
             <dt>Entries</dt>
             <dd>{stats.data.entries}</dd>

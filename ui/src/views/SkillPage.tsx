@@ -24,11 +24,20 @@ export function SkillPage({ skillId }: { skillId: string }) {
         <a className="back" href="#/">
           ← Triage
         </a>
-        <ErrorBox error={detail.error} />
+        <ErrorBox error={detail.error} onRetry={detail.reload} />
       </section>
     );
   }
-  if (!detail.data) return <Loading label="Loading skill" />;
+  if (!detail.data) {
+    return (
+      <section className="page">
+        <a className="back" href="#/">
+          ← Triage
+        </a>
+        <Loading label="Loading skill" />
+      </section>
+    );
+  }
   const data = detail.data;
   const verdict = data.verdict;
 
