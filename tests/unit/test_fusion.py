@@ -71,7 +71,7 @@ def test_typosquat_bonus_and_signal_detection():
     ]
     fused = fuse(results)
     assert fused.typosquat_bonus == 15
-    assert fused.risk_score == 30
+    assert fused.risk_score == 40
     assert fused.verdict == VerdictTier.SUSPICIOUS
 
 
@@ -90,7 +90,7 @@ def test_typosquat_alone_can_produce_a_score():
             )
         ]
     )
-    assert fused.risk_score == 30
+    assert fused.risk_score == 40
     assert fused.typosquat_bonus == 15
     assert fused.verdict == VerdictTier.SUSPICIOUS
 

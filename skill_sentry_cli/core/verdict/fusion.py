@@ -8,6 +8,10 @@ The rules are intentionally small and explicit:
   (SUSPICIOUS boundary), MEDIUM >= 30 (SUSPICIOUS boundary).  A single strong
   deterministic/vision finding must never be diluted below SAFE by a large
   number of clean-looking signals;
+* a lone typosquat hit scores ``typosquat_floor``, by default a quarter of the way up the
+  SUSPICIOUS band, so one point of rounding cannot move it across the SAFE boundary;
+* ``confidence`` is certainty in the verdict, not the share of stages that ran (see
+  :func:`_confidence`); ``completeness`` is that share, over the analyses that apply;
 * Poisoned Well / evasion overrides force ``MALICIOUS`` with confidence 1.0;
   evasion reports 100 because it is a direct observation of hostile intent;
 * a degraded stage can never leave a scan looking ``SAFE``;
@@ -71,6 +75,8 @@ class FusionResult:
     typosquat_bonus: int = 0
     coverage: float = 0.0
     evidence_floor: int = 0
+    # Share of the applicable analyses that ran: what the verdict JSON calls ``coverage``.
+    completeness: float = 0.0
 
 
 def fuse(
@@ -81,7 +87,7 @@ def fuse(
     safe_max: int = 30,
     malicious_min: int = 70,
     typosquat_detected: bool | None = None,
-    typosquat_floor: int = 30,
+    typosquat_floor: int | None = None,
 ) -> FusionResult:
     """Fuse stage results into a risk score and tier.
 
@@ -102,6 +108,8 @@ def fuse(
         raise ValueError("malicious_min must be between 0 and 100")
     if safe_max >= malicious_min:
         raise ValueError("safe_max must be lower than malicious_min")
+    if typosquat_floor is None:
+        typosquat_floor = default_typosquat_floor(safe_max, malicious_min)
     if not 0 <= typosquat_floor <= 100:
         raise ValueError("typosquat_floor must be between 0 and 100")
 
@@ -199,15 +207,20 @@ def fuse(
         score = min(score, malicious_min)
         findings = (*findings, _semantic_cap_note())
 
-    malicious_override = override is not None and override.verdict == VerdictTier.MALICIOUS
-    if malicious_override:
-        confidence = 1.0
-    elif override is not None:
-        confidence = max(float(override.confidence), coverage)
-    else:
-        confidence = round(min(1.0, max(0.0, coverage)), 3)
-    if degraded and not malicious_override:
-        confidence = min(confidence, 0.5)
+    completeness = _completeness(results, normalised_weights)
+    confidence = _confidence(
+        tier=tier,
+        override=override,
+        completeness=completeness,
+        strong_evidence=_has_strong_non_semantic_evidence(findings, signals, detected=detected),
+        independent_evidence=_has_independent_evidence(findings, signals, detected=detected),
+        model_flags=any(
+            finding.stage == Stage.SEMANTIC and finding.severity.rank >= Severity.MEDIUM.rank
+            for finding in findings
+        ),
+        uncorroborated_model=bool(uncorroborated_model),
+        degraded=bool(degraded),
+    )
 
     return FusionResult(
         risk_score=score,
@@ -221,7 +234,129 @@ def fuse(
         typosquat_bonus=bonus,
         coverage=round(coverage, 3),
         evidence_floor=evidence_floor,
+        completeness=completeness,
     )
+
+
+def default_typosquat_floor(safe_max: int = 30, malicious_min: int = 70) -> int:
+    """Score of a lone typosquat hit: a quarter of the way up the SUSPICIOUS band.
+
+    With the default tiers that is 40. The SAFE boundary is 30 (a score below ``safe_max`` is
+    SAFE), so a lone typosquat used to sit exactly on it and a one-point change flipped the
+    verdict. Ten points of headroom keep it SUSPICIOUS and well short of MALICIOUS.
+    """
+
+    return min(malicious_min, safe_max + max(5, (malicious_min - safe_max) // 4))
+
+
+# What each fusion signal's stage is, for judging how much of the analysis ran.
+_SIGNAL_STAGES = {
+    "anchors": Stage.DETERMINISTIC_ANCHOR,
+    "semantic": Stage.SEMANTIC,
+    "vision": Stage.VISION,
+    "sandbox": Stage.SANDBOX,
+}
+# A stage that skipped for one of these reasons had nothing to analyse; it did not fail.
+_NOT_APPLICABLE_REASONS = frozenset({"no executable content in the package"})
+
+
+def _completeness(results: tuple[StageResult, ...], weights: Mapping[str, float]) -> float:
+    """Share of the applicable analyses that ran, weighted like the score.
+
+    A stage that does not apply (vision with no images, the sandbox for a skill with nothing
+    to run) is left out of both sides. A stage that failed, was switched off, or never ran
+    counts as not run. So a fully analysed text-only skill scores 1.0, and a scan with the
+    sandbox off scores lower.
+    """
+
+    ran = 0.0
+    applicable = 0.0
+    for key, stage in _SIGNAL_STAGES.items():
+        weight = weights.get(key, 0.0)
+        if weight <= 0:
+            continue
+        found = [result for result in results if result.stage == stage]
+        result = found[-1] if found else None
+        telemetry = (result.telemetry or {}) if result else {}
+        if telemetry.get("vision_status") == "not_applicable":
+            continue
+        if telemetry.get("skipped") and telemetry.get("reason") in _NOT_APPLICABLE_REASONS:
+            continue
+        applicable += weight
+        if (
+            result is not None
+            and not (result.degraded or result.error)
+            and not telemetry.get("skipped")
+        ):
+            ran += weight
+    return round(ran / applicable, 3) if applicable else 0.0
+
+
+def _has_independent_evidence(
+    findings: Iterable[Finding], signals: Mapping[str, float], *, detected: bool
+) -> bool:
+    """Evidence that does not come from the model: a MEDIUM or worse finding from another
+    stage, a typosquat hit, or a clearly raised non-model signal."""
+
+    if detected:
+        return True
+    medium = SEVERITY_FLOORS[Severity.MEDIUM]
+    return any(
+        finding.stage not in {Stage.SEMANTIC, Stage.VERDICT, Stage.SPEC}
+        and finding.severity.rank >= Severity.MEDIUM.rank
+        for finding in findings
+    ) or any(key != "semantic" and value >= medium for key, value in signals.items())
+
+
+def _confidence(
+    *,
+    tier: VerdictTier,
+    override: OverrideSignal | None,
+    completeness: float,
+    strong_evidence: bool,
+    independent_evidence: bool,
+    model_flags: bool,
+    uncorroborated_model: bool,
+    degraded: bool,
+) -> float:
+    """How certain the verdict is, from 0 to 1.
+
+    * A malicious override (a canary left the sandbox, an evasion probe ran) is a direct
+      observation: 1.0.
+    * MALICIOUS from deterministic evidence: 0.85, and 0.95 when the model also flags it.
+    * SUSPICIOUS: with independent evidence 0.65, and 0.75 when the model agrees; only the
+      model speaking, 0.40; nothing but a failed stage, 0.30.
+    * SAFE: 0.50 plus 0.45 times how much of the applicable analysis ran, so a full scan of a
+      skill reaches 0.95 and a scan with the sandbox off less. If the model flagged something
+      that nothing else supported, the result is multiplied by 0.6, because the model and
+      the evidence disagree.
+    * A failed stage caps anything below MALICIOUS at 0.5 and costs a MALICIOUS 0.05.
+    """
+
+    if override is not None and override.verdict == VerdictTier.MALICIOUS:
+        return 1.0
+    if tier == VerdictTier.MALICIOUS:
+        value = 0.85 + (0.10 if model_flags else 0.0)
+        if not strong_evidence:
+            value = 0.6
+        if degraded:
+            value -= 0.05
+    elif tier == VerdictTier.SUSPICIOUS:
+        if independent_evidence:
+            value = 0.65 + (0.10 if model_flags else 0.0)
+        elif model_flags:
+            value = 0.40
+        else:
+            value = 0.30
+    else:
+        value = 0.50 + 0.45 * completeness
+        if uncorroborated_model:
+            value *= 0.6
+    if override is not None:
+        value = max(value, float(override.confidence))
+    if degraded and tier != VerdictTier.MALICIOUS:
+        value = min(value, 0.5)
+    return round(min(1.0, max(0.0, value)), 3)
 
 
 def score_to_verdict(

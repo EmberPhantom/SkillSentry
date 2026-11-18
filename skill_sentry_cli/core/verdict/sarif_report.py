@@ -91,6 +91,7 @@ def build_sarif(
         "verdict": verdict.verdict.value,
         "riskScore": verdict.risk_score,
         "confidence": verdict.confidence,
+        "coverage": verdict.coverage,
         "cached": verdict.cached,
         "skill": verdict.skill,
         "skillId": str(verdict.skill_id),

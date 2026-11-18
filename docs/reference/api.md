@@ -208,6 +208,7 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
   "verdict": "MALICIOUS",
   "riskScore": 97,
   "confidence": 1.0,
+  "coverage": 1.0,
   "cached": false,
   "scanDurationMs": 87432,
   "findings": [
@@ -236,7 +237,8 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
 |:---|:---|
 | `verdict` | `SAFE` below 30, `SUSPICIOUS` from 30 to 70, `MALICIOUS` above 70. An override sets `MALICIOUS` with `confidence` 1.0. |
 | `riskScore` | An integer from 0 to 100. |
-| `confidence` | From 0.0 to 1.0. |
+| `confidence` | From 0.0 to 1.0: how certain the verdict is. An override is `1.0`; a verdict backed by a deterministic finding and the model is about `0.95`; one only the model supports is lower; a failed stage caps it at `0.5`. It is not the share of stages that ran. The formula is in the [user guide](../user/guide.md). |
+| `coverage` | Optional, 0.0 to 1.0: the share of the analyses that apply to this skill that ran. Absent or `null` on verdicts cached or canned before the field existed. |
 | `findings[].severity` | `low`, `medium`, `high`, `critical`, or `note`. |
 | `findings[].evidence` | The file and line of the evidence, where there is one. A Poisoned Well finding can instead cite the destination and marker. |
 | `findings[].type` | Optional. Used in the SARIF rule ID. |
@@ -248,7 +250,7 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
 
 - Each finding becomes one SARIF `result`. Its `ruleId` is `skillsentry/<stage>/<type>`.
 - Severity maps to SARIF level: `critical` and `high` become `error`, `medium` becomes `warning`, and `low` and `note` become `note`.
-- The verdict's `verdict`, `riskScore`, `confidence`, and `cached` appear under the run's properties.
+- The verdict's `verdict`, `riskScore`, `confidence`, `coverage`, and `cached` appear under the run's properties.
 - The Poisoned Well block appears under the run's `activeDefense` property.
 
 Upload to GitHub code scanning with the usual `github/codeql-action/upload-sarif` action. SkillSentry does not upload anything itself; a GitHub Action for this is planned.

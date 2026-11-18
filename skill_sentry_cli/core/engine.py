@@ -520,6 +520,7 @@ class ScanEngine:
             verdict=fused.verdict,
             risk_score=fused.risk_score,
             confidence=fused.confidence,
+            coverage=fused.completeness,
             cached=False,
             scan_duration_ms=duration_ms,
             findings=findings,

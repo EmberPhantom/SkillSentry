@@ -38,12 +38,15 @@ def test_wire_format_is_camel_case(store):
         "verdict",
         "riskScore",
         "confidence",
+        "coverage",
         "cached",
         "scanDurationMs",
         "findings",
         "activeDefense",
     }
     assert payload["scanDurationMs"] == 87432
+    # Canned demo data predates `coverage`; the key is present and null, never missing.
+    assert payload["coverage"] is None
     assert payload["activeDefense"]["exfilChannel"] == "DNS_TUNNELING"
     assert payload["activeDefense"]["contextAwareCanary"] == "AWS"
     assert "scan_duration_ms" not in payload
