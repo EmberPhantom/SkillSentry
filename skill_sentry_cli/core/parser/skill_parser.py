@@ -11,7 +11,13 @@ from typing import Any
 
 import yaml
 
-from skill_sentry_cli.core.cache.hash_utils import HashError, hash_skill_dir
+from skill_sentry_cli.core.cache.hash_utils import MAX_TOTAL_BYTES, HashError, hash_skill_dir
+from skill_sentry_cli.core.parser.opaque import (
+    MAX_BENIGN_MEDIA_BYTES,
+    NEAR_CAP_BYTES,
+    classify,
+    image_mismatch,
+)
 
 MAX_SKILL_MD_BYTES = 1024 * 1024
 MAX_TEXT_FILE_BYTES = 1024 * 1024
@@ -98,6 +104,8 @@ class PackageIssue:
     # True when the issue reports content the scan did not read.  Such a gap keeps
     # the stage degraded, so the verdict can never be SAFE.
     coverage: bool = False
+    # Finding type for the report; None means a manifest issue.
+    kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -261,6 +269,116 @@ def _unread_reason(path: Path, remaining: int) -> str:
     if remaining <= 0:
         return "skill text budget exhausted"
     return "binary or unreadable content"
+
+
+def _check_package_size(entries: list[Path]) -> None:
+    """Refuse a package over the size cap before any file is read or any model is called."""
+
+    total = 0
+    for entry in entries:
+        try:
+            info = entry.lstat()
+        except OSError:
+            continue
+        if entry.is_symlink() or not entry.is_file():
+            continue
+        total += info.st_size
+        if total > MAX_TOTAL_BYTES:
+            raise SkillParseError(
+                f"skill package is larger than {MAX_TOTAL_BYTES // (1024 * 1024)} MiB, the most "
+                "SkillSentry will scan. Remove large or generated files (models, datasets, "
+                "archives, build output) from the skill"
+            )
+
+
+def _mib(size: int) -> str:
+    return f"{size / (1024 * 1024):.1f} MiB" if size >= 1024 * 1024 else f"{size // 1024} KiB"
+
+
+def _size_of(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+def _opaque_issue(path: Path, relative: str, *, text_reason: str | None) -> PackageIssue:
+    """The issue for a file the scan could not read.
+
+    ``text_reason`` is set for a file that should have been text (a script or a document).
+    Severity: a program (ELF, PE, Mach-O) or a file close to the package size cap is HIGH;
+    an unread script is HIGH, because it is code the scan could not see; a small image or font
+    is a NOTE; anything else is MEDIUM.
+    """
+
+    size = _size_of(path)
+    info = classify(path, size)
+    size_text = _mib(size)
+    if info.kind == "executable":
+        return PackageIssue(
+            "high",
+            f"opaque content: {relative} is an {info.label} ({size_text}). The scan cannot "
+            "inspect compiled code. Ship the source instead, or remove the file",
+            file=relative,
+            coverage=True,
+            kind="opaque-content",
+        )
+    if size >= NEAR_CAP_BYTES:
+        return PackageIssue(
+            "high",
+            f"opaque content: {relative} is {size_text}, close to the {MAX_TOTAL_BYTES // (1024 * 1024)} "
+            "MiB package limit, and was not analysed",
+            file=relative,
+            coverage=True,
+            kind="opaque-content",
+        )
+    if text_reason is not None:
+        return PackageIssue(
+            "high",
+            f"text file not analysed: {relative} ({text_reason}; {info.label}, {size_text})",
+            file=relative,
+            coverage=True,
+            kind="opaque-content",
+        )
+    if info.kind == "media" and size <= MAX_BENIGN_MEDIA_BYTES:
+        return PackageIssue(
+            "note",
+            f"{relative} is a {info.label} ({size_text}). It is recognised by its header only "
+            "and its content is not analysed",
+            file=relative,
+            kind="opaque-content",
+        )
+    suffix = Path(relative).suffix.lower() or "(no extension)"
+    return PackageIssue(
+        "medium",
+        f"file not analysed: {relative} ({info.label}, {size_text}, file type {suffix}). "
+        "SkillSentry reads text, scripts and images only, so the package is UNSCANNED. "
+        "Review the file by hand, or remove it, before installing",
+        file=relative,
+        coverage=True,
+        kind="opaque-content",
+    )
+
+
+def _image_issue(path: Path, relative: str) -> PackageIssue | None:
+    """An issue when a file named like an image is not one (or is a program)."""
+
+    size = _size_of(path)
+    mismatch = image_mismatch(path)
+    if mismatch is not None and mismatch.kind == "executable":
+        return _opaque_issue(path, relative, text_reason=None)
+    if mismatch is not None:
+        return PackageIssue(
+            "medium",
+            f"image not analysed: {relative} has {mismatch.label} ({_mib(size)}), so the "
+            "vision stage cannot read it",
+            file=relative,
+            coverage=True,
+            kind="opaque-content",
+        )
+    if size >= NEAR_CAP_BYTES:
+        return _opaque_issue(path, relative, text_reason=None)
+    return None
 
 
 def _read_text(path: Path, relative: str, remaining: int) -> TextFile | None:
@@ -480,7 +598,9 @@ def parse_skill(path: str | Path) -> SkillPackage:
     files: list[Path] = []
     text_files: list[TextFile] = []
     text_budget = MAX_TEXT_TOTAL_BYTES
-    for candidate in sorted(_walk_entries(root), key=lambda p: p.relative_to(root).as_posix()):
+    entries = _walk_entries(root)
+    _check_package_size(entries)
+    for candidate in sorted(entries, key=lambda p: p.relative_to(root).as_posix()):
         if candidate.is_symlink():
             issues.append(
                 PackageIssue(
@@ -539,26 +659,20 @@ def parse_skill(path: str | Path) -> SkillPackage:
                 # A script the scan did not read is a gap, not a clean file.
                 # The HIGH issue degrades the spec stage, so the verdict cannot be SAFE.
                 issues.append(
-                    PackageIssue(
-                        "high",
-                        f"text file not analysed: {relative} ({_unread_reason(candidate, text_budget)})",
-                        file=relative,
-                        coverage=True,
+                    _opaque_issue(
+                        candidate, relative, text_reason=_unread_reason(candidate, text_budget)
                     )
                 )
-        elif (suffix := Path(relative).suffix.lower()) not in IMAGE_SUFFIXES:
+        elif Path(relative).suffix.lower() not in IMAGE_SUFFIXES:
             # Neither text nor an image: the scan has no reader for it.  Images are
             # covered by the vision stage, so only other files are reported here.
-            issues.append(
-                PackageIssue(
-                    "medium",
-                    f"file not analysed: {relative} (unsupported file type {suffix}); "
-                    "SkillSentry reads text, scripts and images only, so the package is "
-                    "UNSCANNED. Review the file by hand, or remove it, before installing",
-                    file=relative,
-                    coverage=True,
-                )
-            )
+            issues.append(_opaque_issue(candidate, relative, text_reason=None))
+        else:
+            # An image is read by the vision stage, but only if it is an image: a program
+            # or random data with an image name must not pass as one.
+            image_issue = _image_issue(candidate, relative)
+            if image_issue is not None:
+                issues.append(image_issue)
 
     try:
         package_hash = hash_skill_dir(root)
