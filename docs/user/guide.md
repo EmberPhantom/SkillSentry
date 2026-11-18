@@ -400,7 +400,9 @@ skill-sentry-cli serve
 
 Open <http://127.0.0.1:8000> in a browser. The server listens only on your own machine.
 
-The dashboard has no login. Anyone who can reach the port can see your scans and start new ones, so keep the server on `127.0.0.1` and do not expose it to a network.
+The dashboard has no login. Anyone who can reach the port can see your scans and start new ones, so keep the server on `127.0.0.1`. `serve` refuses any other `--host` unless you set `SKILLSENTRY_TOKEN`, which makes the API require a bearer token (the dashboard does not send one yet).
+
+The server only scans inside the folder you started it in (it prints that folder). To scan elsewhere, start it there, or set `[server] allowed_scan_roots`.
 
 - `/` serves the dashboard page.
 - `/health` reports whether Ollama, Docker and the database are ready (`"ok"` or `"down"`).

@@ -51,7 +51,7 @@ docker run -d --name skillsentry \
   ghcr.io/emberphantom/skill-sentry-server:<version>
 ```
 
-- **Publish the port on loopback only.** The API has no authentication. The container listens on all interfaces inside its own network, so the `127.0.0.1:` prefix is what keeps it local.
+- **Publish the port on loopback only, or set a token.** The API has no authentication unless you set `-e SKILLSENTRY_TOKEN=<secret>`, which requires `Authorization: Bearer <secret>` on every route except `/health` and `/meta`. The container listens on all interfaces inside its own network, so the `127.0.0.1:` prefix is what keeps it local.
 - **Reaching it from another machine.** The server refuses requests whose `Host` is not loopback or its bind address (`400 untrusted_host`). If you publish the port on a LAN address and open the dashboard by that address or a LAN name, add it with `-e SKILLSENTRY_ALLOWED_HOSTS=<name or address>`. Publishing on a LAN address exposes the unauthenticated API to that network, so do it only on a network you trust.
 - **Limit which folders the API may scan.** By default the container can scan any folder it can read. To restrict it, mount the skills folder read-only and set its path as the only allowed root: `-v /srv/skills:/skills:ro -e SKILLSENTRY_ALLOWED_SCAN_ROOTS=/skills`. Scans of any other path get `403 path_not_allowed`.
 - **The data volume keeps the scan history.** Without it, history is lost when the container is removed.
@@ -63,7 +63,7 @@ docker run -d --name skillsentry \
 
 Work through this list for any machine that people depend on.
 
-- [ ] **Keep the API on loopback.** There is no authentication. If you need remote access, put it behind a reverse proxy that enforces authentication, and do not expose the port directly.
+- [ ] **Keep the API on loopback, or set a token.** Without `SKILLSENTRY_TOKEN` there is no authentication, and `serve` refuses a non-loopback `--host`. For remote access set a long random token (`openssl rand -hex 32`), send it as a bearer token, and put the server behind TLS (a reverse proxy), because the token is sent in the clear otherwise.
 - [ ] **Limit the scan folders.** Set `SKILLSENTRY_ALLOWED_SCAN_ROOTS` (or `[server] allowed_scan_roots`) to the folders that hold the skills you audit, and mount them read-only.
 - [ ] **Pin the image to a version tag,** and verify its signature before you run it (see below).
 - [ ] **Confirm the sandbox works.** `skill-sentry-cli doctor` should report the Docker engine and the sandbox image as present. Without them, scans degrade and say so.

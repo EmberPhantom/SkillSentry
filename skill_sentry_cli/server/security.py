@@ -13,6 +13,7 @@ example a LAN name for a server bound to all interfaces.
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 from collections.abc import Iterable
@@ -153,9 +154,91 @@ class TrustedHostMiddleware:
         await send({"type": "http.response.body", "body": body})
 
 
+# Paths that stay open when a token is set: the health and version probes (the container
+# healthcheck uses /meta) and the dashboard's own files. The data and the actions need the token.
+_OPEN_PREFIXES = frozenset({"health", "meta"})
+_PROTECTED_PREFIXES = frozenset({"scan", "scans", "skills", "cache"})
+TOKEN_ENV = "SKILLSENTRY_TOKEN"
+
+
+def _bearer_token(headers: Headers) -> str | None:
+    """The token from ``Authorization: Bearer <token>``, or from a ``bearer.<token>``
+    WebSocket subprotocol (browsers cannot set headers on a WebSocket)."""
+
+    value = headers.get("authorization", "")
+    scheme, _, credentials = value.partition(" ")
+    if scheme.lower() == "bearer" and credentials.strip():
+        return credentials.strip()
+    for protocol in headers.get("sec-websocket-protocol", "").split(","):
+        protocol = protocol.strip()
+        if protocol.startswith("bearer."):
+            return protocol[len("bearer.") :]
+    return None
+
+
+class TokenAuthMiddleware:
+    """Require a bearer token on the API when one is configured.
+
+    The token is compared in constant time and is never written to a log or an error. A
+    missing and a wrong token get the same answer, so the response says nothing about which
+    one it was. A WebSocket without the token is refused before it is accepted.
+    """
+
+    def __init__(self, app: ASGIApp, *, token: str) -> None:
+        if not token:
+            raise ValueError("token must not be empty")
+        self.app = app
+        self._token = token.encode("utf-8")
+
+    def _protected(self, scope: Scope) -> bool:
+        first = scope.get("path", "/").lstrip("/").split("/", 1)[0]
+        return first in _PROTECTED_PREFIXES and first not in _OPEN_PREFIXES
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in {"http", "websocket"} or not self._protected(scope):
+            await self.app(scope, receive, send)
+            return
+        # CORS preflight carries no credentials by design; it changes nothing.
+        if scope["type"] == "http" and scope.get("method", "GET").upper() == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+        supplied = _bearer_token(Headers(scope=scope))
+        if supplied is not None and hmac.compare_digest(supplied.encode("utf-8"), self._token):
+            await self.app(scope, receive, send)
+            return
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        body = json.dumps(
+            {
+                "error": {
+                    "code": "unauthorized",
+                    "message": "a valid bearer token is required (Authorization: Bearer <token>)",
+                    "stage": None,
+                    "degraded": False,
+                    "scan_id": None,
+                }
+            }
+        ).encode("utf-8")
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                    (b"www-authenticate", b"Bearer"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
 __all__ = [
     "ALLOWED_HOSTS_ENV",
     "LOOPBACK_HOSTS",
+    "TOKEN_ENV",
+    "TokenAuthMiddleware",
     "TrustedHostMiddleware",
     "allowed_hostnames",
     "allowed_hostnames_from_env",

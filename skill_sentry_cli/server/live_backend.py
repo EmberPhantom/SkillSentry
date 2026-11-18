@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import threading
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -109,6 +109,19 @@ def _path_not_allowed() -> ApiError:
     )
 
 
+def _unreadable(path: Path, exc: OSError) -> ApiError:
+    """A folder the server cannot read: a structured 422, not a bare 500."""
+
+    reason = "permission denied" if isinstance(exc, PermissionError) else (exc.strerror or "error")
+    return ApiError(
+        422,
+        "path_unreadable",
+        f"the server cannot read {path}: {reason}",
+        stage=Stage.SPEC,
+        degraded=True,
+    )
+
+
 def _ollama_ready(config: SkillsEntryConfig) -> bool:
     """True only when the local server answers and the configured model is pulled."""
 
@@ -129,8 +142,12 @@ class LiveBackend:
         *,
         engine: ScanEngine | None = None,
         store: Any | None = None,
+        default_scan_roots: Sequence[Path] | None = None,
     ) -> None:
         self.config = config or load_config()
+        # Used only when the configuration names no allowed_scan_roots; `serve` passes the
+        # folder it was started in.
+        self._default_scan_roots = [str(root) for root in default_scan_roots or ()]
         self._engine = engine
         self._store = store
         self._engines: dict[str, ScanEngine] = {}
@@ -146,6 +163,12 @@ class LiveBackend:
             self._engine = ScanEngine(self.config)
             self._store = self._engine.store
         return self._engine
+
+    @property
+    def scan_roots(self) -> list[str]:
+        """Folders the API may scan: the configured list, else the launch folder, else any."""
+
+        return list(self.config.server.allowed_scan_roots) or list(self._default_scan_roots)
 
     @property
     def store(self) -> Any:
@@ -170,7 +193,7 @@ class LiveBackend:
                 stage=Stage.SPEC,
                 degraded=True,
             )
-        roots = self.config.server.allowed_scan_roots
+        roots = self.scan_roots
         path = Path(request.path).expanduser()
         # The allowlist check runs before the existence check, so a refused path gets the
         # same answer whether or not it exists.
@@ -178,6 +201,8 @@ class LiveBackend:
             raise _path_not_allowed()
         try:
             path = path.resolve(strict=True)
+        except PermissionError as exc:
+            raise _unreadable(path, exc) from exc
         except OSError as exc:
             raise ApiError(
                 404,
@@ -190,7 +215,11 @@ class LiveBackend:
             # The first check looked at the path as written. This one looks at the resolved
             # path, the one that will be scanned, so a symlink swapped in between is refused.
             raise _path_not_allowed()
-        if not path.is_dir():
+        try:
+            is_directory = path.is_dir()
+        except OSError as exc:
+            raise _unreadable(path, exc) from exc
+        if not is_directory:
             raise ApiError(
                 422,
                 "invalid_skill",
@@ -198,15 +227,22 @@ class LiveBackend:
                 stage=Stage.SPEC,
                 degraded=True,
             )
-        if not (path / "SKILL.md").is_file():
+        try:
+            has_manifest = (path / "SKILL.md").is_file()
+        except OSError as exc:
+            raise _unreadable(path, exc) from exc
+        if not has_manifest:
             # The API scans one skill folder per request and returns one scan_id.
             # Scanning one child of a folder of skills would report success for
             # packages the caller never asked about, so refuse and name them.
-            children = sorted(
-                child.name
-                for child in path.iterdir()
-                if child.is_dir() and (child / "SKILL.md").is_file()
-            )
+            try:
+                children = sorted(
+                    child.name
+                    for child in path.iterdir()
+                    if child.is_dir() and (child / "SKILL.md").is_file()
+                )
+            except OSError as exc:
+                raise _unreadable(path, exc) from exc
             if not children:
                 raise ApiError(
                     404,

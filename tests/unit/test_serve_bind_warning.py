@@ -1,4 +1,4 @@
-"""Binding the API beyond loopback prints a warning, except inside the official container."""
+"""Binding the API beyond loopback needs a token, except inside the official container."""
 
 from __future__ import annotations
 
@@ -17,11 +17,21 @@ def no_server(monkeypatch):
     return calls
 
 
-def test_non_loopback_host_warns(no_server, monkeypatch):
+def test_non_loopback_host_is_refused_without_a_token(no_server, monkeypatch):
     monkeypatch.delenv("SKILLSENTRY_CONTAINER", raising=False)
+    monkeypatch.delenv("SKILLSENTRY_TOKEN", raising=False)
     result = runner.invoke(cli.app, ["serve", "--host", "0.0.0.0", "--demo-mode"])
+    assert result.exit_code == 2
+    assert "refusing to bind to 0.0.0.0 without a token" in result.output
+    assert not no_server
+
+
+def test_non_loopback_host_with_a_token_starts_silently(no_server, monkeypatch):
+    monkeypatch.delenv("SKILLSENTRY_CONTAINER", raising=False)
+    result = runner.invoke(cli.app, ["serve", "--host", "0.0.0.0", "--demo-mode", "--token", "abc"])
     assert result.exit_code == 0
-    assert "warning: binding to 0.0.0.0 exposes the API" in result.output
+    assert "warning" not in result.output
+    assert "abc" not in result.output
     assert no_server and no_server[0]["host"] == "0.0.0.0"
 
 
