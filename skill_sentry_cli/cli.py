@@ -190,6 +190,14 @@ def scan(
     sandbox: bool = typer.Option(
         True, "--sandbox/--no-sandbox", help="Execute the skill in Docker when available."
     ),
+    strict_sandbox: bool = typer.Option(
+        False,
+        "--strict-sandbox",
+        help=(
+            "Fail (UNSCANNED) when the sandbox cannot test a skill's scripts, for example "
+            "when no 'entrypoint:' is declared. Without it the scripts are skipped with a warning."
+        ),
+    ),
     backend: str = typer.Option(
         "auto", "--backend", help="Model backend: auto | local | cloud | demo"
     ),
@@ -289,6 +297,7 @@ def scan(
             fail_on=fail_on,
             no_cache=no_cache,
             sandbox=sandbox,
+            strict_sandbox=strict_sandbox,
             backend=backend,
             timeout_s=timeout_s,
         )
@@ -357,6 +366,7 @@ def scan(
         no_cache=no_cache,
         backend=backend,
         sandbox=sandbox,
+        strict_sandbox=strict_sandbox,
         timeout_s=timeout_s,
     )
     outcomes, indexes, failed = _scan_roots(
@@ -648,6 +658,19 @@ def _no_path_envelope(
     }
 
 
+def _warn_scripts_not_executed(outcomes: Sequence[ScanOutcome]) -> None:
+    """Say on stderr which skills had scripts that were not run for lack of an entrypoint."""
+
+    for outcome in outcomes:
+        if any(f.finding_type == "sandbox-no-entrypoint" for f in outcome.verdict.findings):
+            typer.echo(
+                f"warning: {outcome.verdict.skill}: scripts were not executed because SKILL.md "
+                "declares no 'entrypoint:'. Only static analysis ran. "
+                "Use --strict-sandbox to fail on this.",
+                err=True,
+            )
+
+
 def _emit_outcomes(
     outcomes: list[ScanOutcome],
     *,
@@ -665,6 +688,8 @@ def _emit_outcomes(
 ) -> None:
     """Render the run. ``installs`` (one per outcome, no-path flow only) adds where each
     skill was found; ``notes`` and ``summary`` complete the no-path JSON envelope."""
+    if not quiet:
+        _warn_scripts_not_executed(outcomes)
     if sarif_out is not None:
         _write_file(sarif_out, _combined_sarif(outcomes))
         if not quiet and output_format == "text":
@@ -1513,6 +1538,7 @@ def _scan_installed(
     fail_on: str,
     no_cache: bool,
     sandbox: bool,
+    strict_sandbox: bool = False,
     backend: str,
     timeout_s: int,
 ) -> None:
@@ -1579,6 +1605,7 @@ def _scan_installed(
         no_cache=no_cache,
         backend=backend,
         sandbox=sandbox,
+        strict_sandbox=strict_sandbox,
         timeout_s=timeout_s,
     )
     outcomes, indexes, failed = _scan_roots(
