@@ -43,7 +43,11 @@ def _backend(request: Request) -> ScanBackend:
 
 @router.post("/scan", response_model=ScanStartResponse, status_code=202)
 async def start_scan(payload: ScanRequest, request: Request) -> ScanStartResponse:
-    return await _backend(request).start_scan(payload)
+    response = await _backend(request).start_scan(payload)
+    if request.url.path.startswith("/api/"):
+        # Answer in the same namespace the client used, so the stream URL works as given.
+        response.stream = f"/api{response.stream}"
+    return response
 
 
 @router.get("/scans", response_model=ScanListResponse)

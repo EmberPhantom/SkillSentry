@@ -36,16 +36,25 @@ export interface ActiveDefense {
   declaredIntent?: string | null;
 }
 
+export type VerdictStatus = VerdictTier | "UNSCANNED" | "INVALID SKILL";
+
 export interface VerdictRecord {
   skill: string;
   skillId: string;
   scanId: string;
   verdict: VerdictTier;
+  /** What the command line shows: the tier, UNSCANNED, or INVALID SKILL. */
+  status?: VerdictStatus;
   riskScore: number;
+  /** How certain the verdict is, 0 to 1. */
   confidence: number;
+  /** Share of the analyses that apply to this skill that ran, 0 to 1. */
+  coverage?: number | null;
   cached: boolean;
   scanDurationMs: number;
   findings: Finding[];
+  /** Checks that passed; not findings. */
+  checks?: Finding[];
   activeDefense?: ActiveDefense | null;
 }
 

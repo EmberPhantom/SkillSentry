@@ -245,6 +245,7 @@ ready for a full scan
 | `database` | yes | The scan history can be written. |
 | `docker` | no | The Docker engine is reachable. |
 | `sandbox image` | no | The sandbox image is present. |
+| `stale images` | no | Older or test SkillSentry images (`skillsentry-sandbox` and `skill-sentry-server` tags other than this release's version, `latest`, or the configured sandbox image) are on this machine. Shown only when there are some, with the exact `docker rmi <image> ...` command. `doctor` never removes anything, and an image a container uses is not listed. |
 | `platform` | no | Advice for your platform. It never fails. |
 
 Each line is `PASS`, `FAIL` (a required check failed), or `WARN` (an optional check). The command exits `3` when a required check fails.

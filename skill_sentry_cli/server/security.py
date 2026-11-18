@@ -191,7 +191,11 @@ class TokenAuthMiddleware:
         self._token = token.encode("utf-8")
 
     def _protected(self, scope: Scope) -> bool:
-        first = scope.get("path", "/").lstrip("/").split("/", 1)[0]
+        parts = scope.get("path", "/").lstrip("/").split("/")
+        if parts[0] == "api":
+            # /api/<route> is the same route as /<route>.
+            parts = parts[1:] or [""]
+        first = parts[0]
         return first in _PROTECTED_PREFIXES and first not in _OPEN_PREFIXES
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

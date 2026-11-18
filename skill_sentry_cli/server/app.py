@@ -36,7 +36,7 @@ _DEV_ORIGINS = [
 
 
 # First path segments that belong to the JSON API (see server/routes.py).
-_API_PREFIXES = frozenset({"scan", "scans", "skills", "cache", "health", "meta"})
+_API_PREFIXES = frozenset({"scan", "scans", "skills", "cache", "health", "meta", "api"})
 
 
 def _default_ui_dist() -> Path:
@@ -138,6 +138,9 @@ def create_app(
         )
 
     app.include_router(router)
+    # The same routes under /api, so an API client and the dashboard's own files cannot be
+    # confused. The unprefixed routes stay, because the dashboard and existing clients use them.
+    app.include_router(router, prefix="/api", include_in_schema=False)
 
     ui_dist = Path(static_dir) if static_dir is not None else _default_ui_dist()
     ui_index = ui_dist / "index.html"

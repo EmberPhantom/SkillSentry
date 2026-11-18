@@ -168,6 +168,7 @@ Each line is one check:
 | `PASS database: writable at …` | Scan history can be saved | Nothing |
 | `WARN docker: engine not reachable …` | Full sandbox scans are not possible | Section 4 |
 | `PASS sandbox image: … is present` | The sandbox image is built | Nothing |
+| `WARN stale images: N older or test SkillSentry image(s) …` | Old SkillSentry images are using disk space | Run the `docker rmi …` command it prints, if you do not need them. `doctor` removes nothing itself |
 | `ready for a full scan` | Every required check passed | You can run full scans |
 
 `doctor` exits `0` when it is ready and `3` when a required check fails.
