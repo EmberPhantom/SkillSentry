@@ -112,12 +112,13 @@ Returns the verdict object (`verdict`) together with the data for each dashboard
 | `poisonedWell` | Decoy credential activity and the indicators it produced. |
 | `reportLinks` | Links to the report in each format. |
 
-### `GET /skills/{skill_id}/export?format=sarif|markdown|stix`
+### `GET /skills/{skill_id}/export?format=sarif|markdown|json|stix`
 
 Returns the report as a file attachment, rendered from the stored result when you ask for it. Nothing is written to disk on the server. `format` is required.
 
 - `sarif`: SARIF 2.1.0 (§5.6).
 - `markdown`: a human-readable report.
+- `json`: the verdict JSON (§5.5), the same document `scan --format json` prints.
 - `stix`: a STIX 2.1 bundle (§5.7). It needs at least one indicator, otherwise the response is `409 no_iocs`.
 
 ### `GET /cache/stats`

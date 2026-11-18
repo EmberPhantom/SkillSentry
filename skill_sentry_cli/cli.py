@@ -1154,7 +1154,7 @@ def cache_clear(
 @app.command("export")
 def export_report(
     scan_id: str = typer.Argument(..., help="Scan ID printed by `scan` or `cache list`."),
-    fmt: str = typer.Option("markdown", "--format", help="sarif | markdown | stix"),
+    fmt: str = typer.Option("markdown", "--format", help="sarif | markdown | json | stix"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write to a file."),
 ) -> None:
     """Re-render the report of a stored scan without re-running it."""
@@ -1163,6 +1163,7 @@ def export_report(
         "sarif": ExportFormat.SARIF,
         "markdown": ExportFormat.MARKDOWN,
         "stix": ExportFormat.STIX,
+        "json": ExportFormat.JSON,
     }
     if fmt not in formats:
         typer.echo(f"error: unsupported --format {fmt!r}", err=True)

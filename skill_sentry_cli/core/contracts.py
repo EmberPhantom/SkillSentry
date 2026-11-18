@@ -140,6 +140,7 @@ class ExportFormat(str, Enum):
     SARIF = "sarif"
     MARKDOWN = "markdown"
     STIX = "stix"
+    JSON = "json"
 
 
 HealthStatus = Literal["ok", "down"]

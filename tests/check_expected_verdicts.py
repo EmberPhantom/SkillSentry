@@ -116,6 +116,76 @@ def _scan_one(name: str, expected: dict[str, Any], *, sandbox: bool) -> CheckRes
     return CheckResult(name, "PASS", f"{verdict.verdict.value} risk={risk}")
 
 
+EVASION_FIXTURES = ROOT / "tests" / "fixtures" / "evasion"
+_TIER_RANK = {"SAFE": 0, "SUSPICIOUS": 1, "MALICIOUS": 2}
+
+
+def evasion_expected() -> dict[str, dict[str, Any]]:
+    """Evasion cases: what a good scanner should do, and which ones are known gaps."""
+
+    payload = json.loads(EXPECTED_PATH.read_text(encoding="utf-8"))
+    cases = {
+        name: value
+        for name, value in payload.get("evasion", {}).items()
+        if not name.startswith("_")
+    }
+    if not cases:
+        raise RuntimeError(f"{EXPECTED_PATH}: missing evasion mapping")
+    return cases
+
+
+def scan_evasion_case(name: str) -> tuple[str, int]:
+    """Scan one evasion fixture with the benign mock model, so only the deterministic stages
+    can raise the verdict. Returns the verdict tier and the risk score."""
+
+    from skill_sentry_cli.core.cache import SQLiteStore
+    from skill_sentry_cli.core.config import SkillsEntryConfig
+    from skill_sentry_cli.core.contracts import ScanOptions
+    from skill_sentry_cli.core.engine import ScanEngine
+    from skill_sentry_cli.core.models.mock import MockGemma
+
+    with tempfile.TemporaryDirectory(prefix="skillsentry-evasion-") as temp:
+        store = SQLiteStore(Path(temp) / "scan.sqlite")
+        engine = ScanEngine(SkillsEntryConfig(), store=store, model=MockGemma(profile="benign"))
+        try:
+            outcome = engine.scan(
+                EVASION_FIXTURES / name,
+                options=ScanOptions(sandbox=False, backend="demo", no_cache=True),
+            )
+        finally:
+            engine.close()
+            store.close()
+    return outcome.verdict.verdict.value, outcome.verdict.risk_score
+
+
+def evasion_caught(name: str, expected: dict[str, Any]) -> bool:
+    """True when the scan meets the case's expectation (its minimum tier and risk)."""
+
+    tier, risk = scan_evasion_case(name)
+    return _TIER_RANK[tier] >= _TIER_RANK[expected["min_verdict"]] and risk >= int(
+        expected.get("min_risk", 0)
+    )
+
+
+def check_evasion() -> list[CheckResult]:
+    """PASS: caught. KNOWN-GAP: missed, and recorded as a known gap. FAIL: a case that should be
+    caught is missed, or a known gap is now caught (remove its known_gap)."""
+
+    results: list[CheckResult] = []
+    for name, expected in evasion_expected().items():
+        caught = evasion_caught(name, expected)
+        gap = expected.get("known_gap")
+        if gap is None:
+            status = "PASS" if caught else "FAIL"
+            detail = "caught" if caught else "missed: this case must be caught"
+        elif caught:
+            status, detail = "FAIL", "now caught: remove its known_gap and update the docs"
+        else:
+            status, detail = "KNOWN-GAP", str(gap["reason"])
+        results.append(CheckResult(name, status, detail))
+    return results
+
+
 def check_static() -> list[CheckResult]:
     """Run every fixture through the real engine with the deterministic model."""
 
