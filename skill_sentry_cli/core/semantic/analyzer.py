@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 from skill_sentry_cli.core.contracts import (
@@ -23,6 +24,12 @@ from skill_sentry_cli.core.contracts import (
     Severity,
     Stage,
     StageResult,
+)
+from skill_sentry_cli.core.deadline import (
+    Deadline,
+    TimeLimitExceeded,
+    call_within,
+    time_limit_finding,
 )
 from skill_sentry_cli.core.models._json import validate_json
 from skill_sentry_cli.core.models.base import ModelClient
@@ -276,16 +283,27 @@ def _gap_text(gaps: list[_Gap]) -> str:
     return "; ".join(shown) + suffix
 
 
+def _generate(model: ModelClient, prompt: str) -> dict[str, Any]:
+    return model.generate_json(SYSTEM_PROMPT, prompt, SEMANTIC_SCHEMA, retries=1)
+
+
 def analyze_semantics(
     package: SkillPackage,
     anchors: StageResult,
     model: ModelClient | None,
     *,
     timeout_s: float | None = None,
+    deadline: Deadline | None = None,
 ) -> StageResult:
-    """Run semantic analysis; never raises for a model or reporting failure."""
+    """Run semantic analysis; never raises for a model or reporting failure.
 
-    del timeout_s
+    ``timeout_s`` is this stage's wall-clock budget and ``deadline`` is the scan's. Whichever
+    ends first stops the stage: a model call that overruns is abandoned, the chunks not yet
+    analysed are recorded as gaps with the reason, and the stage is degraded. Findings from
+    the chunks that finished are kept.
+    """
+
+    budget = (deadline or Deadline(None)).within(timeout_s)
     instruction_floor = 0.0
     for finding in anchors.findings:
         if finding.finding_type in _INSTRUCTION_TYPES:
@@ -318,12 +336,28 @@ def analyze_semantics(
     failed: list[_Gap] = []
     prompt_chars = 0
     last_error: str | None = None
-    for chunk in selected:
+    timed_out = False
+    for index, chunk in enumerate(selected):
+        if budget.expired():
+            timed_out = True
+            reason = f"time limit reached ({budget.describe()})"
+            for skipped in selected[index:]:
+                failed.append(_Gap(skipped.file, skipped.first_line, skipped.last_line, reason))
+            last_error = last_error or reason
+            break
         prompt = _chunk_prompt(package, chunk, anchors)
         prompt_chars += len(prompt)
         try:
-            response = model.generate_json(SYSTEM_PROMPT, prompt, SEMANTIC_SCHEMA, retries=1)
+            response = call_within(budget, partial(_generate, model, prompt))
             validate_json(response, SEMANTIC_SCHEMA)
+        except TimeLimitExceeded as exc:
+            timed_out = True
+            last_error = str(exc)[:300]
+            for skipped in selected[index:]:
+                failed.append(
+                    _Gap(skipped.file, skipped.first_line, skipped.last_line, str(exc)[:160])
+                )
+            break
         except Exception as exc:
             last_error = str(exc)[:300]
             reason = f"model call failed ({type(exc).__name__}: {str(exc)[:160]})"
@@ -337,6 +371,8 @@ def analyze_semantics(
             degraded=True,
             error=f"semantic model unavailable: {last_error or 'no chunk analysed'}",
             signals={"semantic": instruction_floor} if instruction_floor else {},
+            findings=[time_limit_finding(Stage.SEMANTIC, budget)] if timed_out else [],
+            telemetry={"time_limit_reached": True} if timed_out else None,
         )
 
     findings: list[Finding] = []
@@ -359,6 +395,8 @@ def analyze_semantics(
                 evidence=FindingEvidence(file="SKILL.md", line=1),
             )
         )
+    if timed_out:
+        findings.append(time_limit_finding(Stage.SEMANTIC, budget))
     if all_gaps:
         findings.append(
             Finding(
@@ -437,6 +475,7 @@ def analyze_semantics(
             "chunks_failed": len(failed),
             "gap_ranges": [f"{gap.file}:{gap.first_line}-{gap.last_line}" for gap in all_gaps],
             "unverified_model_findings": unverified,
+            "time_limit_reached": timed_out,
         },
     )
 

@@ -331,6 +331,20 @@
             "$ref": "#/$defs/Backend",
             "default": "auto"
           },
+          "max_time_s": {
+            "anyOf": [
+              {
+                "maximum": 86400,
+                "minimum": 5,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max Time S"
+          },
           "no_cache": {
             "default": false,
             "title": "No Cache",

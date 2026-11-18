@@ -204,6 +204,19 @@ def scan(
     timeout_s: int = typer.Option(
         60, "--timeout", min=5, max=600, help="Sandbox timeout (seconds)."
     ),
+    max_time: int | None = typer.Option(
+        None,
+        "--max-time",
+        min=5,
+        max=86400,
+        help=(
+            "Wall-clock cap for scanning one skill, in seconds (default: [scan] max_time_s, "
+            "300). Model calls and the sandbox stop at it and the stage is reported as degraded."
+        ),
+    ),
+    timings: bool = typer.Option(
+        False, "--timings", help="Print how long each stage took to stderr."
+    ),
     output: Path | None = typer.Option(
         None, "--output", help="Write the rendered report to a file."
     ),
@@ -300,6 +313,8 @@ def scan(
             strict_sandbox=strict_sandbox,
             backend=backend,
             timeout_s=timeout_s,
+            max_time=max_time,
+            timings=timings,
         )
         return
     if project is not None or agent or include_experimental:
@@ -368,9 +383,15 @@ def scan(
         sandbox=sandbox,
         strict_sandbox=strict_sandbox,
         timeout_s=timeout_s,
+        max_time_s=max_time,
     )
     outcomes, indexes, failed = _scan_roots(
-        engine, roots, options=options, output_format=output_format, quiet=quiet
+        engine,
+        roots,
+        options=options,
+        output_format=output_format,
+        quiet=quiet,
+        timings=timings,
     )
     scanned_at = set(indexes)
     failed_names = [str(root) for i, root in enumerate(roots) if i not in scanned_at]
@@ -1363,6 +1384,7 @@ def _scan_roots(
     output_format: str,
     quiet: bool,
     always_progress: bool = False,
+    timings: bool = False,
 ) -> tuple[list[ScanOutcome], list[int], bool]:
     """Scan each root in turn. Returns the outcomes, the index of each root that scanned,
     and whether any root failed. A failed root is reported and skipped, not fatal.
@@ -1392,7 +1414,23 @@ def _scan_roots(
             continue
         outcomes.append(outcome)
         indexes.append(index)
+        if timings and not quiet:
+            typer.echo(_timings_line(outcome), err=True)
     return outcomes, indexes, failed
+
+
+def _timings_line(outcome: ScanOutcome) -> str:
+    """One stderr line with the time each stage took, for diagnosing a slow scan."""
+
+    if outcome.cached:
+        return f"timings: {outcome.verdict.skill}: from cache"
+    parts = [
+        f"{result.stage.value} {(result.telemetry or {}).get('durationMs', 0) / 1000:.1f}s"
+        for result in outcome.stage_results
+        if (result.telemetry or {}).get("durationMs", 0) >= 50
+    ]
+    total = outcome.duration_ms / 1000
+    return f"timings: {outcome.verdict.skill}: " + ", ".join([*parts, f"total {total:.1f}s"])
 
 
 def _new_report_folder() -> Path:
@@ -1541,6 +1579,8 @@ def _scan_installed(
     strict_sandbox: bool = False,
     backend: str,
     timeout_s: int,
+    max_time: int | None = None,
+    timings: bool = False,
 ) -> None:
     """``scan`` with no path: find every installed skill, then scan each one."""
 
@@ -1607,10 +1647,12 @@ def _scan_installed(
         sandbox=sandbox,
         strict_sandbox=strict_sandbox,
         timeout_s=timeout_s,
+        max_time_s=max_time,
     )
     outcomes, indexes, failed = _scan_roots(
         engine,
         roots,
+        timings=timings,
         options=options,
         output_format=output_format,
         quiet=quiet,

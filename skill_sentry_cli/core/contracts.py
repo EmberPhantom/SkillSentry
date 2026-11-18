@@ -293,6 +293,8 @@ class ScanOptions(RequestModel):
     strict_sandbox: bool = False
     poisoned_well: bool = True
     timeout_s: int = Field(default=60, ge=5, le=600)
+    # Wall-clock cap for the whole scan of one skill, in seconds; None uses `[scan] max_time_s`.
+    max_time_s: int | None = Field(default=None, ge=5, le=86400)
 
 
 class ScanRequest(RequestModel):

@@ -344,6 +344,8 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 | `--fail-on malicious` | Exit `1` only for `MALICIOUS` (not recommended in CI; see section 12) |
 | `--no-cache` | Ignore saved results and scan again |
 | `--timeout 120` | Sandbox time limit in seconds (5 to 600; default 60) |
+| `--max-time 600` | Cap for scanning one skill, in seconds (default 300). The model and the sandbox stop at it and the stage is reported as degraded |
+| `--timings` | Print how long each stage took, to find the slow one |
 | `--no-sandbox` | Static analysis and the model only; the entrypoint is never run. Verdicts are weaker. |
 | `-q` / `--quiet` | Print only the verdict line |
 
@@ -518,7 +520,8 @@ Each message below was produced on purpose and quoted exactly. The first line of
 | `warning: <skill>: scripts were not executed because SKILL.md declares no 'entrypoint:'` | The skill has scripts but no `entrypoint:`. The scan finished without running them | Add `entrypoint:` to `SKILL.md`. With `--strict-sandbox` the same case is `UNSCANNED` with exit 1 |
 | `[?] … UNSCANNED` with a reason you do not understand | Anything not listed here | Read the report: `--format markdown --output …` |
 | `[OK] … SAFE` with `LOW sandbox-exit: Skill exited with status 2` | The skill ran and exited with an error (for example, it needs an argument) | Expected for some skills; the finding is low risk |
-| A scan is very slow | The first scan of a large skill, or the model is short of memory | Wait once; close other apps; cached rescans take under a second |
+| A scan is very slow | The first scan of a large skill, or the model is short of memory | Run with `--timings` to see which stage is slow. A scan stops at `--max-time` (default 300 s), so it cannot run unbounded; use a smaller model or `--no-sandbox`. Cached rescans take under a second |
+| `scan-time-limit` note, or a stage `degraded: ... time limit` | The model or sandbox was still running when `--max-time` passed | Raise `--max-time` (or `[scan] max_time_s`), or use a smaller model. A timed-out scan is not cached |
 | A scan is killed with `sandbox timed out` | The entrypoint ran past `--timeout` | Raise `--timeout` (up to 600) if the skill is legitimately slow |
 
 **Where to look when something is still wrong**

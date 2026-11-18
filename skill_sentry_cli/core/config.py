@@ -120,6 +120,14 @@ class SandboxSettings(_ConfigModel):
     max_parallel: int = Field(default=1, ge=1, le=8)
 
 
+class ScanSettings(_ConfigModel):
+    """Limits that apply to one scan."""
+
+    # Wall-clock cap for one skill. Model calls and the sandbox stop at it; the scan returns
+    # what the finished stages found and says which stage ran out of time.
+    max_time_s: int = Field(default=300, ge=5, le=86400)
+
+
 class PoisonedWellSettings(_ConfigModel):
     enabled: bool = True
     correlation_window_s: float = Field(default=10.0, gt=0)
@@ -223,6 +231,7 @@ class SkillsEntryConfig(_ConfigModel):
     model: ModelSettings = Field(default_factory=ModelSettings)
     decision: DecisionSettings = Field(default_factory=DecisionSettings)
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
+    scan: ScanSettings = Field(default_factory=ScanSettings)
     poisoned_well: PoisonedWellSettings = Field(default_factory=PoisonedWellSettings)
     scoring: ScoringSettings = Field(default_factory=ScoringSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
@@ -270,6 +279,9 @@ timeout_s = 60
 memory_mb = 512
 cpus = 1.0
 masquerade = true
+
+[scan]
+max_time_s = 300                 # wall-clock cap for one skill; --max-time overrides it
 
 [poisoned_well]
 enabled = true

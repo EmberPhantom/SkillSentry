@@ -49,6 +49,7 @@ from skill_sentry_cli.core.contracts import (
     WSMessage,
     utc_now,
 )
+from skill_sentry_cli.core.deadline import Deadline, time_limit_finding
 from skill_sentry_cli.core.decisions import (
     DecisionClient,
     DecisionSelection,
@@ -177,9 +178,15 @@ class _ScanContext:
     trace: SandboxTrace = field(default_factory=SandboxTrace)
     vision_evidence: list[VisionEvidence] = field(default_factory=list)
     pw_view: PoisonedWellView = field(default_factory=PoisonedWellView)
+    deadline: Deadline = field(default_factory=lambda: Deadline(None))
+    stage_mark: float = 0.0
+    stage_ms: dict[str, int] = field(default_factory=dict)
 
 
 ProgressCallback = Callable[[WSMessage], None]
+
+# A sandbox run needs this many seconds of the scan's time limit left to be worth starting.
+_MIN_SANDBOX_SECONDS = 5.0
 
 
 class ScanEngine:
@@ -394,6 +401,15 @@ class ScanEngine:
                 options=opts,
                 skill_name=package.name,
                 skill_id=skill_id,
+                deadline=Deadline(
+                    max(
+                        0.0,
+                        float(opts.max_time_s or self.config.scan.max_time_s)
+                        - (time.monotonic() - started_monotonic),
+                    ),
+                    limit_s=float(opts.max_time_s or self.config.scan.max_time_s),
+                ),
+                stage_mark=started_monotonic,
             )
             return self._run_pipeline(ctx, emit=emit, cancel=cancel)
         except ScanCancelled:
@@ -440,11 +456,16 @@ class ScanEngine:
         self._check_cancel(cancel)
 
         model = self._get_model()
-        semantic = self._semantic_stage(ctx.package, anchors, model)
+        semantic = self._semantic_stage(ctx.package, anchors, model, ctx.deadline)
         self._record(ctx, semantic, emit)
         self._check_cancel(cancel)
 
-        vision = scan_vision(ctx.package, model, max_px=self.config.model.image_max_px)
+        vision = scan_vision(
+            ctx.package,
+            model,
+            max_px=self.config.model.image_max_px,
+            deadline=ctx.deadline,
+        )
         self._record(ctx, vision, emit)
         ctx.vision_evidence = self._vision_evidence(vision)
         self._check_cancel(cancel)
@@ -519,6 +540,7 @@ class ScanEngine:
             {
                 "verdict": verdict.model_dump(by_alias=True, mode="json"),
                 "durationMs": duration_ms,
+                "stageDurationsMs": dict(ctx.stage_ms),
                 "degraded": [stage.value for stage in fused.degraded_stages],
             },
         )
@@ -680,10 +702,25 @@ class ScanEngine:
                 ],
                 telemetry={"skipped": True, "reason": "no entrypoint declared"},
             )
+        left = ctx.deadline.remaining()
+        if left is not None and left < _MIN_SANDBOX_SECONDS:
+            return StageResult(
+                stage=Stage.SANDBOX,
+                degraded=True,
+                error=(
+                    f"scan time limit reached ({ctx.deadline.describe()}) before the sandbox "
+                    "could run"
+                ),
+                findings=[time_limit_finding(Stage.SANDBOX, ctx.deadline)],
+                telemetry={"time_limit_reached": True},
+            )
+        sandbox_timeout = min(self.config.sandbox.timeout_s, ctx.options.timeout_s)
+        if left is not None:
+            sandbox_timeout = max(1, min(sandbox_timeout, int(left)))
         plan = build_sandbox_plan(
             ctx.package,
             StageResult(stage=Stage.DETERMINISTIC_ANCHOR),
-            timeout_s=min(self.config.sandbox.timeout_s, ctx.options.timeout_s),
+            timeout_s=sandbox_timeout,
         )
         if plan.validation_status != "valid":
             # An invalid plan never runs: a partial check set must not read as a clean sandbox.
@@ -698,7 +735,7 @@ class ScanEngine:
             skill_dir=ctx.package.root,
             declared_intent=ctx.package.declared_intent,
             command=tuple(ctx.package.entrypoint) if ctx.package.entrypoint else None,
-            timeout_s=float(min(self.config.sandbox.timeout_s, ctx.options.timeout_s)),
+            timeout_s=float(sandbox_timeout),
         )
         self._emit(
             emit,
@@ -1187,6 +1224,15 @@ class ScanEngine:
         result: StageResult,
         emit: ProgressCallback | None,
     ) -> None:
+        now = time.monotonic()
+        ctx.stage_ms[result.stage.value] = ctx.stage_ms.get(result.stage.value, 0) + max(
+            0, int((now - ctx.stage_mark) * 1000)
+        )
+        ctx.stage_mark = now
+        result.telemetry = {
+            **(result.telemetry or {}),
+            "durationMs": ctx.stage_ms[result.stage.value],
+        }
         ctx.stage_results.append(result)
         self._emit(
             emit,
@@ -1249,6 +1295,7 @@ class ScanEngine:
         package: SkillPackage,
         anchors: StageResult,
         model: ModelClient | None,
+        deadline: Deadline | None = None,
     ) -> StageResult:
         """Route the semantic stage: typed decision backend, then legacy model."""
 
@@ -1287,7 +1334,7 @@ class ScanEngine:
                 }
             )
         if selection.backend == "legacy":
-            return self._legacy_semantic(package, anchors, model)
+            return self._legacy_semantic(package, anchors, model, deadline)
         if selection.backend == "none":
             off_values = {"none", "off", "disabled"}
             explicitly_off = self.config.decision.backend.strip().lower() in off_values
@@ -1296,20 +1343,21 @@ class ScanEngine:
             return degraded_semantic_stage(
                 anchors, selection.reason or "semantic decision backend unavailable"
             )
-        return self._legacy_semantic(package, anchors, model)
+        return self._legacy_semantic(package, anchors, model, deadline)
 
     def _legacy_semantic(
         self,
         package: SkillPackage,
         anchors: StageResult,
         model: ModelClient | None,
+        deadline: Deadline | None = None,
     ) -> StageResult:
         """Legacy analysis; with no model, the reason the model could not be selected is kept."""
 
         if model is None:
             reason = self._model_error or "no model backend is configured"
             return degraded_semantic_stage(anchors, f"model unavailable: {reason}")
-        return analyze_semantics(package, anchors, model)
+        return analyze_semantics(package, anchors, model, deadline=deadline)
 
     def _decision_selection(self, model: ModelClient | None) -> DecisionSelection:
         """Select the typed decision backend once per engine, not once per scan.
