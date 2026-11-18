@@ -160,6 +160,35 @@ def test_fail_on_gates_the_whole_batch(
     assert result.exit_code == expected, result.output
 
 
+def _invalid_skill(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "SKILL.md").write_text("---\ndescription: no name\n---\n# Broken\n", encoding="utf-8")
+    return path
+
+
+def test_no_path_run_with_an_invalid_skill_exits_5(fake_home: Path, tmp_path: Path) -> None:
+    _skill(fake_home / ".claude" / "skills" / "alpha")
+    _invalid_skill(fake_home / ".codex" / "skills" / "broken")
+
+    result = _invoke(tmp_path, [*SCAN, "--format", "json"])
+
+    assert result.exit_code == 5, result.output
+
+
+def test_no_path_run_a_verdict_failure_beats_an_invalid_skill(
+    fake_home: Path, tmp_path: Path
+) -> None:
+    _invalid_skill(fake_home / ".codex" / "skills" / "broken")
+    shutil.copytree(
+        ROOT / "fixtures" / "malicious" / "cloud-sync-pro",
+        fake_home / ".agents" / "skills" / "cloud-sync-pro",
+    )
+
+    result = _invoke(tmp_path, [*SCAN, "--format", "json"])
+
+    assert result.exit_code == 1, result.output
+
+
 @pytest.mark.skipif(os.name == "nt", reason="symlinks need extra rights on Windows")
 def test_symlinked_install_is_scanned_once(fake_home: Path, tmp_path: Path) -> None:
     real = _skill(tmp_path / "system" / "gamma")

@@ -25,6 +25,9 @@ Scripts and CI should branch on these.
 | `1` | At least one verdict meets the `--fail-on` gate. |
 | `2` | Usage error: a bad option or value, a missing configuration file, or an unknown scan ID. |
 | `3` | Operational error: a bad path, a missing `--project` or `extra_paths` folder (see [Scan with no path](#scan-with-no-path)), Docker or database failure, or nothing could be scanned. |
+| `5` | An `INVALID SKILL` result: a skill that is malformed (bad frontmatter or entrypoint, a symlink, a non-UTF-8 `SKILL.md`, a reserved file name) or a package that is too large to scan. It is a packaging problem, not a verdict, so `--fail-on` does not change it and it is never counted as MALICIOUS. |
+
+When one run scans several skills, the exit code is the most serious result, highest first: `3` (a skill could not be scanned for an operational reason), then `1` (a verdict at or above `--fail-on`), then `5` (an INVALID SKILL result), then `0`. A malicious skill in a folder therefore exits `1` even when another skill is invalid, and a folder with an invalid skill and otherwise clean skills exits `5`. An unreadable content finding (an executable, a large or unknown binary) is a verdict, not INVALID, and exits `1` at the default gate.
 
 Code `4` is defined in the source but is never returned. A scan that cannot reach the local model completes with an `UNSCANNED` verdict and exits with the code for its verdict.
 
@@ -140,6 +143,7 @@ Each text result starts with one of these markers:
 | `1` | At least one verdict meets the `--fail-on` gate, and every skill was scanned. |
 | `2` | Usage error (see above). |
 | `3` | An `extra_paths` folder does not exist and no skill was found; or no skill could be scanned; or at least one skill could not be scanned. A scan failure takes precedence over exit `1`. |
+| `5` | No verdict met the gate, and at least one skill is an `INVALID SKILL` result or was refused as malformed. A verdict at or above the gate (`1`) takes precedence over `5`. |
 
 **Markdown report layout.** `--format markdown`, `--save-report markdown` and `--report-dir` share one layout. A run of more than one skill, and every no-path run, starts with a summary: a table of scanned, failed and skipped counts, the verdict totals, and a table of skills ordered with the most serious verdict first (MALICIOUS, SUSPICIOUS, UNSCANNED, INVALID SKILL, SAFE) and the highest risk first within a verdict. Skills that failed are listed under `Failed` and discovery notes under `Notes`. A no-path scan with nothing to scan still prints the summary, with a line saying that no skills were scanned. For a no-path scan the table adds Agent, Scope and Path columns, and each per-skill report adds Agent, Scope and Install path rows. Every finding, citation and verdict is kept. A single skill scanned by path prints only its own report.
 

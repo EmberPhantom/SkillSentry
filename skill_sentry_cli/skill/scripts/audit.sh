@@ -18,6 +18,8 @@
 #      "--fail-on malicious" explicitly to accept SUSPICIOUS after review.
 #   2  usage error
 #   3  operational error (Docker down, DB locked) — not a verdict
+#   5  the skill is malformed (INVALID SKILL: bad frontmatter, a symlink, a package
+#      over 64 MiB) — a packaging problem, not a verdict; fix the skill and scan again
 set -euo pipefail
 
 SKILL_DIR="${1:-}"

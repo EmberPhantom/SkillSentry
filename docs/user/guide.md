@@ -229,7 +229,7 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 | `UNSCANNED` | The scan is incomplete (model, sandbox, or a file was not read) | Fix the reason shown, then scan again; do not install meanwhile |
 | `INVALID SKILL` | The SKILL.md is malformed (for example a missing `name:`). No behaviour was judged; the verdict is about the package format | Fix the frontmatter named in the line, then scan again. It still fails the CI gate |
 
-Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. See section 12.
+Exit codes for scripts: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error, `5` a malformed skill (`INVALID SKILL`). See section 12.
 
 ---
 
@@ -450,6 +450,9 @@ jobs:
 | `1` | At least one skill meets the gate | Fail the merge |
 | `2` | Bad command-line options | Fix the workflow |
 | `3` | Operational error: bad path, Docker or database failure, nothing completed | Investigate |
+| `5` | A skill is malformed (`INVALID SKILL`): bad frontmatter, a symlink, a non-UTF-8 `SKILL.md`, or a package over 64 MiB. Not a verdict; `--fail-on` does not apply | Fix the skill. The message says what to change |
+
+With several skills the most serious result wins: `3`, then `1`, then `5`, then `0`.
 
 ---
 

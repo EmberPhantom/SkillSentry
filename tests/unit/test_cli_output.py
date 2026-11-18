@@ -40,12 +40,12 @@ def test_missing_name_is_invalid_not_malicious(tmp_path: Path) -> None:
     assert "MALICIOUS" not in result.output
 
 
-def test_invalid_skill_still_fails_the_default_gate(tmp_path: Path) -> None:
+def test_invalid_skill_exits_with_its_own_code_not_the_verdict_code(tmp_path: Path) -> None:
     skill = _skill(tmp_path / "broken", NO_NAME)
 
     result = _scan(tmp_path, str(skill))
 
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 5, result.output
 
 
 def test_single_skill_prints_scope_and_export_command(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_report_dir_writes_one_report_per_skill_and_a_summary(tmp_path: Path) ->
 
     result = _scan(tmp_path, str(folder), "--report-dir", str(reports))
 
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 5, result.output
     written = sorted(path.name for path in reports.iterdir())
     assert "summary.md" in written
     assert sum(name.startswith("alpha-") for name in written) == 1

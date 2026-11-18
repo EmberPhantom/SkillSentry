@@ -52,6 +52,7 @@ from skill_sentry_cli.core.verdict.markdown_report import (
 from skill_sentry_cli.core.verdict.status import (
     INVALID,
     degraded_reason,
+    invalid_hint,
     invalid_reason,
     is_invalid,
     is_unscanned,
@@ -400,7 +401,9 @@ def scan(
     engine.close()
 
     if not outcomes:
-        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+        # Nothing was scanned. A skill refused as malformed is INVALID_SKILL, not a failure
+        # of the tool.
+        raise typer.Exit(code=int(failed or ExitCode.OPERATIONAL))
 
     # The tip is for a person at a terminal. Piped or redirected runs get no extra line.
     if output_format == "text" and not quiet and _stream_is_tty(sys.stderr):
@@ -439,11 +442,7 @@ def scan(
             announce=output_format == "text" and not quiet,
             failed_names=failed_names,
         )
-    if failed:
-        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
-    if any(_should_fail(outcome.verdict, fail_on) for outcome in outcomes):
-        raise typer.Exit(code=int(ExitCode.VERDICT))
-    raise typer.Exit(code=int(ExitCode.OK))
+    raise typer.Exit(code=int(_run_exit_code(outcomes, fail_on, failed)))
 
 
 @app.command("discover")
@@ -517,9 +516,7 @@ def self_audit(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=int(ExitCode.OPERATIONAL)) from exc
     _print_verdict(outcome.verdict, output_format=output_format, quiet=quiet, backend=ran_backend)
-    if _should_fail(outcome.verdict, fail_on):
-        raise typer.Exit(code=int(ExitCode.VERDICT))
-    raise typer.Exit(code=int(ExitCode.OK))
+    raise typer.Exit(code=int(_outcome_exit(outcome, fail_on)))
 
 
 # ---------------------------------------------------------------------------
@@ -918,9 +915,7 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
     elif invalid:
         reason = invalid_reason(outcome.stage_results)
         lines.append(f"[?] {verdict.skill} - {INVALID} - {reason}{cache}")
-        lines.append(
-            "   Fix the SKILL.md frontmatter, then scan again. This is not a malware finding."
-        )
+        lines.append(f"   {invalid_hint(outcome.stage_results)} This is not a malware finding.")
     else:
         icon = {"SAFE": "[OK]", "SUSPICIOUS": "[!]", "MALICIOUS": "[X]"}[verdict.verdict.value]
         lines.append(
@@ -1020,6 +1015,50 @@ def _print_verdict(
     typer.echo(
         _render_verdict(verdict, output_format=output_format, quiet=quiet, backend=backend).rstrip()
     )
+
+
+def _outcome_exit(outcome: ScanOutcome, fail_on: str) -> ExitCode:
+    """The exit code for one scanned skill.
+
+    An INVALID SKILL result is a packaging problem. It exits ``INVALID_SKILL`` whatever
+    ``--fail-on`` says, and is never counted as MALICIOUS, although the stored verdict of a
+    malformed package can be SUSPICIOUS or MALICIOUS.
+    """
+
+    if is_invalid(outcome.verdict.verdict, outcome.stage_results) and not is_unscanned(
+        outcome.verdict.verdict, outcome.stage_results
+    ):
+        return ExitCode.INVALID_SKILL
+    return ExitCode.VERDICT if _should_fail(outcome.verdict, fail_on) else ExitCode.OK
+
+
+def _failure_code(exc: ScanError) -> ExitCode:
+    """A skill that could not be scanned: malformed (INVALID_SKILL) or an operational failure."""
+
+    return ExitCode.INVALID_SKILL if exc.code == "invalid_skill" else ExitCode.OPERATIONAL
+
+
+def _worse_failure(current: ExitCode | None, new: ExitCode) -> ExitCode:
+    return ExitCode.OPERATIONAL if ExitCode.OPERATIONAL in (current, new) else new
+
+
+def _run_exit_code(
+    outcomes: Sequence[ScanOutcome], fail_on: str, failure: ExitCode | None
+) -> ExitCode:
+    """The exit code for a run of several skills: the most serious thing that happened.
+
+    Order, highest first: an operational failure (3), a verdict at or above ``--fail-on`` (1),
+    an INVALID SKILL result or a skill that was refused as malformed (5), then OK (0).
+    """
+
+    if failure is ExitCode.OPERATIONAL:
+        return ExitCode.OPERATIONAL
+    codes = {_outcome_exit(outcome, fail_on) for outcome in outcomes}
+    if ExitCode.VERDICT in codes:
+        return ExitCode.VERDICT
+    if ExitCode.INVALID_SKILL in codes or failure is ExitCode.INVALID_SKILL:
+        return ExitCode.INVALID_SKILL
+    return ExitCode.OK
 
 
 def _should_fail(verdict: Verdict, fail_on: str) -> bool:
@@ -1386,9 +1425,11 @@ def _scan_roots(
     quiet: bool,
     always_progress: bool = False,
     timings: bool = False,
-) -> tuple[list[ScanOutcome], list[int], bool]:
+) -> tuple[list[ScanOutcome], list[int], ExitCode | None]:
     """Scan each root in turn. Returns the outcomes, the index of each root that scanned,
-    and whether any root failed. A failed root is reported and skipped, not fatal.
+    and the worst failure: ``INVALID_SKILL`` when roots were refused as malformed,
+    ``OPERATIONAL`` when any failed for another reason, ``None`` when none failed. A failed
+    root is reported and skipped, not fatal.
 
     Progress goes to stderr. By default it shows only for a text run on a terminal.
     ``always_progress`` (the no-path flow) shows it for every format, terminal or not.
@@ -1396,7 +1437,7 @@ def _scan_roots(
 
     outcomes: list[ScanOutcome] = []
     indexes: list[int] = []
-    failed = False
+    failed: ExitCode | None = None
     if always_progress:
         show_progress = len(roots) > 1 and not quiet
     else:
@@ -1409,7 +1450,7 @@ def _scan_roots(
         try:
             outcome = engine.scan(root, options=options)
         except ScanError as exc:
-            failed = True
+            failed = _worse_failure(failed, _failure_code(exc))
             typer.echo(f"error: {root}: {exc}", err=True)
             typer.echo(f"hint: {_scan_error_hint(exc)}", err=True)
             continue
@@ -1686,7 +1727,7 @@ def _scan_installed(
                     notes=result.skipped,
                 ).rstrip()
             )
-        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
+        raise typer.Exit(code=int(failed or ExitCode.OPERATIONAL))
 
     installs = [result.skills[index] for index in indexes]
     scanned_at = set(indexes)
@@ -1728,11 +1769,7 @@ def _scan_installed(
             notes=result.skipped,
         )
 
-    if failed:
-        raise typer.Exit(code=int(ExitCode.OPERATIONAL))
-    if any(_should_fail(outcome.verdict, fail_on) for outcome in outcomes):
-        raise typer.Exit(code=int(ExitCode.VERDICT))
-    raise typer.Exit(code=int(ExitCode.OK))
+    raise typer.Exit(code=int(_run_exit_code(outcomes, fail_on, failed)))
 
 
 def _is_dir(path: Path) -> bool:

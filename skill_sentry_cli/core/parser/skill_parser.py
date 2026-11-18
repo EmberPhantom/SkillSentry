@@ -474,7 +474,13 @@ def _resolve_entrypoint(
         command = raw.get("command") or raw.get("path")
         args = raw.get("args") or []
         if command is None:
-            return None, True, PackageIssue("high", "manifest entrypoint object has no command")
+            return (
+                None,
+                True,
+                PackageIssue(
+                    "high", "manifest entrypoint object has no command", kind="manifest-entrypoint"
+                ),
+            )
         raw = [command, *args] if isinstance(args, list) else str(command)
     if isinstance(raw, str):
         try:
@@ -483,36 +489,72 @@ def _resolve_entrypoint(
             return (
                 None,
                 True,
-                PackageIssue("high", f"manifest entrypoint is not shell-parseable: {exc}"),
+                PackageIssue(
+                    "high",
+                    f"manifest entrypoint is not shell-parseable: {exc}",
+                    kind="manifest-entrypoint",
+                ),
             )
     elif isinstance(raw, (list, tuple)) and all(isinstance(item, (str, int)) for item in raw):
         tokens = [str(item) for item in raw]
     else:
-        return None, True, PackageIssue("high", "manifest entrypoint must be a string or list")
+        return (
+            None,
+            True,
+            PackageIssue(
+                "high", "manifest entrypoint must be a string or list", kind="manifest-entrypoint"
+            ),
+        )
     if not tokens:
-        return None, True, PackageIssue("high", "manifest entrypoint is empty")
+        return (
+            None,
+            True,
+            PackageIssue("high", "manifest entrypoint is empty", kind="manifest-entrypoint"),
+        )
 
     candidate_index = 0
     if Path(tokens[0]).name in _INTERPRETERS:
         # python scripts/main.py --flag
         if len(tokens) < 2:
-            return None, True, PackageIssue("high", "interpreter entrypoint has no script path")
+            return (
+                None,
+                True,
+                PackageIssue(
+                    "high", "interpreter entrypoint has no script path", kind="manifest-entrypoint"
+                ),
+            )
         candidate_index = 1
     candidate = tokens[candidate_index]
     if candidate.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", candidate):
         return (
             None,
             True,
-            PackageIssue("high", "manifest entrypoint must be relative to the skill root"),
+            PackageIssue(
+                "high",
+                "manifest entrypoint must be relative to the skill root",
+                kind="manifest-entrypoint",
+            ),
         )
     rel = Path(candidate)
     if ".." in rel.parts:
-        return None, True, PackageIssue("high", "manifest entrypoint escapes the skill root")
+        return (
+            None,
+            True,
+            PackageIssue(
+                "high", "manifest entrypoint escapes the skill root", kind="manifest-entrypoint"
+            ),
+        )
     target = (root / rel).resolve()
     try:
         target.relative_to(root.resolve())
     except ValueError:
-        return None, True, PackageIssue("high", "manifest entrypoint escapes the skill root")
+        return (
+            None,
+            True,
+            PackageIssue(
+                "high", "manifest entrypoint escapes the skill root", kind="manifest-entrypoint"
+            ),
+        )
     if not target.is_file():
         return (
             None,
@@ -521,6 +563,7 @@ def _resolve_entrypoint(
                 "high",
                 f"declared entrypoint does not exist: {candidate}",
                 code=candidate,
+                kind="manifest-entrypoint",
             ),
         )
     normalised = list(tokens)
@@ -557,7 +600,7 @@ def parse_skill(path: str | Path) -> SkillPackage:
         # Analysed with replacement characters rather than refused: an invalid
         # byte must not hide the rest of the file from the scan.
         skill_md = raw_skill_md.decode("utf-8", "replace")
-        issues.append(PackageIssue("high", "SKILL.md is not valid UTF-8"))
+        issues.append(PackageIssue("high", "SKILL.md is not valid UTF-8", kind="package-encoding"))
     yaml_text, body, present = _split_frontmatter(skill_md)
     manifest: dict[str, Any] = {}
     if not present:
@@ -606,6 +649,8 @@ def parse_skill(path: str | Path) -> SkillPackage:
                 PackageIssue(
                     "high",
                     f"symlink is not allowed in a skill package: {candidate.relative_to(root).as_posix()}",
+                    file=candidate.relative_to(root).as_posix(),
+                    kind="package-symlink",
                 )
             )
             continue
@@ -613,7 +658,14 @@ def parse_skill(path: str | Path) -> SkillPackage:
         if name_issue is not None:
             # Reported as high, and the file is still analysed: a reserved name
             # must not hide content from the scan.
-            issues.append(PackageIssue("high", name_issue))
+            issues.append(
+                PackageIssue(
+                    "high",
+                    name_issue,
+                    file=candidate.relative_to(root).as_posix(),
+                    kind="package-name",
+                )
+            )
         if candidate.is_dir():
             continue
         if not candidate.is_file():

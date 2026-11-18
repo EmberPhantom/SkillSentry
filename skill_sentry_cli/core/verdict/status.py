@@ -19,6 +19,20 @@ INVALID = "INVALID SKILL"
 # shown as UNSCANNED.  Any other degraded stage still is.
 _MANIFEST_DEGRADED = "manifest validation failed"
 
+# Finding types that mean "the package is malformed", with what to do about each. They are
+# all raised by the SPEC stage; any other finding makes the package a real verdict instead.
+_INVALID_HINTS: dict[str, str] = {
+    "manifest-issue": "Fix the SKILL.md frontmatter, then scan again.",
+    "manifest-entrypoint": "Fix the entrypoint: line in the SKILL.md frontmatter, then scan again.",
+    "package-symlink": (
+        "Remove the symlink from the skill folder, or replace it with a copy of the file. "
+        "SkillSentry never follows links. Then scan again."
+    ),
+    "package-encoding": "Save SKILL.md as UTF-8, then scan again.",
+    "package-name": "Rename the file or folder named above, then scan again.",
+}
+_GENERIC_HINT = "Fix the problem named above in the skill folder, then scan again."
+
 
 def _degraded(result: StageResult) -> bool:
     if result.stage == Stage.SPEC and result.error == _MANIFEST_DEGRADED:
@@ -54,7 +68,7 @@ def is_invalid(verdict: VerdictTier, stage_results: Sequence[StageResult] | None
     manifest_high = False
     for result in stage_results:
         for finding in result.findings:
-            if finding.stage == Stage.SPEC and finding.finding_type == "manifest-issue":
+            if finding.stage == Stage.SPEC and finding.finding_type in _INVALID_HINTS:
                 manifest_high = manifest_high or finding.severity.rank >= Severity.HIGH.rank
                 continue
             if finding.severity.rank < Severity.MEDIUM.rank:
@@ -66,10 +80,20 @@ def is_invalid(verdict: VerdictTier, stage_results: Sequence[StageResult] | None
     return manifest_high and not any(_degraded(result) for result in stage_results)
 
 
+def invalid_hint(stage_results: Sequence[StageResult] | None) -> str:
+    """What to do about an INVALID SKILL result, for the cause that was reported."""
+
+    for result in stage_results or ():
+        for finding in result.findings:
+            if finding.stage == Stage.SPEC and finding.finding_type in _INVALID_HINTS:
+                return _INVALID_HINTS[finding.finding_type]
+    return _GENERIC_HINT
+
+
 def invalid_reason(stage_results: Sequence[StageResult] | None) -> str:
     for result in stage_results or ():
         for finding in result.findings:
-            if finding.stage == Stage.SPEC and finding.finding_type == "manifest-issue":
+            if finding.stage == Stage.SPEC and finding.finding_type in _INVALID_HINTS:
                 location = finding.evidence.file or "SKILL.md"
                 if finding.evidence.line:
                     location += f":{finding.evidence.line}"
@@ -89,6 +113,7 @@ __all__ = [
     "INVALID",
     "UNSCANNED",
     "degraded_reason",
+    "invalid_hint",
     "invalid_reason",
     "is_invalid",
     "is_unscanned",
