@@ -48,6 +48,8 @@ skill-sentry-cli scan [PATH] [OPTIONS]
 | `--strict-sandbox` | off | Fail with `UNSCANNED` when the sandbox cannot test a skill's scripts because no `entrypoint:` is declared. Without it, the scripts are skipped with a warning on stderr and a `sandbox-no-entrypoint` note, and the verdict comes from the static and model stages. A strict scan is not cached. |
 | `--backend` | `auto` | Model backend: `auto`, `local`, `cloud`, or `demo`. `demo` is refused unless `SKILLSENTRY_DEV=1` is set. |
 | `--timeout` | `60` | Sandbox time limit in seconds, from 5 to 600. |
+| `--max-time` | `300` (`[scan] max_time_s`) | Wall-clock cap for scanning one skill, in seconds, from 5 to 86400. Model calls and the sandbox stop at it. A stage that runs out of time is reported as degraded with a `scan-time-limit` note, the findings from the stages that finished are kept, and the scan returns. The cap covers the model and sandbox work; parsing a very large skill and cleaning up the container add a little on top. A model request that overruns is abandoned, not killed, and ends on its own client timeout (`[model] request_timeout_s`). |
+| `--timings` | off | Print how long each stage took to stderr, for example `timings: my-skill: semantic 41.2s, sandbox 8.0s, total 49.6s`. |
 | `--output FILE` | none | Write the rendered report to a file. |
 | `--sarif-out FILE` | none | Also write a SARIF 2.1.0 file. |
 | `--report-dir DIR` | none | Write one Markdown report per skill, and a `summary.md` for a folder. |
@@ -295,6 +297,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[model]` | `gemini_model` | the model named in the file | Used only by the cloud backend. |
 | `[model]` | `image_max_px` | `768` | Longest side of images sent to the model, from 256 to 4096. |
 | `[model]` | `request_timeout_s` | `180` | Time limit for one model request. |
+| `[scan]` | `max_time_s` | `300` | Wall-clock cap for scanning one skill, from 5 to 86400. `--max-time` overrides it. |
 | `[sandbox]` | `enabled` | `true` | Run entrypoints in the sandbox. |
 | `[sandbox]` | `base_image` | `skillsentry-sandbox:local` | Sandbox image name. |
 | `[sandbox]` | `timeout_s` | `60` | Time limit for one entrypoint run, from 5 to 600. |

@@ -367,3 +367,32 @@ def test_strict_sandbox_fails_a_script_without_entrypoint(tmp_path: Path, monkey
     )
     assert result.exit_code == 1, result.output
     assert "UNSCANNED" in result.stdout
+
+
+def test_timings_flag_prints_stage_durations_to_stderr(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SKILLSENTRY_DEV", "1")
+    skill = _write_benign_skill(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(skill),
+            "--format",
+            "json",
+            "--backend",
+            "demo",
+            "--no-sandbox",
+            "--no-cache",
+            "--timings",
+        ],
+        env={"SKILLSENTRY_DB": str(tmp_path / "timings.sqlite")},
+    )
+    assert result.exit_code == 0, result.output
+    assert "timings: pdf-summarizer:" in result.stderr
+    assert "total " in result.stderr
+    assert json.loads(result.stdout)["verdict"] == "SAFE"
+
+
+def test_max_time_below_the_minimum_is_a_usage_error(tmp_path: Path):
+    result = runner.invoke(app, ["scan", str(_write_benign_skill(tmp_path)), "--max-time", "2"])
+    assert result.exit_code == 2

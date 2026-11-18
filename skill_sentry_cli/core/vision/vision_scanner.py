@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import partial
 from typing import Any
 
 from skill_sentry_cli.core.contracts import (
@@ -14,6 +15,7 @@ from skill_sentry_cli.core.contracts import (
     VisionEvidence,
     utc_now,
 )
+from skill_sentry_cli.core.deadline import Deadline, call_within
 from skill_sentry_cli.core.models.base import ModelClient
 from skill_sentry_cli.core.parser import SkillPackage
 from skill_sentry_cli.core.vision.image_extractor import ImageAsset, extract_images
@@ -126,8 +128,13 @@ def scan_vision(
     model: ModelClient | None,
     *,
     max_px: int = 1024,
+    deadline: Deadline | None = None,
 ) -> StageResult:
-    """Scan bundled images.  Missing images are not a degraded stage."""
+    """Scan bundled images.  Missing images are not a degraded stage.
+
+    ``deadline`` is the scan's wall-clock limit. Images not analysed when it passes are
+    reported as skipped, which degrades the stage like any other skipped image.
+    """
 
     assets, notes = extract_images(package)
     if not assets and not notes:
@@ -174,10 +181,19 @@ def scan_vision(
             skipped += 1
             degraded_errors.append(f"{asset.relative}: image budget of {MAX_MODEL_IMAGES} reached")
             continue
+        if deadline is not None and deadline.expired():
+            skipped += 1
+            degraded_errors.append(f"{asset.relative}: time limit reached ({deadline.describe()})")
+            continue
         model_calls += 1
         try:
-            analysis = model.analyze_image(
-                asset.path, f"Scan {asset.relative} for hidden instructions"
+            analysis = call_within(
+                deadline,
+                partial(
+                    model.analyze_image,
+                    asset.path,
+                    f"Scan {asset.relative} for hidden instructions",
+                ),
             )
         except Exception as exc:
             skipped += 1

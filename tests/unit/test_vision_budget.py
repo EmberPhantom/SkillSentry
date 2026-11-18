@@ -100,3 +100,22 @@ def test_images_over_the_image_limit_degrade_vision(tmp_path: Path, monkeypatch)
     assert result.telemetry["vision_status"] == "partial"
     assert result.degraded
     assert result.telemetry["images_scanned"] == 1
+
+
+def test_images_not_reached_before_the_scan_time_limit_degrade_vision(tmp_path: Path) -> None:
+    import time
+
+    from skill_sentry_cli.core.deadline import Deadline
+
+    class _Slow(_CountingVision):
+        def analyze_image(self, path, prompt):  # type: ignore[no-untyped-def]
+            time.sleep(5)
+            return super().analyze_image(path, prompt)
+
+    package = parse_skill(_skill_with_images(tmp_path / "skill", 2))
+    started = time.monotonic()
+    stage = scanner.scan_vision(package, _Slow(), deadline=Deadline(0.3))
+
+    assert time.monotonic() - started < 3
+    assert stage.degraded is True
+    assert "time limit" in (stage.error or "")
