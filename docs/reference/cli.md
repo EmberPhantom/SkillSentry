@@ -215,10 +215,13 @@ Runs the API and the dashboard.
 
 | Option | Default | Meaning |
 |:---|:---|:---|
-| `--host` | `127.0.0.1` | Address to bind. Keep the default. The API has no authentication, so any other address prints a warning; see the [security model](../developer/security.md). |
+| `--host` | `127.0.0.1` | Address to bind. Keep the default. Any other address is refused (exit `2`) unless a token is set with `--token` or `SKILLSENTRY_TOKEN`. The official container, which sets `SKILLSENTRY_CONTAINER`, may bind `0.0.0.0` without one; publishing its port is the operator's decision. See the [security model](../developer/security.md). |
 | `--port` | `8000` | Port, from 1 to 65535. |
 | `--demo-mode` | off | Serve the canned seven-skill store instead of live scans. |
 | `--speed` | `1.0` | Replay speed for demo mode. `0` is instant. |
+| `--token` | none (env `SKILLSENTRY_TOKEN`) | Require this bearer token on the API and the WebSocket. Prefer the environment variable, because a command-line value shows in the process list. The token is never printed or logged. |
+
+When no `allowed_scan_roots` is configured, `serve` limits scans to the folder it was started in, and prints that folder at startup. Set `[server] allowed_scan_roots` or `SKILLSENTRY_ALLOWED_SCAN_ROOTS` to use other folders (for example a skills folder), or to `/` to allow any. The official container keeps scanning any readable folder until roots are set.
 
 The dashboard is served at `/`, and the API endpoints (for example `/scans`) are on the same port. Requests whose `Host` header is not loopback or the bind address are refused with `400 untrusted_host`. To accept another name, such as a LAN name, set `SKILLSENTRY_ALLOWED_HOSTS` (see the environment variables). Press `Ctrl+C` to stop.
 
@@ -313,7 +316,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[scoring]` | `typosquat_bonus` | `15` | Points added for a likely typosquat. |
 | `[scoring]` | `tiers` | `safe_max = 30`, `malicious_min = 70` | Score boundaries for the verdicts. |
 | `[cache]` | `db_path` | `~/.skillsentry/skillsentry.db` | Scan history and cache database. |
-| `[server]` | `allowed_scan_roots` | `[]` (any folder) | Absolute folders the API may scan. A scan path must resolve, with symlinks followed, to one of them or to a folder inside one. Read by `serve`; the CLI `scan` command is not limited. See [§5.2 of the API reference](api.md). |
+| `[server]` | `allowed_scan_roots` | `[]` (the folder `serve` was started in; any folder in the container) | Absolute folders the API may scan. A scan path must resolve, with symlinks followed, to one of them or to a folder inside one. Read by `serve`; the CLI `scan` command is not limited. See [§5.2 of the API reference](api.md). |
 | `[discovery]` | `extra_paths` | `[]` | Extra folders for `scan` and `discover` with no path. Each is a skill folder (one with `SKILL.md`) or a folder of skills. Each must be absolute after `~` expansion; otherwise the configuration is refused (exit `2`). A folder that does not exist is listed as a note, not an error. If no other skill is found, `scan` exits `3`; `discover` still exits `0`. |
 | `[discovery]` | `agents` | `[]` (all agents) | Limits discovery to these agents. Names as for `scan --agent`. `--agent` on the command line replaces this list. |
 | `[discovery]` | `include_experimental` | `false` | Also look in the experimental agent locations. `--include-experimental` turns them on for one run. |
@@ -336,6 +339,7 @@ Two sections deserve a warning:
 | `SKILLSENTRY_DEV` | Set to `1` to allow `--backend demo` for development. |
 | `SKILLSENTRY_ALLOWED_SCAN_ROOTS` | Folders the API may scan, separated by the platform path separator (`:` on Linux and macOS, `;` on Windows). Overrides `[server] allowed_scan_roots`. Each must be an absolute path. Read by `serve`. |
 | `SKILLSENTRY_EXTRA_SKILL_PATHS` | Extra folders for `scan` and `discover` with no path, separated by the platform path separator (`:` on Linux and macOS, `;` on Windows). Replaces `[discovery] extra_paths`. Each must be an absolute path after `~` expansion. |
+| `SKILLSENTRY_TOKEN` | Bearer token `serve` requires on the API and the WebSocket. Read by `serve`; the `--token` option overrides it. |
 | `SKILLSENTRY_ALLOWED_HOSTS` | Comma-separated host names the server accepts in the `Host` and `Origin` headers, in addition to `localhost`, `127.0.0.1`, `::1`, and the bind address. Read by `serve`. |
 | `SKILLSENTRY_VERIFY_PROVENANCE` | Installer. Set to `1` to require the `gh attestation verify` check on the wheel: the install stops if `gh` is missing or the check fails. Without it, the check runs when `gh` is installed and a failure is only a warning. |
 | `SKILLSENTRY_CONTAINER` | Set to `1` by the official server image. It silences the warning that `serve` prints when bound beyond loopback. Do not set it elsewhere. |

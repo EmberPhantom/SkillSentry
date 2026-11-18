@@ -12,7 +12,7 @@ The HTTP and WebSocket API that `skill-sentry-cli serve` exposes. The dashboard 
 | Request field names | snake_case, for example `no_cache` and `timeout_s` |
 | Timestamps | ISO-8601, UTC |
 | Identifiers | UUIDs, for scans and skills |
-| Authentication | **None.** The server is meant for loopback use only. Keep the default `--host 127.0.0.1`. See the [security model](../developer/security.md) §4.11. |
+| Authentication | **Optional bearer token.** Start the server with `SKILLSENTRY_TOKEN` (or `serve --token`) and send `Authorization: Bearer <token>` on every request except `/health`, `/meta` and the dashboard files. A missing or wrong token gets `401 unauthorized` (`WWW-Authenticate: Bearer`). A WebSocket handshake without it is refused before it is accepted; a browser, which cannot set headers on a WebSocket, can send the token as the subprotocol `bearer.<token>`. Without a token the server is for loopback use only, and `serve` refuses a non-loopback `--host`. See the [security model](../developer/security.md) §4.11. The dashboard does not send a token yet, so with one set use the API or CLI, or a reverse proxy that adds the header. |
 | Host check | Requests whose `Host` is not loopback or the bind address get `400 untrusted_host`, on every endpoint. An `Origin` header on a WebSocket handshake, or on a `POST`, `PUT`, `PATCH` or `DELETE`, must be the server's own origin (same scheme, host and port as `Host`) or a dev origin such as `http://localhost:5173`. Otherwise the request is refused with `400 untrusted_host` (WebSocket: closed with 1008). A `null` origin is refused. Requests without an `Origin` header (curl, the CLI) and `GET` requests are not affected. Add names with `SKILLSENTRY_ALLOWED_HOSTS`. |
 | Contract version | Reported as `contractVersion` by `GET /meta`. The verdict contract is `v1`. Changes are additive. |
 | Demo mode | `serve --demo-mode` serves canned data with the same schemas. No Docker or model is needed. |
@@ -53,7 +53,7 @@ Request:
 - `path` is the skill folder. It must contain `SKILL.md`. A missing or empty path gives `422 missing_path`. A path that does not exist gives `404 no_skill_manifest`. A path that is not a directory gives `422 invalid_skill`.
 - `options` is optional. `backend` is `auto`, `local`, `cloud`, or `demo`. Set `sandbox` to `false` to skip the sandbox; the verdict then relies on the static stages only.
 - A folder whose child folders are skills gives `422 folder_of_skills`, and the message names them. Scan each one with its own request.
-- If the operator set `[server] allowed_scan_roots` (or `SKILLSENTRY_ALLOWED_SCAN_ROOTS`), the path must resolve inside one of those folders. Symlinks are followed, so `..` and a link that points outside are refused. Otherwise the request gets `403 path_not_allowed`. The check runs before the existence check, so a refused path gets the same answer whether or not it exists, and the message does not repeat the path. With no roots set, any folder is allowed, as before.
+- If the operator set `[server] allowed_scan_roots` (or `SKILLSENTRY_ALLOWED_SCAN_ROOTS`), the path must resolve inside one of those folders. Symlinks are followed, so `..` and a link that points outside are refused. Otherwise the request gets `403 path_not_allowed`. The check runs before the existence check, so a refused path gets the same answer whether or not it exists, and the message does not repeat the path. When no roots are configured, `serve` uses the folder it was started in. A programmatic `LiveBackend` with no roots allows any folder, and so does the official container until roots are set.
 - A second scan of the same folder while one is running gives `409 scan_in_progress`. The `scanId` of the running scan is in the error body.
 
 Response, status `202`:
@@ -292,9 +292,11 @@ Errors that SkillSentry raises use one envelope:
 | `409` | `no_iocs` | STIX export for a scan with no indicators. |
 | `422` | `missing_path` | No path was given to `POST /scan`. |
 | `422` | `invalid_skill` | The path is not a directory. |
+| `422` | `path_unreadable` | The server cannot read the folder (for example permission denied). |
+| `401` | `unauthorized` | A token is configured and the request has none or a wrong one. |
 | `422` | `invalid_duration` | `older_than` could not be read. |
 | `500` | `scan_failed` | The scan failed. |
-| `500` | `internal_error` | An unexpected error. The scan is marked failed, never `SAFE`. |
+| `500` | `internal_error` | An unexpected error. The scan is marked failed, never `SAFE`. Every unhandled error, on any route, returns this JSON body and never a bare `Internal Server Error`; the detail is in the server log only. |
 
 Requests that fail schema validation (wrong types, a missing body) get FastAPI's standard validation response with status `422`. That response is not in the envelope above.
 

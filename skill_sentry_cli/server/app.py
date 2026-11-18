@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -16,7 +17,13 @@ from skill_sentry_cli.server.backend import ScanBackend
 from skill_sentry_cli.server.errors import ApiError
 from skill_sentry_cli.server.live_backend import LiveBackend
 from skill_sentry_cli.server.routes import router
-from skill_sentry_cli.server.security import TrustedHostMiddleware, allowed_hostnames_from_env
+from skill_sentry_cli.server.security import (
+    TokenAuthMiddleware,
+    TrustedHostMiddleware,
+    allowed_hostnames_from_env,
+)
+
+logger = logging.getLogger(__name__)
 
 _DEV_ORIGINS = [
     "http://localhost:5173",
@@ -57,12 +64,16 @@ def create_app(
     *,
     static_dir: str | Path | None = None,
     bind_host: str | None = None,
+    token: str | None = None,
 ) -> FastAPI:
     """Build the API.
 
     ``bind_host`` is the address the server listens on. A specific address is added to
     the accepted Host names; wildcard and loopback binds accept only loopback names
     (plus ``SKILLSENTRY_ALLOWED_HOSTS``).
+
+    ``token``, when set, is required as a bearer token on every API route except
+    ``/health`` and ``/meta``, and on the WebSocket. It is never logged.
     """
 
     backend = backend or LiveBackend()
@@ -79,6 +90,8 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if token:
+        app.add_middleware(TokenAuthMiddleware, token=token)
     # Outermost: refuse foreign Host and Origin values before any route runs.
     app.add_middleware(
         TrustedHostMiddleware,
@@ -91,6 +104,23 @@ def create_app(
         return JSONResponse(
             status_code=exc.status_code,
             content=exc.to_response().model_dump(by_alias=True, mode="json"),
+        )
+
+    @app.exception_handler(Exception)
+    async def _unexpected_error(_: Request, exc: Exception) -> JSONResponse:
+        # Never a bare "Internal Server Error": the client gets the same JSON shape as every
+        # other error. The detail goes to the server log, not to the client.
+        logger.exception("unhandled error in the API", exc_info=exc)
+        response = ErrorResponse(
+            error=ErrorDetail(
+                code="internal_error",
+                message="the server hit an unexpected error; see the server log",
+                degraded=False,
+            )
+        )
+        return JSONResponse(
+            status_code=500,
+            content=response.model_dump(by_alias=True, mode="json"),
         )
 
     @app.exception_handler(RequestValidationError)

@@ -129,33 +129,59 @@ def serve(
     port: int = typer.Option(8000, min=1, max=65535),
     demo_mode: bool = typer.Option(False, "--demo-mode", help="Serve the canned 7-skill store."),
     speed: float = typer.Option(1.0, min=0.0, help="Demo WS replay speed (0 = instant)."),
+    token: str | None = typer.Option(
+        None,
+        "--token",
+        envvar="SKILLSENTRY_TOKEN",
+        show_envvar=True,
+        help=(
+            "Require this bearer token on the API and the WebSocket. Prefer the environment "
+            "variable: a command-line value shows in the process list. It is never logged."
+        ),
+    ),
 ) -> None:
     """Run the FastAPI server and dashboard."""
     import uvicorn
 
-    # The API has no authentication. Warn when it is reachable from other machines, unless
-    # the official container set SKILLSENTRY_CONTAINER, where publishing is the operator's job.
-    if host not in _LOOPBACK_HOSTS and not os.getenv("SKILLSENTRY_CONTAINER"):
+    token = (token or "").strip() or None
+    # Binding beyond loopback exposes scan results and lets callers start scans, so it needs
+    # a token. The official container is the one exception: it binds 0.0.0.0 inside the
+    # container, and publishing the port is the operator's decision.
+    if host not in _LOOPBACK_HOSTS and token is None and not os.getenv("SKILLSENTRY_CONTAINER"):
         typer.echo(
-            f"warning: binding to {host} exposes the API, which has no authentication. "
-            "Anyone who can reach this port can read scans and start new ones. Keep the "
-            "default 127.0.0.1, or put the server behind an authenticating proxy. "
-            "See docs/operations/deployment.md.",
+            f"error: refusing to bind to {host} without a token: the API would be open to "
+            "anyone who can reach the port. Set SKILLSENTRY_TOKEN (or pass --token), or "
+            "keep the default 127.0.0.1. See docs/operations/deployment.md.",
             err=True,
         )
+        raise typer.Exit(code=int(ExitCode.USAGE))
 
     if demo_mode:
         from skill_sentry_cli.server.demo_mode import create_demo_app
 
         typer.echo(f"SkillSentry {__version__} - demo mode - http://{host}:{port}")
-        uvicorn.run(create_demo_app(speed=speed, bind_host=host), host=host, port=port)
+        uvicorn.run(create_demo_app(speed=speed, bind_host=host, token=token), host=host, port=port)
         return
 
     from skill_sentry_cli.server.app import create_app
     from skill_sentry_cli.server.live_backend import LiveBackend
 
+    # With no allowed_scan_roots configured, the API scans only the folder `serve` was started
+    # in. The official container is the exception: its working folder is not where skills are
+    # mounted, so it keeps scanning any folder unless roots are set.
+    in_container = bool(os.getenv("SKILLSENTRY_CONTAINER"))
+    backend = LiveBackend(default_scan_roots=None if in_container else [Path.cwd()])
     typer.echo(f"SkillSentry {__version__} - live mode - http://{host}:{port}")
-    uvicorn.run(create_app(LiveBackend(), bind_host=host), host=host, port=port)
+    roots = backend.scan_roots
+    if roots:
+        origin = (
+            "allowed_scan_roots" if backend.config.server.allowed_scan_roots else "launch folder"
+        )
+        typer.echo(f"scans are limited to ({origin}): {', '.join(roots)}")
+    else:
+        typer.echo("scans are limited to: any folder the server can read (set allowed_scan_roots)")
+    typer.echo("API token: required" if token else "API token: none (loopback only)")
+    uvicorn.run(create_app(backend, bind_host=host, token=token), host=host, port=port)
 
 
 @app.command()

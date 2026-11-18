@@ -15,8 +15,10 @@ from skill_sentry_cli.server.app import create_app
 from skill_sentry_cli.server.demo_backend import DemoBackend
 
 
-def create_demo_app(*, speed: float | None = None, bind_host: str | None = None) -> FastAPI:
-    return create_app(DemoBackend(speed=speed), bind_host=bind_host)
+def create_demo_app(
+    *, speed: float | None = None, bind_host: str | None = None, token: str | None = None
+) -> FastAPI:
+    return create_app(DemoBackend(speed=speed), bind_host=bind_host, token=token)
 
 
 app = create_demo_app()
