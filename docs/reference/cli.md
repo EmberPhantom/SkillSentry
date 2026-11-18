@@ -314,7 +314,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[poisoned_well]` | `correlation_window_s` | `10.0` | Time window for matching a decoy to an outbound request. |
 | `[scoring]` | `weights` | anchors 0.15, semantic 0.20, vision 0.20, sandbox 0.25 | Weight of each signal in the risk score. |
 | `[scoring]` | `typosquat_bonus` | `15` | Points added for a likely typosquat. |
-| `[scoring]` | `tiers` | `safe_max = 30`, `malicious_min = 70` | Score boundaries for the verdicts. |
+| `[scoring]` | `tiers` | `safe_max = 30`, `malicious_min = 70` | Score boundaries for the verdicts: a score below `safe_max` is SAFE, a score from `safe_max` to `malicious_min` inclusive is SUSPICIOUS, and a score above `malicious_min` is MALICIOUS. `safe_max` must be lower than `malicious_min`. A lone typosquat scores a quarter of the way up the SUSPICIOUS band. |
 | `[cache]` | `db_path` | `~/.skillsentry/skillsentry.db` | Scan history and cache database. |
 | `[server]` | `allowed_scan_roots` | `[]` (the folder `serve` was started in; any folder in the container) | Absolute folders the API may scan. A scan path must resolve, with symlinks followed, to one of them or to a folder inside one. Read by `serve`; the CLI `scan` command is not limited. See [§5.2 of the API reference](api.md). |
 | `[discovery]` | `extra_paths` | `[]` | Extra folders for `scan` and `discover` with no path. Each is a skill folder (one with `SKILL.md`) or a folder of skills. Each must be absolute after `~` expansion; otherwise the configuration is refused (exit `2`). A folder that does not exist is listed as a note, not an error. If no other skill is found, `scan` exits `3`; `discover` still exits `0`. |

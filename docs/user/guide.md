@@ -190,7 +190,7 @@ Expected (the first time; a repeat is marked `(cached)`):
 
 ```text
 SkillSentry 2.1.1 - Fully local analysis · open weights - backend: local (ollama)
-[OK] pdf-summarizer - SAFE - risk 0 - confidence 0.75
+[OK] pdf-summarizer - SAFE - risk 0 - confidence 0.95
 ```
 
 **Scan the malicious sample:**
@@ -216,8 +216,16 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 | `[OK]` / `[!]` / `[X]` | `SAFE`, `SUSPICIOUS`, `MALICIOUS` |
 | `[?] … UNSCANNED` | The verdict is shown, but the scan did not finish every check. See section 15 |
 | `risk N` | 0 to 100; higher is worse |
-| `confidence X` | How much of the pipeline contributed to the verdict |
+| `confidence X` | How certain the verdict is, from 0 to 1. See "Risk, confidence, coverage and tiers" below |
 | `(cached)` | The same skill, unchanged, was scanned before |
+
+**Risk, confidence, coverage and tiers**
+
+- **Risk** (0 to 100) is the score. The **tier** comes from it: `SAFE` below 30, `SUSPICIOUS` from 30 to 70, `MALICIOUS` above 70. A score of exactly 30 is the lowest `SUSPICIOUS` score, and exactly 70 is the highest. Change the boundaries with `tiers = { safe_max = 30, malicious_min = 70 }` under `[scoring]` in `skillsentry.toml`: a score below `safe_max` is SAFE, and one above `malicious_min` is MALICIOUS. A single hit on a name that looks like a known skill (a typosquat) scores a quarter of the way up the SUSPICIOUS band (40 with the defaults), so it stays SUSPICIOUS and does not sit on the boundary.
+- **Confidence** (0 to 1) is how certain the verdict is. It is not the share of checks that ran. A canary leaving the sandbox or an evasion probe is direct observation: `1.00`. A `MALICIOUS` verdict backed by a deterministic finding is `0.85`, and `0.95` when the model agrees. A `SUSPICIOUS` verdict is `0.65` with independent evidence, `0.75` when the model agrees, `0.40` when only the model flags it, and `0.30` when the only reason is a failed check. A `SAFE` verdict is `0.50 + 0.45 x coverage` (so `0.95` for a fully analysed skill), times `0.6` when the model flagged something nothing else supported. A failed check caps anything below `MALICIOUS` at `0.50`.
+- **Coverage** (0 to 1, `coverage` in the JSON) is the share of the checks that apply to this skill that actually ran, weighted like the score. A check that does not apply (vision with no images, the sandbox for a skill with nothing to run) is not counted. Turning the sandbox off, or a check failing, lowers it.
+
+Read them together: `SAFE` with confidence `0.95` and coverage `1.00` is a skill that was fully analysed and found clean. `SAFE` with coverage `0.58` is clean as far as the checks that ran can tell, with the sandbox off. Neither is a guarantee. Verdicts cached by an older version are scanned again.
 
 **What to do with each verdict**
 
