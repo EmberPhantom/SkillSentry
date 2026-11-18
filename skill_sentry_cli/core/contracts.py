@@ -228,7 +228,13 @@ class Verdict(APIModel):
     scan_id: UUID
     verdict: VerdictTier
     risk_score: int = Field(ge=0, le=100)
+    # How certain the verdict is: high when independent evidence and the model agree, lower
+    # when only the model speaks or when a stage failed. Not the share of stages that ran.
     confidence: float = Field(ge=0.0, le=1.0)
+    # The share of the analyses that apply to this skill that actually ran (stages that do
+    # not apply, such as vision with no images, are not counted). None on results cached
+    # before this field existed.
+    coverage: float | None = Field(default=None, ge=0.0, le=1.0)
     cached: bool
     scan_duration_ms: int = Field(ge=0)
     findings: list[Finding] = Field(default_factory=list)

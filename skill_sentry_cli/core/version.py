@@ -14,6 +14,9 @@ from collections.abc import Mapping
 __version__ = "2.1.1"
 ENGINE_VERSION = __version__
 CONTRACT_VERSION = "1"
+# 2: `confidence` measures certainty in the verdict (it was the share of stages that ran), and a
+# lone typosquat scores with headroom above the SAFE boundary.
+SCORING_REVISION = 2
 # Privacy badge text per analysis backend.  ``GEMMA_BADGE`` is kept for
 # compatibility; callers that know the backend should use ``badge_for_backend``.
 GEMMA_BADGE = "Fully local analysis · open weights"
@@ -49,7 +52,13 @@ def badge_for_backend(backend: str | None) -> str:
 
 def weights_fingerprint(weights: Mapping[str, float] | None = None) -> str:
     """Return a stable short fingerprint for a fusion-weight configuration."""
-    payload = json.dumps(dict(weights or DEFAULT_WEIGHTS), sort_keys=True, separators=(",", ":"))
+    # SCORING_REVISION changes when the fusion rules change without the weights changing, so
+    # verdicts cached under the old rules are not reused.
+    payload = json.dumps(
+        {"weights": dict(weights or DEFAULT_WEIGHTS), "scoring_revision": SCORING_REVISION},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:8]
 
 
