@@ -346,6 +346,11 @@
             "title": "Sandbox",
             "type": "boolean"
           },
+          "strict_sandbox": {
+            "default": false,
+            "title": "Strict Sandbox",
+            "type": "boolean"
+          },
           "timeout_s": {
             "default": 60,
             "maximum": 600,

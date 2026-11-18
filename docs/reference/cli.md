@@ -45,6 +45,7 @@ skill-sentry-cli scan [PATH] [OPTIONS]
 | `-q`, `--quiet` | off | Print only the verdict line. |
 | `--no-cache` | off | Ignore saved results and scan again. |
 | `--sandbox` / `--no-sandbox` | sandbox on | With `--no-sandbox`, the entrypoint never runs and the verdict is weaker. |
+| `--strict-sandbox` | off | Fail with `UNSCANNED` when the sandbox cannot test a skill's scripts because no `entrypoint:` is declared. Without it, the scripts are skipped with a warning on stderr and a `sandbox-no-entrypoint` note, and the verdict comes from the static and model stages. A strict scan is not cached. |
 | `--backend` | `auto` | Model backend: `auto`, `local`, `cloud`, or `demo`. `demo` is refused unless `SKILLSENTRY_DEV=1` is set. |
 | `--timeout` | `60` | Sandbox time limit in seconds, from 5 to 600. |
 | `--output FILE` | none | Write the rendered report to a file. |

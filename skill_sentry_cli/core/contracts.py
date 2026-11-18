@@ -288,6 +288,9 @@ class ScanOptions(RequestModel):
     no_cache: bool = False
     backend: Backend = Backend.AUTO
     sandbox: bool = True
+    # When true, a skill whose scripts the sandbox cannot run (no declared entrypoint) is
+    # UNSCANNED instead of a static-only result with a warning.
+    strict_sandbox: bool = False
     poisoned_well: bool = True
     timeout_s: int = Field(default=60, ge=5, le=600)
 

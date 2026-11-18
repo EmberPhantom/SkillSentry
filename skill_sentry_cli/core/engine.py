@@ -657,6 +657,29 @@ class ScanEngine:
                 findings=[],
                 telemetry={"skipped": True, "reason": "no executable content in the package"},
             )
+        if ctx.package.entrypoint is None and not ctx.options.strict_sandbox:
+            # Scripts exist but no entrypoint is declared.  A command is never guessed, so
+            # the scripts are not run.  That is a limit of the scan, not a failure of the
+            # sandbox: report it as a warning and keep the static verdict.  --strict-sandbox
+            # keeps the old behaviour (a degraded sandbox, so UNSCANNED).
+            return StageResult(
+                stage=Stage.SANDBOX,
+                findings=[
+                    Finding(
+                        stage=Stage.SANDBOX,
+                        severity=Severity.NOTE,
+                        message=(
+                            "Scripts were not executed: SKILL.md declares no 'entrypoint:', and "
+                            "SkillSentry never guesses a command. Only static analysis ran. "
+                            "Declare an entrypoint to have the scripts tested in the sandbox, "
+                            "or pass --strict-sandbox to treat this as a failure."
+                        ),
+                        finding_type="sandbox-no-entrypoint",
+                        evidence=FindingEvidence(file="SKILL.md", line=1),
+                    )
+                ],
+                telemetry={"skipped": True, "reason": "no entrypoint declared"},
+            )
         plan = build_sandbox_plan(
             ctx.package,
             StageResult(stage=Stage.DETERMINISTIC_ANCHOR),
@@ -1210,6 +1233,8 @@ class ScanEngine:
         """
 
         if not opts.sandbox or not self.config.sandbox.enabled:
+            return False
+        if opts.strict_sandbox:
             return False
         if opts.timeout_s != self.config.sandbox.timeout_s:
             return False

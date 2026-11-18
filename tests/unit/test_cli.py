@@ -329,3 +329,41 @@ def test_missing_environment_config_is_a_usage_error_not_a_traceback(
     assert result.exit_code == 2, result.output
     assert "config file not found" in result.output
     assert "Traceback" not in result.output
+
+
+def _skill_with_script_and_no_entrypoint(tmp_path: Path) -> Path:
+    skill = tmp_path / "notes-helper"
+    (skill / "scripts").mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: notes-helper\ndescription: Print a short note.\n---\n\n# Notes\n\nRun the script.\n",
+        encoding="utf-8",
+    )
+    (skill / "scripts" / "note.py").write_text("print('hello')\n", encoding="utf-8")
+    return skill
+
+
+def test_script_without_entrypoint_passes_the_gate_with_a_warning(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SKILLSENTRY_DEV", "1")
+    skill = _skill_with_script_and_no_entrypoint(tmp_path)
+    result = runner.invoke(
+        app,
+        ["scan", str(skill), "--format", "json", "--backend", "demo", "--no-cache"],
+        env={"SKILLSENTRY_DB": str(tmp_path / "ne.sqlite")},
+    )
+    assert result.exit_code == 0, result.output
+    assert "warning: notes-helper: scripts were not executed" in result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "SAFE"
+    assert any(f["type"] == "sandbox-no-entrypoint" for f in payload["findings"])
+
+
+def test_strict_sandbox_fails_a_script_without_entrypoint(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SKILLSENTRY_DEV", "1")
+    skill = _skill_with_script_and_no_entrypoint(tmp_path)
+    result = runner.invoke(
+        app,
+        ["scan", str(skill), "--backend", "demo", "--strict-sandbox"],
+        env={"SKILLSENTRY_DB": str(tmp_path / "strict.sqlite")},
+    )
+    assert result.exit_code == 1, result.output
+    assert "UNSCANNED" in result.stdout

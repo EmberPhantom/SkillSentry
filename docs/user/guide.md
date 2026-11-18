@@ -321,7 +321,7 @@ entrypoint: python scripts/run.py
 ---
 ```
 
-Without an `entrypoint:`, SkillSentry reads the scripts but does not run them. The result is `UNSCANNED` until you declare one.
+Without an `entrypoint:`, SkillSentry reads the scripts but does not run them, and it never guesses a command. The scan still finishes: the verdict comes from the static and model stages, the report carries a `sandbox-no-entrypoint` note, and the command prints a warning on stderr. Declare an `entrypoint:` to have the scripts tested. In a pipeline that must not accept untested scripts, add `--strict-sandbox`: the skill is then `UNSCANNED` and the exit code is 1.
 
 **A folder of skills** (each child folder that has a `SKILL.md` is scanned):
 
@@ -347,7 +347,7 @@ Summary: 4 scanned - 4 SAFE, 0 SUSPICIOUS, 0 MALICIOUS, 0 UNSCANNED
 | `--no-sandbox` | Static analysis and the model only; the entrypoint is never run. Verdicts are weaker. |
 | `-q` / `--quiet` | Print only the verdict line |
 
-**Skills that are never run:** a skill with no `entrypoint:` is reported `UNSCANNED`. A skill whose SKILL.md or files cannot be read as text is reported with the reason; see the troubleshooting table.
+**Skills that are never run:** a skill with scripts and no `entrypoint:` is scanned statically and reported with a warning (`UNSCANNED` with `--strict-sandbox`). A skill whose SKILL.md or files cannot be read as text is reported with the reason; see the troubleshooting table.
 
 ---
 
@@ -515,7 +515,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 | `UNSCANNED … SKILL.md is not valid UTF-8` | The file is not plain UTF-8 text | Re-save it as UTF-8 |
 | `UNSCANNED … text file not analysed: scripts/x.py (larger than 1 MiB)` | A file is too large to read | Split or shrink the file; SkillSentry will not call it clean |
 | `UNSCANNED … file not analysed: assets/font.ttf (unsupported file type .ttf)` | The skill ships a file type SkillSentry does not read, such as a font, PDF, archive, or compiled binary. Images are read by the vision stage and are not listed | Open the file yourself and check it before you install. If the skill does not need it, remove it and scan again. Packages with such files stay UNSCANNED until the file is gone; SkillSentry does not treat them as SAFE |
-| `UNSCANNED … sandbox … no declared entrypoint, so the scripts were not executed; declare 'entrypoint:' …` | The skill has scripts but no `entrypoint:` | Add `entrypoint:` to `SKILL.md` |
+| `warning: <skill>: scripts were not executed because SKILL.md declares no 'entrypoint:'` | The skill has scripts but no `entrypoint:`. The scan finished without running them | Add `entrypoint:` to `SKILL.md`. With `--strict-sandbox` the same case is `UNSCANNED` with exit 1 |
 | `[?] … UNSCANNED` with a reason you do not understand | Anything not listed here | Read the report: `--format markdown --output …` |
 | `[OK] … SAFE` with `LOW sandbox-exit: Skill exited with status 2` | The skill ran and exited with an error (for example, it needs an argument) | Expected for some skills; the finding is low risk |
 | A scan is very slow | The first scan of a large skill, or the model is short of memory | Wait once; close other apps; cached rescans take under a second |
