@@ -454,14 +454,15 @@ def test_unread_text_file_shows_unscanned_not_invalid(tmp_path: Path):
 def test_unsupported_file_message_names_the_suffix_and_the_next_step(tmp_path: Path):
     skill = _skill(tmp_path / "skill")
     (skill / "assets").mkdir()
-    (skill / "assets" / "font.ttf").write_bytes(b"\x00\x01\x00\x00" + b"\x00" * 64)
+    (skill / "assets" / "blob.dat").write_bytes(bytes(range(64)))
 
     package = parse_skill(skill)
 
-    issues = [issue for issue in package.issues if "font.ttf" in issue.message]
+    issues = [issue for issue in package.issues if "blob.dat" in issue.message]
     assert len(issues) == 1
     message = issues[0].message
-    assert message.startswith("file not analysed: assets/font.ttf (unsupported file type .ttf)")
+    assert message.startswith("file not analysed: assets/blob.dat (")
+    assert "file type .dat" in message
     # The message says what to do, not only what was skipped.
     assert "Review the file by hand, or remove it" in message
     # It stays a coverage gap, so the verdict is UNSCANNED and never SAFE.

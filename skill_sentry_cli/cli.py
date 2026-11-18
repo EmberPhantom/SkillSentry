@@ -835,6 +835,7 @@ def _scan_error_hint(exc: ScanError) -> str:
     hints = {
         "no_skill_manifest": "point at a folder that contains SKILL.md, or a folder of skills.",
         "too_many_skills": "scan a smaller folder, or scan the skill folders one at a time.",
+        "invalid_skill": "fix the problem named above in the skill folder, then scan again.",
     }
     return hints.get(exc.code, "run `skill-sentry-cli doctor` to check the setup.")
 

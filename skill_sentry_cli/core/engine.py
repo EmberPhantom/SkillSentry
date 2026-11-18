@@ -570,7 +570,7 @@ class ScanEngine:
                     stage=Stage.SPEC,
                     severity=severity,
                     message=issue.message,
-                    finding_type="manifest-issue",
+                    finding_type=issue.kind or "manifest-issue",
                     evidence=FindingEvidence(
                         file=issue.file,
                         line=max(1, issue.line),
