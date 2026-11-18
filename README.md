@@ -64,7 +64,7 @@ Requirements: Python 3.11 to 3.13. Docker, for sandboxed scans. A local model se
 | `UNSCANNED` | A check could not finish, such as the sandbox or the model being unavailable. Fix the reason and scan again. |
 | `INVALID SKILL` | `SKILL.md` is malformed. This is a packaging problem, not a malware finding. |
 
-Exit codes: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error. CI uses the exit code.
+Exit codes: `0` below the gate, `1` at or above it, `2` a usage error, `3` an operational error, `5` a malformed skill (`INVALID SKILL`, not a verdict). CI uses the exit code.
 
 ## Documentation
 

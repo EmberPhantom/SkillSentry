@@ -321,9 +321,11 @@ class ScanEngine:
                 str(exc), code=code, stage=Stage.SPEC, degraded=True, status_code=404
             ) from exc
         except (OSError, HashError) as exc:
+            # A file system error is not the skill's fault; a malformed package (too many
+            # files, a special file) is.
             raise ScanError(
                 f"could not read skill package: {exc}",
-                code="invalid_skill",
+                code="invalid_skill" if isinstance(exc, HashError) else "unreadable_skill",
                 stage=Stage.SPEC,
                 degraded=True,
                 status_code=422,
