@@ -58,5 +58,49 @@
       "max_risk": 70,
       "static": true
     }
+  },
+  "evasion": {
+    "_comment": "Evasion cases in tests/fixtures/evasion. Each states what a good scanner should do. A case with known_gap is one the deterministic anchors miss today: the test is a strict xfail, so it fails loudly when the gap closes (remove known_gap then). Cases are scanned with the benign mock model, so only the deterministic stages can catch them. See docs/security/evasion-limits.md.",
+    "control-plain": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "Unobfuscated curl|bash. The baseline every evasion below is a variation of."
+    },
+    "string-concat": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "The command is built from string parts; the os.system call is what the anchors see."
+    },
+    "base64-split": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "A base64 payload split over lines, joined and exec'd; the decode-and-exec call is caught."
+    },
+    "indirect-call": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "getattr(__import__('o'+'s'), 'sys'+'tem'); the anchors still see dynamic import and a curl|sh string."
+    },
+    "table-injection": {
+      "min_verdict": "MALICIOUS",
+      "min_risk": 71,
+      "note": "An injection in row 47 of a 70-row markdown table."
+    },
+    "homoglyph": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "known_gap": {
+        "reason": "A Cyrillic letter in 'curl' defeats the pattern for a download piped into a shell. The text is no longer the ASCII word, though a person or an agent reads it as the command.",
+        "tracking": "docs/security/evasion-limits.md#homoglyph-lookalike-letters"
+      }
+    },
+    "split-download-exec": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "known_gap": {
+        "reason": "One file downloads a script to /tmp and another runs it. Each file alone looks ordinary and no anchor ties them together; only the sandbox sees the pair run.",
+        "tracking": "docs/security/evasion-limits.md#download-in-one-file-run-in-another"
+      }
+    }
   }
 }

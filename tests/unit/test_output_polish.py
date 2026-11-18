@@ -409,3 +409,37 @@ def test_unknown_api_paths_are_json_even_without_a_built_dashboard(tmp_path: Pat
         assert response.json()["error"]["code"] == "not_found", path
     # Other 404s keep the framework's response.
     assert bare.get("/something-else").json() == {"detail": "Not Found"}
+
+
+def test_export_json_matches_what_scan_prints(tmp_path: Path):
+    env = {"SKILLSENTRY_DB": str(tmp_path / "e.sqlite"), "SKILLSENTRY_DEV": "1"}
+    skill = _skill(tmp_path / "ok")
+    scanned = runner.invoke(
+        cli.app,
+        ["scan", str(skill), "--format", "json", "--backend", "demo", "--no-sandbox", "--no-cache"],
+        env=env,
+    )
+    payload = json.loads(scanned.stdout)
+
+    exported = runner.invoke(cli.app, ["export", payload["scanId"], "--format", "json"], env=env)
+    sarif = runner.invoke(cli.app, ["export", payload["scanId"], "--format", "sarif"], env=env)
+    markdown = runner.invoke(
+        cli.app, ["export", payload["scanId"], "--format", "markdown"], env=env
+    )
+
+    assert exported.exit_code == 0, exported.output
+    again = json.loads(exported.stdout)
+    for key in ("scanId", "skill", "verdict", "status", "riskScore", "confidence", "coverage"):
+        assert again[key] == payload[key], key
+    assert json.loads(sarif.stdout)["version"] == "2.1.0"
+    assert markdown.stdout.startswith("# SkillSentry")
+
+
+def test_export_rejects_an_unknown_format(tmp_path: Path):
+    result = runner.invoke(
+        cli.app,
+        ["export", "00000000-0000-0000-0000-000000000000", "--format", "xml"],
+        env={"SKILLSENTRY_DB": str(tmp_path / "e.sqlite")},
+    )
+
+    assert result.exit_code == 2

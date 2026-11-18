@@ -94,7 +94,7 @@ include = [
 target-version = "py311"
 line-length = 100
 src = ["skill_sentry_cli", "tests"]
-extend-exclude = ["tests/fixtures/decisions/cases"]
+extend-exclude = ["tests/fixtures/decisions/cases", "tests/fixtures/evasion"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

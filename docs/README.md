@@ -23,6 +23,7 @@ SkillSentry audits agent skills before you install them. This index groups the d
 | [Developer setup](developer/getting-started.md) | Setting up a checkout, the local gate, the repository layout, and how to extend the code. |
 | [Architecture](developer/architecture.md) | The pipeline, the components, the technology stack, and the model backends. |
 | [Security model](developer/security.md) | The threat model, the sandbox, the trust boundaries, and known limitations. |
+| [Evasion limits](security/evasion-limits.md) | What the checks catch, what evades them, and the known gaps. |
 | [Scorecard decisions](security/scorecard.md) | What we pinned, addressed or accepted for each OpenSSF Scorecard check. |
 | [Database](developer/database.md) | The local SQLite schema, caching, and the planned team-server variant. |
 | [Testing and evaluation](developer/testing.md) | The gates a change must pass, CI jobs, and the evaluation targets. |

@@ -262,17 +262,29 @@ Guided first-time setup. It asks before each download or build.
 
 `setup` writes the default configuration if none exists, installs the sandbox image (the published copy when this release has one, otherwise a local build), offers to run `ollama pull` for the configured model, and ends with the same checks as `doctor`. It never installs Docker or Ollama.
 
+## Which output option to use
+
+| You want | Use |
+|:---|:---|
+| The result in the terminal | `scan` (text, the default) |
+| JSON for a script | `scan --format json` |
+| One report as a file | `scan PATH --format markdown`, `json` or `sarif`, with `--output FILE` |
+| A SARIF file as well as the normal output | `scan PATH --sarif-out FILE` |
+| One Markdown report per skill, and a `summary.md` | `scan PATH --report-dir DIR` |
+| A report from a no-path run | `scan --save-report markdown` or `sarif` |
+| The report of a scan already run | `export SCAN_ID --format markdown`, `sarif`, `json` or `stix` |
+
 ## `export`
 
 Re-renders a stored scan without running it again.
 
 ```text
-skill-sentry-cli export SCAN_ID [--format markdown|sarif|stix] [-o FILE]
+skill-sentry-cli export SCAN_ID [--format markdown|sarif|json|stix] [-o FILE]
 ```
 
 | Option | Default | Meaning |
 |:---|:---|:---|
-| `--format` | `markdown` | `markdown`, `sarif`, or `stix`. |
+| `--format` | `markdown` | `markdown`, `sarif`, `json` (the same document `scan --format json` prints for one skill), or `stix` (needs a Poisoned Well hit). `scan --format` and `export --format` share `markdown`, `sarif` and `json`. |
 | `-o`, `--output` | standard output | Write to a file. |
 
 Get the scan ID from `scan` output or from `cache list`. An ID that is not a UUID, or that is not stored, exits `2`. STIX output carries Poisoned Well indicators, so it is only useful for scans in which that stage triggered.

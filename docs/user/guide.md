@@ -220,6 +220,13 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 | `confidence X` | How certain the verdict is, from 0 to 1. See "Risk, confidence, coverage and tiers" below |
 | `(cached)` | The same skill, unchanged, was scanned before |
 
+**What a verdict means**
+
+- `SAFE` means these checks found nothing. It is not a guarantee that the skill is safe, and it is not a substitute for reading a skill that asks for credentials, network access or a shell.
+- A verdict mostly comes from deterministic patterns (the anchors), which are auditable and run on every file. The model adds intent that no pattern names, but a claim only the model makes cannot raise a verdict above `SUSPICIOUS`, and on its own it does not raise it at all. The sandbox shows what the entrypoint does when it runs, and only the declared entrypoint is run.
+- Patterns can be written around. Obfuscation that builds a command at run time, lookalike letters, and a download in one file with the run in another are examples; some are caught and two are known gaps. The list, with the reasons, is in [Evasion limits](../security/evasion-limits.md).
+- `coverage` and `confidence` say how much weight a result deserves: a `SAFE` with full coverage and a sandbox run is the strongest result; one with the sandbox or the model off is weaker.
+
 **Risk, confidence, coverage and tiers**
 
 - **Risk** (0 to 100) is the score. The **tier** comes from it: `SAFE` below 30, `SUSPICIOUS` from 30 to 70, `MALICIOUS` above 70. A score of exactly 30 is the lowest `SUSPICIOUS` score, and exactly 70 is the highest. Change the boundaries with `tiers = { safe_max = 30, malicious_min = 70 }` under `[scoring]` in `skillsentry.toml`: a score below `safe_max` is SAFE, and one above `malicious_min` is MALICIOUS. A single hit on a name that looks like a known skill (a typosquat) scores a quarter of the way up the SUSPICIOUS band (40 with the defaults), so it stays SUSPICIOUS and does not sit on the boundary.
@@ -371,6 +378,20 @@ skill-sentry-cli scan path/to/skills --report-dir reports   # one .md per skill,
 skill-sentry-cli scan path/to/skills --recursive            # also scan skills nested in a skill folder
 ```
 
+**Which output option to use**
+
+| You want | Use |
+|:---|:---|
+| The result in the terminal | `scan` (text, the default) |
+| JSON for a script | `scan --format json` (add `-q` for a verdict line only) |
+| One report as a file | `scan PATH --format markdown\|json\|sarif --output FILE` |
+| A SARIF file for code scanning, and the normal text output as well | `scan PATH --sarif-out FILE` |
+| One Markdown report per skill, plus `summary.md`, for a folder | `scan PATH --report-dir DIR` |
+| A report from a run with no path (every installed skill) | `scan --save-report markdown\|sarif` |
+| The report of a scan you already ran, without scanning again | `export SCAN_ID --format markdown\|sarif\|json\|stix --output FILE` |
+
+`--format` and `export --format` share `markdown`, `sarif` and `json`. `export` also has `stix`, which needs a Poisoned Well hit, and `scan` also has `text`, which is for a terminal. `--output`, `--sarif-out` and `--report-dir` need a `PATH`.
+
 Choose a format with `--format` (`text`, `json`, `markdown`, `sarif`), and save it with `--output`:
 
 ```bash
@@ -479,6 +500,29 @@ skill-sentry-cli scan cloud-sync-pro --demo-mode
 
 ---
 
+## 13a. A light setup: no Docker, no Ollama
+
+Docker and a local model are the full setup. When you have neither, a light scan still runs the deterministic checks, which find the common cases:
+
+```toml
+# skillsentry.toml
+[model]
+backend = "local"        # nothing is called; the model stage is off below
+
+[decision]
+backend = "none"         # switch the semantic stage off on purpose
+```
+
+```bash
+skill-sentry-cli scan path/to/skill --no-sandbox
+```
+
+This runs the patterns and the syntax-tree checks only. The result is a normal verdict, not `UNSCANNED`, because you switched the stages off on purpose; the report carries `semantic-disabled` and `sandbox-disabled` notes, and `coverage` is about `0.58` and `confidence` lower than a full scan, so it reads as the weaker result it is. Without the `[decision]` setting, a missing model makes the scan `UNSCANNED`. `--backend cloud` is the other way to get a model without installing one, but it sends code excerpts to a cloud API.
+
+Treat a light `SAFE` as "none of the patterns matched", and see [Evasion limits](../security/evasion-limits.md).
+
+---
+
 ## 14. Configuration
 
 ```bash
@@ -538,6 +582,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 | `warning: <skill>: scripts were not executed because SKILL.md declares no 'entrypoint:'` | The skill has scripts but no `entrypoint:`. The scan finished without running them | Add `entrypoint:` to `SKILL.md`. With `--strict-sandbox` the same case is `UNSCANNED` with exit 1 |
 | `[?] … UNSCANNED` with a reason you do not understand | Anything not listed here | Read the report: `--format markdown --output …` |
 | `[OK] … SAFE` with `LOW sandbox-exit: Skill exited with status 2` | The skill ran and exited with an error (for example, it needs an argument) | Expected for some skills; the finding is low risk |
+| `bad interpreter` or `No such file or directory` when you run `skill-sentry-cli`, after moving or copying a virtual environment | A console script starts with the absolute path of the Python that installed it, so it is not relocatable | Recreate the virtual environment where it will live and reinstall (`pip install skill-sentry-cli`), or run `python -m skill_sentry_cli` from the moved environment |
 | A scan is very slow | The first scan of a large skill, or the model is short of memory | Run with `--timings` to see which stage is slow. A scan stops at `--max-time` (default 300 s), so it cannot run unbounded; use a smaller model or `--no-sandbox`. Cached rescans take under a second |
 | `scan-time-limit` note, or a stage `degraded: ... time limit` | The model or sandbox was still running when `--max-time` passed | Raise `--max-time` (or `[scan] max_time_s`), or use a smaller model. A timed-out scan is not cached |
 | A scan is killed with `sandbox timed out` | The entrypoint ran past `--timeout` | Raise `--timeout` (up to 600) if the skill is legitimately slow |

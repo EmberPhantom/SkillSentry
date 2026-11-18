@@ -21,12 +21,14 @@ MEDIA_TYPES: dict[ExportFormat, str] = {
     ExportFormat.SARIF: "application/sarif+json",
     ExportFormat.MARKDOWN: "text/markdown; charset=utf-8",
     ExportFormat.STIX: "application/stix+json;version=2.1",
+    ExportFormat.JSON: "application/json",
 }
 
 FILENAMES: dict[ExportFormat, str] = {
     ExportFormat.SARIF: "report.sarif",
     ExportFormat.MARKDOWN: "report.md",
     ExportFormat.STIX: "stix-bundle.json",
+    ExportFormat.JSON: "verdict.json",
 }
 
 
@@ -74,6 +76,9 @@ def render_report(
         )
     elif fmt is ExportFormat.STIX:
         content = json.dumps(build_stix(verdict), indent=2) + "\n"
+    elif fmt is ExportFormat.JSON:
+        # The same document `scan --format json` prints for one skill.
+        content = verdict.model_dump_json(by_alias=True, indent=2) + "\n"
     else:  # pragma: no cover - enum exhaustiveness
         raise ValueError(f"unsupported report format: {fmt}")
     return RenderedReport(
