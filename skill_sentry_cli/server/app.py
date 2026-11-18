@@ -6,10 +6,12 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from skill_sentry_cli.core.contracts import ErrorDetail, ErrorResponse
 from skill_sentry_cli.core.version import __version__
@@ -105,6 +107,24 @@ def create_app(
             status_code=exc.status_code,
             content=exc.to_response().model_dump(by_alias=True, mode="json"),
         )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(request: Request, exc: StarletteHTTPException):
+        # An API-shaped path that matched no route is the same JSON error whether or not the
+        # dashboard is built; every other HTTP error keeps FastAPI's own response.
+        first = request.url.path.lstrip("/").split("/", 1)[0]
+        if exc.status_code == 404 and first in _API_PREFIXES:
+            response = ErrorResponse(
+                error=ErrorDetail(
+                    code="not_found",
+                    message=f"no API route at {request.url.path}",
+                    degraded=False,
+                )
+            )
+            return JSONResponse(
+                status_code=404, content=response.model_dump(by_alias=True, mode="json")
+            )
+        return await http_exception_handler(request, exc)
 
     @app.exception_handler(Exception)
     async def _unexpected_error(_: Request, exc: Exception) -> JSONResponse:

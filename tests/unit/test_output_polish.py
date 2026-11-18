@@ -393,3 +393,19 @@ def test_a_failing_image_listing_does_not_break_doctor(monkeypatch):
     checks = cli._docker_checks(SkillsEntryConfig())
 
     assert [check.name for check in checks] == ["docker", "sandbox image"]
+
+
+def test_unknown_api_paths_are_json_even_without_a_built_dashboard(tmp_path: Path):
+    # CI has no ui/dist; the 404 must not depend on the dashboard's fallback route.
+    empty = tmp_path / "no-ui"
+    empty.mkdir()
+    bare = TestClient(
+        create_app(DemoBackend(speed=0), static_dir=empty), base_url="http://localhost"
+    )
+
+    for path in ("/api/nope", "/api", "/scans/a/b/c", "/skills/x/y/z"):
+        response = bare.get(path)
+        assert response.status_code == 404, path
+        assert response.json()["error"]["code"] == "not_found", path
+    # Other 404s keep the framework's response.
+    assert bare.get("/something-else").json() == {"detail": "Not Found"}
