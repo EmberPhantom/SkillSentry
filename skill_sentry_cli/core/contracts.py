@@ -28,7 +28,10 @@ from pydantic import (
     ConfigDict,
     Field,
     PlainSerializer,
+    SerializerFunctionWrapHandler,
     field_validator,
+    model_serializer,
+    model_validator,
 )
 from pydantic.alias_generators import to_camel
 
@@ -190,6 +193,16 @@ class FindingEvidence(APIModel):
     domain: str | None = None
     ip: str | None = None
 
+    @model_serializer(mode="wrap")
+    def _omit_empty(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Leave out fields that have no value, instead of a dozen ``null`` keys.
+
+        Every field is optional in the schema, so a reader that treats a missing key as
+        ``null`` sees no difference.
+        """
+
+        return {key: value for key, value in handler(self).items() if value is not None}
+
 
 class Finding(APIModel):
     stage: Stage
@@ -198,6 +211,17 @@ class Finding(APIModel):
     evidence: FindingEvidence = Field(default_factory=FindingEvidence)
     # Additive field required by SARIF ruleId = skillsentry/<stage>/<type> (§5.6).
     finding_type: str | None = Field(default=None, alias="type")
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_type(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return {key: value for key, value in handler(self).items() if value is not None}
+
+
+# Finding types that report a check that passed. They are not findings: a verdict lists them
+# under ``checks`` so ``findings`` holds only what a person needs to look at.
+PASSING_CHECK_TYPES = frozenset({"spec-valid", "semantic-clean", "anchors-clean"})
+
+VerdictStatus = Literal["SAFE", "SUSPICIOUS", "MALICIOUS", "UNSCANNED", "INVALID SKILL"]
 
 
 class ActiveDefense(APIModel):
@@ -238,7 +262,23 @@ class Verdict(APIModel):
     cached: bool
     scan_duration_ms: int = Field(ge=0)
     findings: list[Finding] = Field(default_factory=list)
+    # Checks that passed (frontmatter valid, no contradiction found). Moved out of `findings`.
+    checks: list[Finding] = Field(default_factory=list)
     active_defense: ActiveDefense | None = None
+    # What the text output shows: the verdict, or UNSCANNED when a stage did not finish, or
+    # INVALID SKILL when the package is malformed. `verdict` keeps the stored tier. Defaults to
+    # the tier for results that carry no stage information (canned and older cached ones).
+    status: VerdictStatus | None = None
+
+    @model_validator(mode="after")
+    def _split_checks_and_default_status(self) -> Verdict:
+        passed = [item for item in self.findings if item.finding_type in PASSING_CHECK_TYPES]
+        if passed:
+            self.checks = [*self.checks, *passed]
+            self.findings = [item for item in self.findings if item not in passed]
+        if self.status is None:
+            self.status = self.verdict.value
+        return self
 
     @property
     def key_finding(self) -> Finding | None:

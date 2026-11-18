@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -1323,9 +1323,80 @@ def _docker_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
                 False,
                 f"{cfg.sandbox.base_image} is missing; run: skill-sentry-cli sandbox build",
             )
+        stale = _stale_image_check(client, cfg)
     finally:
         client.close()
-    return [ReadinessCheck("docker", True, False, "engine reachable"), image_check]
+    checks = [ReadinessCheck("docker", True, False, "engine reachable"), image_check]
+    if stale is not None:
+        checks.append(stale)
+    return checks
+
+
+# Repositories SkillSentry publishes or builds. A name is matched on its last two path parts,
+# so a registry prefix (ghcr.io/emberphantom/...) does not matter.
+_SANDBOX_REPOSITORIES = frozenset({"skillsentry-sandbox"})
+_SERVER_REPOSITORIES = frozenset({"skill-sentry-server", "skillsentry/server"})  # name or two parts
+
+
+def find_stale_images(
+    images: Sequence[tuple[str, str, str]],
+    *,
+    version: str,
+    current_ids: set[str],
+    in_use_ids: Collection[str] = (),
+) -> list[str]:
+    """SkillSentry images that are not the current one, as ``repository:tag`` references.
+
+    ``images`` holds ``(repository, tag, image id)``. An image is current when it is the
+    configured sandbox image (``current_ids``) or carries this release's version as its tag.
+    ``latest`` is never called stale, because it moves. An image a container uses is left out,
+    because Docker would refuse to remove it. Nothing is removed here; the caller only reports.
+    """
+
+    stale: list[str] = []
+    for repository, tag, image_id in images:
+        if not tag or tag in {"<none>", "latest", version} or image_id in current_ids:
+            continue
+        last = repository.rsplit("/", 1)[-1]
+        last_two = "/".join(repository.split("/")[-2:])
+        ours = (
+            last in _SANDBOX_REPOSITORIES
+            or last in _SERVER_REPOSITORIES
+            or last_two in _SERVER_REPOSITORIES
+        )
+        if ours and image_id not in in_use_ids:
+            stale.append(f"{repository}:{tag}")
+    return stale
+
+
+def _stale_image_check(client: Any, cfg: SkillsEntryConfig) -> ReadinessCheck | None:
+    """A WARN naming old SkillSentry images and the exact command that removes them."""
+
+    try:
+        current_ids: set[str] = set()
+        with contextlib.suppress(Exception):
+            current_ids.add(client.images.get(cfg.sandbox.base_image).id)
+        images: list[tuple[str, str, str]] = []
+        for image in client.images.list():
+            for reference in image.tags:
+                repository, _, tag = reference.rpartition(":")
+                images.append((repository or reference, tag, image.id))
+        in_use = {container.image.id for container in client.containers.list(all=True)}
+        stale = find_stale_images(
+            images, version=__version__, current_ids=current_ids, in_use_ids=in_use
+        )
+    except Exception:
+        # Housekeeping advice must never make the readiness check fail.
+        return None
+    if not stale:
+        return None
+    return ReadinessCheck(
+        "stale images",
+        False,
+        False,
+        f"{len(stale)} older or test SkillSentry image(s) are taking disk space: "
+        f"{', '.join(stale)}. Nothing was removed. To remove them: docker rmi " + " ".join(stale),
+    )
 
 
 @app.command("doctor")

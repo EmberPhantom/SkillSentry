@@ -15,8 +15,9 @@ __version__ = "2.1.1"
 ENGINE_VERSION = __version__
 CONTRACT_VERSION = "1"
 # 2: `confidence` measures certainty in the verdict (it was the share of stages that ran), and a
-# lone typosquat scores with headroom above the SAFE boundary.
-SCORING_REVISION = 2
+# lone typosquat scores with headroom above the SAFE boundary. 3: the verdict gains `status`
+# and `checks`, so results cached without them are not reused.
+SCORING_REVISION = 3
 # Privacy badge text per analysis backend.  ``GEMMA_BADGE`` is kept for
 # compatibility; callers that know the backend should use ``badge_for_backend``.
 GEMMA_BADGE = "Fully local analysis · open weights"

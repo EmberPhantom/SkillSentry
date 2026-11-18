@@ -1465,6 +1465,13 @@
             "title": "Cached",
             "type": "boolean"
           },
+          "checks": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "confidence": {
             "maximum": 1.0,
             "minimum": 0.0,
@@ -1516,6 +1523,25 @@
             "format": "uuid",
             "title": "Skillid",
             "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SAFE",
+                  "SUSPICIOUS",
+                  "MALICIOUS",
+                  "UNSCANNED",
+                  "INVALID SKILL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
           },
           "verdict": {
             "$ref": "#/$defs/VerdictTier"
@@ -2409,6 +2435,13 @@
         "title": "Cached",
         "type": "boolean"
       },
+      "checks": {
+        "items": {
+          "$ref": "#/$defs/Finding"
+        },
+        "title": "Checks",
+        "type": "array"
+      },
       "confidence": {
         "maximum": 1.0,
         "minimum": 0.0,
@@ -2460,6 +2493,25 @@
         "format": "uuid",
         "title": "Skillid",
         "type": "string"
+      },
+      "status": {
+        "anyOf": [
+          {
+            "enum": [
+              "SAFE",
+              "SUSPICIOUS",
+              "MALICIOUS",
+              "UNSCANNED",
+              "INVALID SKILL"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Status"
       },
       "verdict": {
         "$ref": "#/$defs/VerdictTier"
@@ -2877,6 +2929,13 @@
             "title": "Cached",
             "type": "boolean"
           },
+          "checks": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "confidence": {
             "maximum": 1.0,
             "minimum": 0.0,
@@ -2928,6 +2987,25 @@
             "format": "uuid",
             "title": "Skillid",
             "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SAFE",
+                  "SUSPICIOUS",
+                  "MALICIOUS",
+                  "UNSCANNED",
+                  "INVALID SKILL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
           },
           "verdict": {
             "$ref": "#/$defs/VerdictTier"

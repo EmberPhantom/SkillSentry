@@ -6,7 +6,7 @@ The HTTP and WebSocket API that `skill-sentry-cli serve` exposes. The dashboard 
 
 | Item | Value |
 |:---|:---|
-| Base URL | `http://127.0.0.1:8000` (the default for `serve`) |
+| Base URL | `http://127.0.0.1:8000` (the default for `serve`). Every API route is also served under `/api` (`/api/scans`, `/api/scan/{id}/stream`, ...), with the same behaviour and the same token rule. The unprefixed routes stay. A scan started under `/api` returns an `/api/...` stream URL. An unknown `/api/...` path is `404 not_found` JSON, never the dashboard page. |
 | Content type | `application/json` (UTF-8) |
 | Response field names | camelCase, for example `scanId` and `riskScore` |
 | Request field names | snake_case, for example `no_cache` and `timeout_s` |
@@ -206,6 +206,7 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
   "skillId": "8b1d4e62-0000-4000-8000-000000000002",
   "skill": "cloud-sync-pro",
   "verdict": "MALICIOUS",
+  "status": "MALICIOUS",
   "riskScore": 97,
   "confidence": 1.0,
   "coverage": 1.0,
@@ -217,6 +218,15 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
       "severity": "high",
       "message": "Reads the AWS credentials file",
       "evidence": { "file": "scripts/sync.sh", "line": 4 }
+    }
+  ],
+  "checks": [
+    {
+      "stage": "spec",
+      "severity": "note",
+      "message": "Frontmatter valid",
+      "type": "spec-valid",
+      "evidence": { "file": "SKILL.md", "line": 1 }
     }
   ],
   "activeDefense": {
@@ -236,15 +246,19 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
 | Field | Notes |
 |:---|:---|
 | `verdict` | `SAFE` below 30, `SUSPICIOUS` from 30 to 70, `MALICIOUS` above 70. An override sets `MALICIOUS` with `confidence` 1.0. |
+| `status` | What the command line shows: `SAFE`, `SUSPICIOUS`, `MALICIOUS`, `UNSCANNED` (a stage did not finish) or `INVALID SKILL` (the package is malformed). `verdict` keeps the stored tier, which for an invalid skill can be `SUSPICIOUS` or `MALICIOUS`; read `status` to tell that from malware. Always present; for results with no stage information (canned data) it equals `verdict`. |
 | `riskScore` | An integer from 0 to 100. |
 | `confidence` | From 0.0 to 1.0: how certain the verdict is. An override is `1.0`; a verdict backed by a deterministic finding and the model is about `0.95`; one only the model supports is lower; a failed stage caps it at `0.5`. It is not the share of stages that ran. The formula is in the [user guide](../user/guide.md). |
 | `coverage` | Optional, 0.0 to 1.0: the share of the analyses that apply to this skill that ran. Absent or `null` on verdicts cached or canned before the field existed. |
+| `findings` | What a person needs to look at. Checks that passed (frontmatter valid, no contradiction found, no anchor hit) are not findings; they are in `checks`. |
+| `checks` | Checks that passed, in the same shape as a finding, always at severity `note`. They are the finding types `spec-valid`, `semantic-clean` and `anchors-clean`. Optional; empty when none. |
 | `findings[].severity` | `low`, `medium`, `high`, `critical`, or `note`. |
 | `findings[].evidence` | The file and line of the evidence, where there is one. A Poisoned Well finding can instead cite the destination and marker. |
-| `findings[].type` | Optional. Used in the SARIF rule ID. |
+| `findings[].type` | Optional; left out when there is none. Used in the SARIF rule ID. |
+| `findings[].evidence` | Only the keys that have a value are present (`file`, `line`, `code`, and for Poisoned Well `c2`, `marker`, `channel`, `url`, `domain`, ...). A reader must treat a missing key as `null`. |
 | `activeDefense` | Optional. Present when Poisoned Well ran. Readers must accept it as absent or null. `triggered` is `false` when no decoy was seen. |
 
-**Compatibility.** Changes to this contract are additive: new optional fields only. A breaking change needs a new contract version and a migration path.
+**Compatibility.** Changes to this contract are additive: new optional fields only. In this release the verdict gained `status`, `checks` and `coverage`. Two things also changed in how existing fields are filled, without a schema change: passing checks moved from `findings` to `checks`, and `null` evidence fields (and a null `type`) are left out instead of written as `null`. Every one of those fields was already optional in `schemas/verdict.v1.json`, so a reader that follows the schema is unaffected; a reader that indexed `evidence["code"]` without a default, or looked for `spec-valid` in `findings`, must be updated. A breaking change needs a new contract version and a migration path.
 
 ## 5.6 SARIF 2.1.0 mapping
 

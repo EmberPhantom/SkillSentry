@@ -89,6 +89,7 @@ from skill_sentry_cli.core.semantic.laya_analyzer import (
     deterministic_only_stage,
 )
 from skill_sentry_cli.core.verdict.fusion import FusionError, FusionResult, fuse
+from skill_sentry_cli.core.verdict.status import shown_status
 from skill_sentry_cli.core.version import engine_version
 from skill_sentry_cli.core.vision import scan_vision
 
@@ -521,6 +522,7 @@ class ScanEngine:
             risk_score=fused.risk_score,
             confidence=fused.confidence,
             coverage=fused.completeness,
+            status=shown_status(fused.verdict, ctx.stage_results),
             cached=False,
             scan_duration_ms=duration_ms,
             findings=findings,
@@ -1083,7 +1085,8 @@ class ScanEngine:
 
     def _static_findings(self, verdict: Verdict) -> list[StaticFinding]:
         results: list[StaticFinding] = []
-        for finding in verdict.findings:
+        # The dashboard lists the passing checks with the findings, as it always has.
+        for finding in [*verdict.findings, *verdict.checks]:
             if finding.stage is Stage.VISION:
                 continue
             if finding.severity is Severity.NOTE and finding.stage not in {
