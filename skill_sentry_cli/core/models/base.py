@@ -29,6 +29,22 @@ class ModelTruncated(ModelUnavailable):
     so it is not retried."""
 
 
+class ModelAuthError(ModelUnavailable):
+    """The provider refused the credentials (HTTP 401 or 403). Asking again cannot help."""
+
+
+class ModelNotFound(ModelUnavailable):
+    """The provider has no such model or endpoint (HTTP 404). Asking again cannot help."""
+
+
+class ModelRateLimited(ModelUnavailable):
+    """The provider answered 429. ``retry_after`` is how long it asked callers to wait, if known."""
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 @runtime_checkable
 class ModelClient(Protocol):
     """Typed interface between Dev 2's analyzers and Dev 1's model plumbing."""

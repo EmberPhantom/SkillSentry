@@ -594,7 +594,7 @@ class LiveBackend:
             # configured model is pulled.  "ready" is the only state reported as ok.
             with contextlib.suppress(Exception):
                 ollama_ok = await asyncio.to_thread(_ollama_ready, self.config)
-        elif backend == "cloud":
+        elif backend in {"cloud", "openrouter", "nim", "groq", "openai", "openai-local"}:
             with contextlib.suppress(Exception):
                 from skill_sentry_cli.core.models.selector import select_model
 

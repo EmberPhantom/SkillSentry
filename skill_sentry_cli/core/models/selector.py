@@ -15,6 +15,8 @@ from skill_sentry_cli.core.models.base import ModelClient, ModelUnavailable
 from skill_sentry_cli.core.models.gemma_cloud import GemmaCloud
 from skill_sentry_cli.core.models.gemma_local import GemmaLocal
 from skill_sentry_cli.core.models.mock import MockGemma
+from skill_sentry_cli.core.models.openai_compat import OpenAICompat
+from skill_sentry_cli.core.models.providers import PROVIDER_BACKENDS, resolve_provider
 
 
 def select_model(
@@ -24,6 +26,7 @@ def select_model(
     probe: bool = True,
     local_client: ModelClient | None = None,
     cloud_client: ModelClient | None = None,
+    provider_client: ModelClient | None = None,
 ) -> ModelClient:
     """Return a ready model client or raise :class:`ModelUnavailable`.
 
@@ -49,6 +52,21 @@ def select_model(
             raise ModelUnavailable("GEMINI_API_KEY is not set")
         if probe and not _healthy(client):
             raise ModelUnavailable("cloud model is not reachable")
+        return client
+    if choice in PROVIDER_BACKENDS:
+        # An OpenAI-compatible server, chosen on purpose: it is never a silent fallback,
+        # because a remote one receives the skill's content.
+        client = provider_client or _provider_client(settings, choice)
+        if not _configured(client):
+            variable = getattr(client, "key_variable", "") or settings.provider.api_key_env
+            raise ModelUnavailable(
+                f"{variable or 'the API key variable'} is not set "
+                f"(it holds the key for the {choice} backend)"
+            )
+        if probe and not _healthy(client):
+            raise ModelUnavailable(
+                getattr(client, "last_health_error", None) or f"{choice} is not reachable"
+            )
         return client
     if choice != Backend.AUTO.value:
         raise ValueError(f"unsupported model backend: {choice!r}")
@@ -85,6 +103,8 @@ def _backend_value(value: str | Backend) -> str:
         "gemini-api": Backend.CLOUD.value,
         "ollama": Backend.LOCAL.value,
         "mock": Backend.DEMO.value,
+        "nvidia": "nim",
+        "openai-compatible": "openai",
     }.get(normalised, normalised)
 
 
@@ -97,6 +117,17 @@ def _local_client(settings: ModelSettings) -> ModelClient:
         num_ctx=settings.ollama_num_ctx,
         num_predict=settings.ollama_num_predict,
         keep_alive=settings.ollama_keep_alive,
+    )
+
+
+def _provider_client(settings: ModelSettings, choice: str) -> ModelClient:
+    provider = resolve_provider(settings, choice)
+    return OpenAICompat(
+        provider,
+        timeout_s=settings.request_timeout_s,
+        max_px=settings.image_max_px,
+        max_tokens=settings.provider.max_tokens,
+        structured_output=settings.provider.structured_output,
     )
 
 
