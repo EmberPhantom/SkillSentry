@@ -24,10 +24,21 @@ Counts below are each source's own claims unless it says "checked". Nothing here
 
 ### What this means for the malicious labels
 
-- Real, human-confirmed, wild malicious skills are scarce and clustered. Most "malicious" rows are **constructed** (a payload injected into a real skill). The manifest records `provenance` and `evidence_type` for every skill so results can be split into wild and constructed.
-- The datasets' own attack categories are coarse and sometimes arbitrary. Hidden text, reverse shell and "do not tell the user" skills are not categories there, so these classes were found by pattern in the skills the datasets already label malicious. The pattern only picks which already-labelled skill to include; it never changes a label.
-- A skill whose label could not be backed (one dataset only, no payload found, not study-confirmed) was left out rather than guessed.
-- "Social engineering" and "typosquat" are thin: the datasets label few skills that way, so those classes have fewer entries than the others.
+**Real, human-confirmed, in-the-wild malicious skills here are few.** Of the 97 malicious entries in the test set:
+
+| Evidence | Entries | Provenance |
+|---|---|---|
+| Published study confirmation only (static plus dynamic verification, human reviewed); our independent patterns find no payload in the files | 54 | 52 wild, 2 mixed |
+| A concrete payload we can point at in the files (attacker-IP or bare-IP install, base64-to-shell, a reverse-shell string, a credential read sent to an attacker endpoint, a persistence write in a script, hidden text carrying instructions, a "do not tell the user" instruction next to an action) | 42 | 23 mixed or unresolved, 19 injected |
+| Both | 1 | mixed |
+
+- **The wild ones carry the weakest evidence.** The 52 wild entries are labelled by the study alone. They are the first to read by hand (see `read_first` in the manifest), and results on them should be reported on their own.
+- **Constructed skills are a known pattern, not attackers.** The 19 injected entries come from a handful of injection templates; 17 of them share one of eight template families (for example the "Runtime dependency bootstrap" sentence, the "invisible marker" line, the "silently run a script to refresh the cache" trigger). The manifest records a `template` for each and at most three entries share one. They test the rules against a known pattern.
+- **Split every result by `provenance_group`** (wild, injected, mixed_unresolved, fixture, synthetic). A single pooled recall number would hide this.
+- **A malicious label needs a published human confirmation or a concrete payload.** Everything else is `ambiguous`: 21 skills that a dataset calls malicious but where we found no payload and the study did not confirm (one looked like a plain email skill, one runs the author's own declared dotfiles installer, one writes a mock log), plus 3 vendor installers. Ambiguous skills are reported apart and left out of precision and recall.
+- **One vendor** supplies 85 of the study's 148 packaged skills (installers that pipe a download to a shell). They are not used as malicious.
+- **Payload detection is ours, so it is not independent of the tool.** The patterns were used only to decide which dataset-labelled skill to include or demote; they were written before any scan and never see the tool's output. A skill that is malicious but carries no payload these patterns recognise is therefore missing from the 42 and is one place the set is biased toward obvious payloads.
+- The datasets' own attack categories are coarse. Hidden text, reverse shell and "do not tell the user" are not categories there, so those classes were assigned from the payload. "Typosquat" has 3 entries and "defense evasion" 2: the datasets label few skills that way.
 
 ## Benign sources
 
@@ -47,7 +58,7 @@ Benign labels rest on the repository's reputation and licence. They are not guar
 
 ## The set
 
-`tests/heldout/manifest.json` has a `sources` table (URL, pinned commit, licence), an `entries` list (the test set) and a `reserve` list (about 40 spare skills used only to replace one that moves to the development set). Each entry carries the source, the path, the SHA-256 of the skill, licence, label, label sources and basis, and a category. Malicious entries also carry the attack class, provenance and the datasets' own categories.
+`tests/heldout/manifest.json` has a `sources` table (URL, pinned commit, licence), an `entries` list (the test set: 188 benign, 97 malicious, 24 ambiguous), a `reserve` list (38 spare skills used only to replace one that moves to the development set) and `read_first` (the 15 labels with the weakest evidence). Each entry carries the source, the path, the SHA-256 of the skill, licence, label, label sources and basis, and a category. Malicious entries also carry the attack class, `confirmation` (published study, concrete payload, or both), the payload kinds and the file each was found in, the injection template if any, provenance and `provenance_group`, and the datasets' own categories.
 
 Benign categories: document and office, creative and design, developer workflow, cloud and DevOps, data science, MCP and agent builders, browser automation, API integrations, security education, finance, writing and research, multilingual, large reference files, shell-heavy installers. A repository contributes at most one skill per category, and ordinary repositories contribute only one skill.
 

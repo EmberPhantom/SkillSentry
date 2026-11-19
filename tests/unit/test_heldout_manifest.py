@@ -97,3 +97,67 @@ def test_the_manifest_holds_no_skill_content():
     assert "​" not in text
     assert all(len(json.dumps(r)) < 3000 for r in RAW.values())
     assert not list((ROOT / "tests" / "heldout").glob("**/SKILL.md"))
+
+
+# -- the label rule: a malicious label needs a published confirmation or a concrete payload --------
+CONCRETE_KINDS = {
+    "bare_ip_fetch",
+    "remote_pipe_shell",
+    "encoded_exec",
+    "reverse_shell",
+    "credential_read_and_send",
+    "persistence_write",
+    "hidden_text_with_instructions",
+    "hidden_comment_instruction",
+    "do_not_tell_user_with_action",
+    "instruction_override",
+}
+GROUPS = {"wild", "injected", "mixed_unresolved", "fixture", "synthetic"}
+
+
+def _malicious():
+    return [r for r in RAW.values() if r["label"] == "malicious"]
+
+
+def test_every_malicious_entry_has_a_published_confirmation_or_a_concrete_payload():
+    for raw in _malicious():
+        conf = set(raw["confirmation"])
+        assert conf and conf <= {"published_study", "concrete_payload"}, raw["id"]
+        if "concrete_payload" in conf:
+            kinds = set(raw["payload_kinds"])
+            assert kinds and kinds <= CONCRETE_KINDS, raw["id"]
+            assert set(raw["payload_files"]) == kinds, raw["id"]
+        # An evidence type of "static" or "fixture" alone is never enough.
+        if conf == {"published_study"}:
+            assert "SRC002" in " ".join(raw["label_sources"]), raw["id"]
+
+
+def test_provenance_is_recorded_so_results_can_be_split():
+    for raw in _malicious():
+        assert raw["provenance_group"] in GROUPS, raw["id"]
+    groups = collections.Counter(
+        r["provenance_group"] for r in _malicious() if r in MANIFEST["entries"]
+    )
+    assert groups["wild"] > 0 and groups["injected"] > 0 and groups["mixed_unresolved"] > 0
+
+
+def test_no_injection_template_is_over_represented():
+    templates = collections.Counter(
+        r["template"] for r in MANIFEST["entries"] if r["label"] == "malicious" and r["template"]
+    )
+    assert max(templates.values()) <= 3
+
+
+def test_every_ambiguous_entry_says_why_and_stays_out_of_malicious_counts():
+    ambiguous = [r for r in RAW.values() if r["label"] == "ambiguous"]
+    assert ambiguous
+    for raw in ambiguous:
+        assert len(raw["label_basis"]) > 30, raw["id"]
+        assert "confirmation" in raw
+
+
+def test_read_first_lists_fifteen_real_malicious_entries():
+    ids = MANIFEST["read_first"]["ids"]
+    assert len(ids) == 15 and len(set(ids)) == 15
+    for i in ids:
+        assert RAW[i]["label"] == "malicious"
