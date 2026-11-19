@@ -203,8 +203,12 @@ class Meter(httpx.BaseTransport):
         path = request.url.path
         if request.method != "POST":
             return self.inner.handle_request(request)
+        from skill_sentry_cli.core.models._json import RETRY_MARKER
+
         digest = hashlib.sha256(request.content).hexdigest()
-        first_attempt = digest not in self._seen
+        # A retry after a refused reply carries a reminder, so it is told by that, not only by
+        # being a repeat of an earlier request.
+        first_attempt = digest not in self._seen and RETRY_MARKER.encode() not in request.content
         self._seen.add(digest)
         record: dict[str, Any] = {"first_attempt": first_attempt, "timeout": False, "status": None}
         started = time.monotonic()
@@ -519,6 +523,7 @@ def call_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "calls": len(calls),
         "valid_first_time": _ratio(sum(1 for c in first if c.get("valid")), len(first)),
         "invalid_replies": sum(1 for c in calls if c.get("status") == 200 and not c.get("valid")),
+        "retries": sum(1 for c in calls if not c["first_attempt"]),
         "truncated": sum(1 for c in calls if c.get("truncated")),
         "timeouts": sum(1 for c in calls if c.get("timeout")),
         "rate_limited_429": sum(1 for c in calls if c.get("status") == 429),
@@ -598,6 +603,13 @@ def summarize(cases: list[Case], rows: list[dict[str, Any]]) -> dict[str, Any]:
         entry["by_set"] = sets
         if target != "baseline" and baseline:
             entry["contribution"] = contribution(by_id, baseline, statuses)
+        entry["schema_failures"] = sorted(
+            {
+                r["skill"]
+                for r in target_rows
+                if any(c.get("status") == 200 and not c.get("valid") for c in r.get("calls", []))
+            }
+        )
         stopped = [
             r for r in target_rows if (r.get("provider_limit") or {}).get("kind") == "daily-quota"
         ]
@@ -709,8 +721,8 @@ def markdown(
         "",
         "## Model behaviour",
         "",
-        "| Model | Calls | Valid first time | Invalid | Truncated | Timeouts | 429 | Quote found | Tokens in / out | Wall mean / median / p95 | Flip rate |",
-        "|:---|--:|--:|--:|--:|--:|--:|--:|:--|:--|--:|",
+        "| Model | Calls | Valid first time | Invalid | Retries | Truncated | Timeouts | 429 | Quote found | Tokens in / out | Wall mean / median / p95 | Flip rate |",
+        "|:---|--:|--:|--:|--:|--:|--:|--:|--:|:--|:--|--:|",
     ]
     for name, t in summary["targets"].items():
         if name == "baseline":
@@ -718,9 +730,15 @@ def markdown(
         m, f = t["calls"], t["flips"]
         tokens = f"{m['tokens_in']} / {m['tokens_out']}" if m["tokens_known"] else "not reported"
         lines.append(
-            f"| {name} | {m['calls']} | {_fmt(m['valid_first_time'])} | {m['invalid_replies']} | {m['truncated']} | {m['timeouts']} | {m['rate_limited_429']} "
+            f"| {name} | {m['calls']} | {_fmt(m['valid_first_time'])} | {m['invalid_replies']} | {m['retries']} | {m['truncated']} | {m['timeouts']} | {m['rate_limited_429']} "
             f"| {_fmt(m['quote_found_rate'])} ({m['quotes']}) | {tokens} | {_fmt(m['wall_mean_s'])} / {_fmt(m['wall_median_s'])} / {_fmt(m['wall_p95_s'])} s | {_fmt(f['flip_rate'])} ({f['flipped']}/{f['skills_repeated']}) |"
         )
+    for name, t in summary["targets"].items():
+        failed = t.get("schema_failures")
+        if failed:
+            lines.append(
+                f"- {name} gave a reply that failed the schema on {len(failed)} skill(s): {', '.join(failed)}"
+            )
     for name, t in summary["targets"].items():
         if t["flips"]["flipped_skills"]:
             lines.append(f"- {name} flipped: {', '.join(t['flips']['flipped_skills'])}")

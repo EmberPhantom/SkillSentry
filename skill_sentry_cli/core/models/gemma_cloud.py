@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from skill_sentry_cli.core.contracts import ImageAnalysis
-from skill_sentry_cli.core.models._json import parse_json_object, validate_json
+from skill_sentry_cli.core.models._json import parse_json_object, retry_prompt, validate_json
 from skill_sentry_cli.core.models.base import (
     ModelError,
     ModelQuotaExhausted,
@@ -101,9 +101,11 @@ class GemmaCloud:
         prompt = _schema_prompt(user, schema)
         attempts = max(0, retries) + 1
         last_error: Exception | None = None
+        current, last_text = prompt, None
         for _ in range(attempts):
+            text = None
             try:
-                text = self._generate(prompt=prompt, system=system)
+                text = self._generate(prompt=current, system=system)
                 parsed = parse_json_object(text)
                 validate_json(parsed, schema)
                 return parsed
@@ -111,6 +113,11 @@ class GemmaCloud:
                 raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
+                if text is not None:
+                    if text == last_text:
+                        break  # the same refused reply again: asking more cannot help
+                    last_text = text
+                    current = retry_prompt(prompt, exc)
         # A failure to reach the model, or an HTTP, truncated or empty reply, keeps its
         # own message.  Only output that is not valid JSON for the schema is called
         # malformed.
@@ -203,7 +210,8 @@ class GemmaCloud:
         }
         if system:
             payload["systemInstruction"] = {"parts": [{"text": system}]}
-        self._limiter.acquire(estimate_tokens(prompt + system) + 400)
+        # A reply is a few hundred tokens; the reservation is replaced by the provider's own count.
+        ticket = self._limiter.acquire(estimate_tokens(prompt + system) + 200)
         try:
             response = self._client.post(
                 f"{self.base_url}/models/{self.model}:generateContent",
@@ -211,6 +219,8 @@ class GemmaCloud:
                 json=payload,
                 timeout=self.timeout_s,
             )
+            if response.status_code != 200:
+                self._limiter.release(ticket)
             if response.status_code == 429:
                 self._rate_limited(response)
             if response.status_code != 200:
@@ -221,6 +231,7 @@ class GemmaCloud:
         except (ModelUnavailable, ModelQuotaExhausted, ModelThrottled):
             raise
         except httpx.TimeoutException as exc:
+            self._limiter.release(ticket)
             raise ModelTimeout(
                 f"gemini did not answer within {self.timeout_s:g} s for {self.model}"
             ) from exc
@@ -229,6 +240,9 @@ class GemmaCloud:
 
         if not isinstance(data, dict):
             raise ModelUnavailable("gemini response is not a JSON object")
+        usage = data.get("usageMetadata")
+        if isinstance(usage, dict) and isinstance(usage.get("totalTokenCount"), int):
+            self._limiter.record(ticket, usage["totalTokenCount"])
         candidates = data.get("candidates")
         if not isinstance(candidates, list) or not candidates:
             raise ModelUnavailable("gemini response contained no candidates")

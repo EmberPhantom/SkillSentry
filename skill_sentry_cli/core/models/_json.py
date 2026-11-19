@@ -12,6 +12,21 @@ from __future__ import annotations
 import json
 from typing import Any
 
+# What a retry after a rejected reply adds to the prompt. At temperature 0 the same prompt gives
+# the same reply, so asking again unchanged only spends quota. The marker lets a measuring
+# transport tell a retry from a first attempt.
+RETRY_MARKER = "Your previous reply was rejected"
+
+
+def retry_prompt(prompt: str, error: Exception) -> str:
+    """``prompt`` with a reminder of why the last reply was refused, for the one retry."""
+
+    reason = " ".join(str(error).split())[:200] or "it was not valid JSON for the schema"
+    return (
+        f"{prompt}\n\n{RETRY_MARKER} ({reason}). Reply again with ONE JSON object only: "
+        "no Markdown, no commentary, exactly the required keys, and only allowed values."
+    )
+
 
 def parse_json_object(text: str) -> dict[str, Any]:
     """Parse a model response into a JSON object.

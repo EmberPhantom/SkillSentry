@@ -125,12 +125,24 @@ def test_a_call_bigger_than_the_whole_minute_budget_is_still_sent_alone():
 def test_the_provider_count_replaces_the_estimate_so_the_budget_is_real():
     clock = Clock()
     limiter = clock.limiter(tpm=1000)
-    limiter.acquire(900)
-    limiter.record(900, 100)  # the provider says the call really cost 100 tokens
+    ticket = limiter.acquire(900)
+    limiter.record(ticket, 100)  # the provider says the call really cost 100 tokens
 
     limiter.acquire(800)  # 100 + 800 fits; with the estimate it would have waited
 
     assert clock.sleeps == []
+
+
+def test_a_failed_request_gives_its_tokens_back():
+    clock = Clock()
+    limiter = clock.limiter(tpm=1000)
+    ticket = limiter.acquire(900)
+    limiter.release(ticket)  # a 429 or a timeout: the provider counted nothing
+
+    limiter.acquire(900)
+
+    assert clock.sleeps == []
+    assert limiter.calls == 2  # the request count still holds the attempt
 
 
 def test_requests_a_day_end_at_once_with_one_clear_reason_and_send_nothing_more():

@@ -485,3 +485,50 @@ def test_a_quota_stop_keeps_the_rows_so_far_and_a_later_run_picks_up(server, tmp
     assert _run(server, tmp_path, "--repeat", "1") == 0
     final = [json.loads(line) for line in (out / "rows.jsonl").read_text().splitlines()]
     assert len([r for r in final if r["target"] != "baseline"]) == 3
+
+
+def test_a_retry_with_a_reminder_is_not_counted_as_a_first_attempt_and_schema_failures_are_listed():
+    from skill_sentry_cli.core.models._json import retry_prompt
+
+    bad = {"choices": [{"message": {"content": "not json"}, "finish_reason": "stop"}]}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=bad)
+
+    meter = bm.Meter(httpx.MockTransport(handler))
+    client = httpx.Client(transport=meter)
+    meter.begin("text")
+    first = {"messages": [{"content": "PROMPT"}]}
+    retry = {"messages": [{"content": retry_prompt("PROMPT", ValueError("bad"))}]}
+    client.post("http://x.invalid/v1/chat/completions", json=first)
+    client.post("http://x.invalid/v1/chat/completions", json=retry)
+
+    assert [c["first_attempt"] for c in meter.calls] == [True, False]
+    assert bm.call_metrics([{"wall_s": 1.0, "calls": meter.calls}])["retries"] == 1
+
+    cases = [
+        bm.Case("s1", "set", "benign", "c", "anchors"),
+        bm.Case("s2", "set", "benign", "c", "anchors"),
+    ]
+    rows = [
+        {
+            "target": "t",
+            "repeat": 1,
+            "skill": "s1",
+            "status": "UNSCANNED",
+            "wall_s": 1,
+            "calls": meter.calls,
+        },
+        {
+            "target": "t",
+            "repeat": 1,
+            "skill": "s2",
+            "status": "SAFE",
+            "wall_s": 1,
+            "calls": [{"first_attempt": True, "status": 200, "valid": True}],
+        },
+    ]
+    summary = bm.summarize(cases, rows)
+    assert summary["targets"]["t"]["schema_failures"] == ["s1"]
+    text = bm.markdown(summary, date="d", skipped=[], sandbox=False, repeats=1)
+    assert "failed the schema on 1 skill(s): s1" in text and "| Retries |" in text
