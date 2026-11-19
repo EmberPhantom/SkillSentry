@@ -157,8 +157,9 @@ def _make_chunks(
 ) -> tuple[list[_Chunk], list[_Gap]]:
     """Split every text file into line-aligned chunks and rank them by importance.
 
-    Lines longer than the plan's chunk size cannot be sent whole, so they become gaps
-    rather than being silently cut.
+    A line longer than the plan's chunk size is split into pieces (at whitespace where there
+    is some), so every character of the file is sent to the model and none is cut or left as a
+    gap. A piece keeps its line number.
     """
 
     limit = (plan or _legacy_plan()).chunk_chars
@@ -170,20 +171,44 @@ def _make_chunks(
         marked = anchor_lines.get(relative, set())
         buffer: list[str] = []
         start = 1
+        last = 1
         size = 0
         for number, line in enumerate(text_file.text.splitlines(), start=1):
-            if len(line) > limit:
-                gaps.append(_Gap(relative, number, number, "line exceeds chunk size"))
-                continue
-            if buffer and size + len(line) + 1 > limit:
-                chunks.append(_make_chunk(relative, start, number - 1, buffer, marked))
-                buffer, start, size = [], number, 0
-            buffer.append(line)
-            size += len(line) + 1
+            for piece in _pieces(line, limit):
+                if buffer and size + len(piece) + 1 > limit:
+                    chunks.append(_make_chunk(relative, start, last, buffer, marked))
+                    buffer, start, size = [], number, 0
+                buffer.append(piece)
+                size += len(piece) + 1
+                last = number
         if buffer:
-            chunks.append(_make_chunk(relative, start, start + len(buffer) - 1, buffer, marked))
+            chunks.append(_make_chunk(relative, start, last, buffer, marked))
     chunks.sort(key=lambda chunk: (chunk.priority, chunk.file, chunk.first_line))
     return chunks, gaps
+
+
+def _pieces(line: str, limit: int) -> list[str]:
+    """``line`` as pieces of at most ``limit`` characters, so no text is left unread.
+
+    A line that fits is returned whole. A longer one is split at the last whitespace in the
+    second half of each piece, and only when there is none is it split hard at ``limit``. The
+    pieces together hold every character of the line.
+    """
+
+    if len(line) <= limit:
+        return [line]
+    pieces: list[str] = []
+    rest = line
+    while len(rest) > limit:
+        window = rest[: limit + 1]
+        cut = max(window.rfind(" "), window.rfind("\t"))
+        if cut < limit // 2:
+            cut = limit  # no whitespace worth splitting at: a hard split
+        pieces.append(rest[:cut])
+        rest = rest[cut:].lstrip(" \t") if cut != limit else rest[cut:]
+    if rest:
+        pieces.append(rest)
+    return pieces
 
 
 def _make_chunk(

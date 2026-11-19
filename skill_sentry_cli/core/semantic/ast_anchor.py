@@ -100,6 +100,27 @@ _RULES: tuple[AnchorRule, ...] = (
         "OS keychain or browser saved-login store read",
     ),
     AnchorRule(
+        "credential-store",
+        Severity.HIGH,
+        # A browser's cookie store, which holds live session tokens.
+        re.compile(r"\bcookies\.sqlite\b|[/\\]Cookies(?:-journal)?\b(?!\s*[:=(])", re.IGNORECASE),
+        "browser cookie store referenced",
+    ),
+    AnchorRule(
+        "credential-store",
+        Severity.MEDIUM,
+        # A browser profile folder, named by its path. A script that reaches into one is
+        # reading the user's logins, cookies or history.
+        re.compile(
+            r"(?:^|[\s/\\'\"])\.mozilla(?:[/\\'\"]|$)|"
+            r"\.config[/\\](?:google-chrome|chromium|BraveSoftware|microsoft-edge)\b|"
+            r"Application Support[/\\](?:Google[/\\]Chrome|Firefox)\b|"
+            r"AppData[/\\]+(?:Local|Roaming)[/\\]+(?:Google[/\\]+Chrome|Mozilla)\b",
+            re.IGNORECASE,
+        ),
+        "browser profile folder referenced",
+    ),
+    AnchorRule(
         "secret-access",
         Severity.CRITICAL,
         re.compile(
@@ -474,6 +495,19 @@ _SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
             r"\bcrontab\s+-|/etc/cron\.|\bsystemctl\s+enable\b"
         ),
         "writes to a startup, shell-profile or scheduled-task location",
+    ),
+    AnchorRule(
+        "privilege-escalation",
+        Severity.HIGH,
+        re.compile(
+            # A passwordless sudo grant, a write to the sudoers files, a setuid bit, or adding an
+            # account to the administrator group. Reading or mentioning them is not matched.
+            r"\bNOPASSWD\s*:|"
+            r"(?:>>?|\btee\b(?:\s+-a)?|\bsed\s+-i|\bcp\b|\bmv\b|\binstall\b)[^\n]*/etc/sudoers|"
+            r"\bchmod\s+(?:[ugoa]*\+s\b|0?[4-7][0-7]{3}\b)|"
+            r"\busermod\s+-[a-zA-Z]*[aG][a-zA-Z]*\s+(?:-[a-zA-Z]+\s+)?(?:sudo|wheel|root)\b"
+        ),
+        "grants administrator rights (a sudoers entry, a setuid bit or an admin group)",
     ),
 )
 
