@@ -775,7 +775,9 @@ def run(args: argparse.Namespace) -> int:
     exit_code = 0
     stopped: dict[str, str] = {}
 
-    with tempfile.TemporaryDirectory(prefix="skillsentry-bench-") as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="skillsentry-bench-", ignore_cleanup_errors=True
+    ) as tmp:
         work = Path(tmp)
         os.environ["HOME"] = str(work / "home")
         os.environ["USERPROFILE"] = str(work / "home")
@@ -830,6 +832,9 @@ def run(args: argparse.Namespace) -> int:
                     )
             with contextlib.suppress(Exception):
                 client.close()
+        # Windows will not delete a database file that is still open.
+        with contextlib.suppress(Exception):
+            store.close()
 
     rows = read_rows(rows_file)
     summary = summarize(cases, [r for r in rows if r["skill"] in {c.id for c in cases}])
