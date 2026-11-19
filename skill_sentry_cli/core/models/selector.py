@@ -16,7 +16,7 @@ from skill_sentry_cli.core.models.gemma_cloud import GemmaCloud
 from skill_sentry_cli.core.models.gemma_local import GemmaLocal
 from skill_sentry_cli.core.models.mock import MockGemma
 from skill_sentry_cli.core.models.openai_compat import OpenAICompat
-from skill_sentry_cli.core.models.profiles import resolve_profile
+from skill_sentry_cli.core.models.profiles import ModelProfile, resolve_profile
 from skill_sentry_cli.core.models.providers import PROVIDER_BACKENDS, resolve_provider
 
 
@@ -110,6 +110,16 @@ def _backend_value(value: str | Backend) -> str:
 
 
 def _local_client(settings: ModelSettings) -> ModelClient:
+    # The server is run with this window and reply limit, so these are the real limits of the
+    # model here, whatever the model could do elsewhere. A value set in [model.profile] wins.
+    profile = profile_for(
+        settings,
+        settings.ollama_model,
+        native={
+            "context_tokens": settings.ollama_num_ctx,
+            "max_output_tokens": settings.ollama_num_predict,
+        },
+    )
     return GemmaLocal(
         base_url=settings.ollama_url,
         model=settings.ollama_model,
@@ -118,6 +128,7 @@ def _local_client(settings: ModelSettings) -> ModelClient:
         num_ctx=settings.ollama_num_ctx,
         num_predict=settings.ollama_num_predict,
         keep_alive=settings.ollama_keep_alive,
+        profile=profile,
     )
 
 
@@ -135,10 +146,19 @@ def _provider_client(settings: ModelSettings, choice: str) -> ModelClient:
     )
 
 
-def profile_for(settings: ModelSettings, model_id: str):  # type: ignore[no-untyped-def]
-    """The profile for ``model_id``: the configured class and overrides, else the id's class."""
+def profile_for(
+    settings: ModelSettings, model_id: str, *, native: dict[str, int] | None = None
+) -> ModelProfile:
+    """The profile for ``model_id``: the configured class and overrides, else the id's class.
+
+    ``native`` holds limits the client is actually run with (an Ollama window and reply limit);
+    they replace the class's values, and a value set in ``[model.profile]`` replaces them.
+    """
 
     overrides = settings.profile.model_dump(exclude={"name"})
+    for key, value in (native or {}).items():
+        if overrides.get(key) is None:
+            overrides[key] = value
     return resolve_profile(model_id, name=settings.profile.name, overrides=overrides)
 
 
@@ -147,6 +167,7 @@ def _cloud_client(settings: ModelSettings) -> ModelClient:
         model=settings.gemini_model,
         timeout_s=settings.request_timeout_s,
         max_px=settings.image_max_px,
+        profile=profile_for(settings, settings.gemini_model),
     )
 
 

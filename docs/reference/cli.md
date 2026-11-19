@@ -378,13 +378,23 @@ A profile says what a model of a given size and kind can be asked to do. It is c
 
 | Class | Chosen for | Context | Reply limit | Characters per call | Calls per skill | Retries | Examples in the prompt |
 |:---|:---|--:|--:|--:|--:|--:|:---|
-| `tiny` | under 5B parameters | 4,096 | 1,024 | 2,000 | 3 | 1 | yes |
-| `small` | 5B to 13B, and the default for an unknown model | 8,192 | 1,536 | 3,000 | 3 | 1 | yes |
+| `tiny` | under 5B parameters | 4,096 | 1,024 | 3,000 | 4 | 1 | yes |
+| `small` | 5B to 13B, and the default for an unknown model | 8,192 | 1,536 | 4,000 | 3 | 1 | yes |
 | `mid` | 14B to 40B | 32,768 | 2,048 | 4,000 | 4 | 1 | no |
 | `large` | 41B and up, and hosted frontier models | 128,000 | 4,096 | 8,000 | 6 | 1 | no |
 | `reasoning` | models that think before answering (`gpt-oss`, `deepseek-r1`, `qwen3`, `o1`/`o3`, `gemini-2.5`, `nemotron` super and ultra) | 128,000 | 8,192 | 8,000 | 6 | 0 | no |
 
-These are starting values, set from the size class; the benchmark tunes them. Today the OpenAI-compatible client takes its reply limit and structured-output start from the profile; the context, the chunking, the retries and the examples are read from it by the semantic stage in a later change, so they are listed here and not yet used for other backends. The profile name is part of the cache identity, so a verdict cached for one profile is not reused for another. `doctor` shows the profile it resolved.
+These are starting values, set from the size class; the benchmark tunes them. Every backend has a profile: the OpenAI-compatible client, and the local (Ollama) and cloud clients, which resolve one from their model id. For a local model the context and reply limit are the ones the server is actually run with (`ollama_num_ctx` and `ollama_num_predict`), and a value in `[model.profile]` wins over both.
+
+The semantic stage shapes its requests from the profile:
+
+- **Chunk size and count.** A skill is cut into line-aligned chunks of at most the profile's size, bounded by the model's real window: the window, minus the reply (the smaller of the output limit and the longest reply the schema allows), minus the fixed part of the prompt. At most `max_chunks` calls are made per skill; the rest are listed as gaps ("call budget reached"). A chunk is never cut to fit: a line too long for a chunk is a gap, and a window too small for any chunk makes the stage degraded with the reason (raise `context_tokens`, lower `max_output_tokens`, or use a larger model).
+- **Findings in the prompt.** Up to `max_anchors` deterministic findings are listed per call. If more fall in the chunk, the prompt says how many are not listed, and the count is in the stage's telemetry.
+- **Reply schema.** `tiny` and `small` use a shorter schema (fewer items, shorter strings, no line numbers to count); the required keys are the same.
+- **Examples.** `tiny` and `small` get two short worked examples in the system prompt (one clean, one with a mismatch). A quote copied from an example is dropped by the check that every quoted line exists in the skill.
+- **Retries** are the profile's, after a malformed reply. A timeout or a reply cut at the limit is never retried.
+
+A model with no profile (a test double) keeps the fixed shape: 4,000 characters, three calls, twenty findings, one retry. The profile, the provider and the model id, and a hash of the prompts and schemas, are part of the cache identity, so a verdict cached for one profile or prompt is not reused for another. `doctor` shows the profile it resolved.
 
 Two sections deserve a warning:
 

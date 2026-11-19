@@ -88,6 +88,8 @@ class ProfileSettings(_ConfigModel):
     retries: int | None = Field(default=None, ge=0, le=3)
     structured_output: str | None = None
     few_shot: bool | None = None
+    max_anchors: int | None = Field(default=None, ge=1, le=200)
+    compact_schema: bool | None = None
 
     @field_validator("name")
     @classmethod

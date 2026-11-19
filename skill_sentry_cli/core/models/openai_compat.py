@@ -151,7 +151,7 @@ class OpenAICompat:
         """Cache identity: provider, model, and the options that change what it returns."""
 
         return (
-            f"{self._provider.backend}:{self.model}|profile={self.profile.name}"
+            f"{self._provider.backend}:{self.model}|{self.profile.identity}"
             f"|max_tokens={self.max_tokens}|temperature=0"
         )
 
