@@ -45,7 +45,8 @@ class ProviderSettings(_ConfigModel):
     api_key_env: str = ""
     headers: dict[str, str] = Field(default_factory=dict)
     structured_output: str = "auto"  # auto | json_schema | json_object | prompt
-    max_tokens: int = Field(default=2048, ge=16, le=65536)
+    # Output limit of one reply. Unset means the model profile's value.
+    max_tokens: int | None = Field(default=None, ge=16, le=65536)
 
     @field_validator("api_key_env")
     @classmethod
@@ -72,6 +73,45 @@ class ProviderSettings(_ConfigModel):
         return normalised
 
 
+class ProfileSettings(_ConfigModel):
+    """Override how requests are shaped for the model (``[model.profile]``).
+
+    ``name`` picks a capability class (``tiny``, ``small``, ``mid``, ``large``, ``reasoning``);
+    ``auto`` chooses one from the model id. Every other field left unset keeps the class's value.
+    """
+
+    name: str = "auto"
+    context_tokens: int | None = Field(default=None, ge=512, le=2_000_000)
+    max_output_tokens: int | None = Field(default=None, ge=16, le=65536)
+    chunk_chars: int | None = Field(default=None, ge=200, le=200_000)
+    max_chunks: int | None = Field(default=None, ge=1, le=50)
+    retries: int | None = Field(default=None, ge=0, le=3)
+    structured_output: str | None = None
+    few_shot: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _class_name(cls, value: str) -> str:
+        from skill_sentry_cli.core.models.profiles import CLASSES
+
+        normalised = value.strip().lower() or "auto"
+        if normalised != "auto" and normalised not in CLASSES:
+            raise ValueError(f"name must be 'auto' or one of {list(CLASSES)}")
+        return normalised
+
+    @field_validator("structured_output")
+    @classmethod
+    def _mode(cls, value: str | None) -> str | None:
+        from skill_sentry_cli.core.models.providers import STRUCTURED_MODES
+
+        if value is None:
+            return None
+        normalised = value.strip().lower()
+        if normalised not in STRUCTURED_MODES:
+            raise ValueError(f"structured_output must be one of {list(STRUCTURED_MODES)}")
+        return normalised
+
+
 class ModelSettings(_ConfigModel):
     backend: str = "auto"  # auto | local | cloud | demo | openai | openrouter | nim | groq
     ollama_url: str = "http://localhost:11434"
@@ -83,6 +123,7 @@ class ModelSettings(_ConfigModel):
     ollama_num_predict: int = Field(default=2048, ge=1, le=4096)
     ollama_keep_alive: str = "30m"
     provider: ProviderSettings = Field(default_factory=ProviderSettings)
+    profile: ProfileSettings = Field(default_factory=ProfileSettings)
 
 
 class DecisionSettings(_ConfigModel):

@@ -43,6 +43,7 @@ from skill_sentry_cli.core.models.base import (
 )
 from skill_sentry_cli.core.models.gemma_local import _image_prompt, _schema_prompt
 from skill_sentry_cli.core.models.image_utils import ImagePreparationError, load_image_for_model
+from skill_sentry_cli.core.models.profiles import ModelProfile, resolve_profile
 from skill_sentry_cli.core.models.providers import ResolvedProvider
 
 LADDER = ("json_schema", "json_object", "prompt")
@@ -116,12 +117,15 @@ class OpenAICompat:
         client: httpx.Client | None = None,
         sleep: Callable[[float], None] = time.sleep,
         max_retry_after_s: float = 30.0,
+        profile: ModelProfile | None = None,
     ) -> None:
         if timeout_s <= 0:
             raise ValueError("timeout_s must be positive")
         if not provider.model.strip():
             raise ValueError("a model id is required: set [model.provider] model")
         self._provider = provider
+        # What this model can be asked for. The provider's own settings win over the profile.
+        self.profile = profile or resolve_profile(provider.model)
         self.base_url = provider.base_url.rstrip("/")
         self.model = provider.model
         self.label = provider.label
@@ -146,7 +150,10 @@ class OpenAICompat:
     def model_version(self) -> str:
         """Cache identity: provider, model, and the options that change what it returns."""
 
-        return f"{self._provider.backend}:{self.model}|max_tokens={self.max_tokens}|temperature=0"
+        return (
+            f"{self._provider.backend}:{self.model}|profile={self.profile.name}"
+            f"|max_tokens={self.max_tokens}|temperature=0"
+        )
 
     @property
     def configured(self) -> bool:
