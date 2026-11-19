@@ -17,7 +17,7 @@ import httpx
 
 from skill_sentry_cli.core.contracts import ImageAnalysis
 from skill_sentry_cli.core.models._json import parse_json_object, validate_json
-from skill_sentry_cli.core.models.base import ModelError, ModelUnavailable
+from skill_sentry_cli.core.models.base import ModelError, ModelTimeout, ModelUnavailable
 from skill_sentry_cli.core.models.image_utils import (
     ImagePreparationError,
     load_image_for_model,
@@ -92,6 +92,8 @@ class GemmaCloud:
                 parsed = parse_json_object(text)
                 validate_json(parsed, schema)
                 return parsed
+            except ModelTimeout:
+                raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
         # A failure to reach the model, or an HTTP, truncated or empty reply, keeps its
@@ -120,6 +122,8 @@ class GemmaCloud:
                     image=(mime, encoded),
                 )
                 return ImageAnalysis.model_validate(parse_json_object(text))
+            except ModelTimeout:
+                raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
         raise ModelUnavailable(
@@ -181,6 +185,10 @@ class GemmaCloud:
             data = response.json()
         except ModelUnavailable:
             raise
+        except httpx.TimeoutException as exc:
+            raise ModelTimeout(
+                f"gemini did not answer within {self.timeout_s:g} s for {self.model}"
+            ) from exc
         except (httpx.HTTPError, OSError, ValueError) as exc:
             raise ModelUnavailable(f"gemini request failed for {self.model}") from exc
 

@@ -67,10 +67,13 @@ def _slug_exists(text: str, anchor: str) -> bool:
     return False
 
 
-def test_every_case_is_caught_today():
+def test_every_case_is_caught_except_the_recorded_known_gaps():
     results = {item.skill: item.status for item in harness.check_evasion()}
 
-    assert set(results.values()) == {"PASS"}, results
+    assert "FAIL" not in results.values(), results
+    assert {name for name, status in results.items() if status == "KNOWN-GAP"} == {
+        "bit-encoded-text"
+    }
 
 
 def _with_a_gap(monkeypatch, *, caught: bool):  # type: ignore[no-untyped-def]

@@ -11,7 +11,12 @@ import httpx
 
 from skill_sentry_cli.core.contracts import ImageAnalysis
 from skill_sentry_cli.core.models._json import parse_json_object, validate_json
-from skill_sentry_cli.core.models.base import ModelError, ModelUnavailable
+from skill_sentry_cli.core.models.base import (
+    ModelError,
+    ModelTimeout,
+    ModelTruncated,
+    ModelUnavailable,
+)
 from skill_sentry_cli.core.models.image_utils import (
     ImagePreparationError,
     load_image_for_model,
@@ -103,6 +108,11 @@ class GemmaLocal:
                 parsed = parse_json_object(text)
                 validate_json(parsed, schema)
                 return parsed
+            except (ModelTimeout, ModelTruncated):
+                # Asking again repeats the cost and the result: a timed-out request is as slow
+                # the second time, and a reply cut at num_predict is cut at the same place at
+                # temperature 0. Fail now, so the scan keeps its time for the other chunks.
+                raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
         # Carry the last cause (for example an HTTP status) into the message, so
@@ -133,6 +143,8 @@ class GemmaLocal:
                     images=[encoded],
                 )
                 return ImageAnalysis.model_validate(parse_json_object(text))
+            except (ModelTimeout, ModelTruncated):
+                raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
         raise ModelUnavailable(
@@ -227,6 +239,10 @@ class GemmaLocal:
             data = response.json()
         except ModelUnavailable:
             raise
+        except httpx.TimeoutException as exc:
+            raise ModelTimeout(
+                f"ollama did not answer within {self.timeout_s:g} s for {self.model}"
+            ) from exc
         except (httpx.HTTPError, OSError, ValueError) as exc:
             raise ModelUnavailable(f"ollama request failed for {self.model}") from exc
 
@@ -235,7 +251,7 @@ class GemmaLocal:
         if data.get("done_reason") == "length":
             # Output was cut at num_predict, so the JSON is incomplete: a failure,
             # never a partial result.
-            raise ModelUnavailable(f"ollama output was truncated for {self.model}")
+            raise ModelTruncated(f"ollama output was truncated for {self.model}")
         text = data.get("response")
         if not isinstance(text, str) or not text.strip():
             raise ModelUnavailable("ollama response did not contain generated text")

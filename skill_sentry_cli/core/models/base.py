@@ -20,6 +20,15 @@ class ModelUnavailable(ModelError):
     """No backend is reachable (callers must emit a ``*-unavailable`` finding)."""
 
 
+class ModelTimeout(ModelUnavailable):
+    """A request ran past its time limit. Asking again would take as long, so it is not retried."""
+
+
+class ModelTruncated(ModelUnavailable):
+    """The reply was cut at the output limit. At temperature 0 a retry cuts at the same place,
+    so it is not retried."""
+
+
 @runtime_checkable
 class ModelClient(Protocol):
     """Typed interface between Dev 2's analyzers and Dev 1's model plumbing."""

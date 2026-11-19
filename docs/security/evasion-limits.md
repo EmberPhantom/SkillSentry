@@ -28,6 +28,7 @@ The cases live in `tests/fixtures/evasion/`, with the expectation for each in `t
 | `fullwidth-forms` | `ｃｕｒｌ ... \| bash` in full-width letters. | Caught: NFKC folds them. |
 | `invisible-chars` | Zero-width characters inside `curl` and `bash`. | Caught: invisible characters are dropped before matching. |
 | `greek-in-script` | A Greek `α` in `bash` in a shell script. | Caught. |
+| `bit-encoded-text` | An instruction encoded as a run of zero-width characters. | **Not caught.** See "Hidden characters that carry a message". |
 | `split-download-exec`, `-shell`, `-node` | One file downloads a script to `/tmp`, another runs it (Python, shell with a variable, and Node). | Caught by the cross-file check, which names both places. |
 
 "Caught" means the verdict is at least `SUSPICIOUS`, which fails the default gate. These cases are examples, not a measure of coverage: each was written to be found or to evade, by the person who wrote the patterns. Expect real skills to be messier in both directions.
@@ -48,7 +49,13 @@ Limits: a path built any other way (read from the command line, from the environ
 
 ## Known gaps
 
-None of the cases above is a known gap today. A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, and content the sandbox does not reach.
+A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Nothing here was hidden by loosening a pattern or an expectation.
+
+### Hidden characters that carry a message
+
+A message can be encoded in a run of zero-width characters, one invisible character for each bit (for example `U+200B` for 0 and `U+200C` for 1). The checks drop invisible characters before matching, which defeats `cu<zero-width>rl`, but a payload that is made only of those characters leaves no text to match, and nothing flags the run itself. The real-model verification run found it: a skill carrying such a payload was `SAFE` (see `docs/operations/verification-2.1.x.md`). A reasonable fix is a finding for any run of more than a few invisible characters, and decoding the common bit encodings; neither exists yet. Until then, a model that reads the page as text will not see the payload either, so treat a skill that carries long runs of invisible characters as suspect and look for them yourself (for example `grep -P '[\x{200B}-\x{200D}\x{2060}\x{FEFF}]'`).
+
+Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, and content the sandbox does not reach.
 
 ## What this means in practice
 

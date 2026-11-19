@@ -393,3 +393,131 @@ def test_generation_options_are_part_of_the_cache_identity():
     large.preflight()
     assert small.model_version != large.model_version
     assert small.model_version.startswith("gemma3:1b@abc")
+
+
+# ---------------------------------------------------------------------------
+# What is retried: a malformed reply, yes; a timeout or a reply cut at the limit, no
+# ---------------------------------------------------------------------------
+
+
+def _counting_local(handler):  # type: ignore[no-untyped-def]
+    calls = {"n": 0}
+
+    def wrapped(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return handler(request)
+
+    client = httpx.Client(transport=httpx.MockTransport(wrapped))
+    return GemmaLocal(model="gemma3:1b", client=client), calls
+
+
+def test_a_timed_out_request_is_not_retried():
+    from skill_sentry_cli.core.models.base import ModelTimeout
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    model, calls = _counting_local(handler)
+
+    with pytest.raises(ModelTimeout, match="did not answer within"):
+        model.generate_json("system", "user", SEMANTIC_SCHEMA, retries=3)
+
+    assert calls["n"] == 1
+
+
+def test_a_reply_cut_at_the_output_limit_is_not_retried():
+    from skill_sentry_cli.core.models.base import ModelTruncated
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _json_response(
+            {"response": '{"is_deceptive": fal', "done": True, "done_reason": "length"}
+        )
+
+    model, calls = _counting_local(handler)
+
+    with pytest.raises(ModelTruncated, match="truncated"):
+        model.generate_json("system", "user", SEMANTIC_SCHEMA, retries=3)
+
+    assert calls["n"] == 1
+
+
+def test_a_malformed_reply_is_still_retried_once_and_can_recover():
+    replies = iter(["not json at all", json.dumps({"is_deceptive": False, "confidence": 0.5})])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _json_response({"response": next(replies), "done": True, "done_reason": "stop"})
+
+    model, calls = _counting_local(handler)
+
+    assert model.generate_json("system", "user", SEMANTIC_SCHEMA)["confidence"] == 0.5
+    assert calls["n"] == 2
+
+
+def test_a_server_error_is_still_retried():
+    replies = iter(
+        [
+            httpx.Response(500),
+            _json_response({"response": '{"is_deceptive": true, "confidence": 1}', "done": True}),
+        ]
+    )
+
+    model, calls = _counting_local(lambda request: next(replies))
+
+    assert model.generate_json("system", "user", SEMANTIC_SCHEMA)["is_deceptive"] is True
+    assert calls["n"] == 2
+
+
+def test_an_image_request_that_times_out_is_not_retried(tmp_path: Path):
+    from skill_sentry_cli.core.models.base import ModelTimeout
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    model, calls = _counting_local(handler)
+
+    with pytest.raises(ModelTimeout):
+        model.analyze_image(_png(tmp_path / "a.png", (64, 64)), "look")
+
+    assert calls["n"] == 1
+
+
+def test_a_cloud_request_that_times_out_is_not_retried():
+    from skill_sentry_cli.core.models.base import ModelTimeout
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        raise httpx.ReadTimeout("slow", request=request)
+
+    cloud = GemmaCloud(api_key="k", client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    with pytest.raises(ModelTimeout):
+        cloud.generate_json("system", "user", SEMANTIC_SCHEMA)
+
+    assert calls["n"] == 1
+
+
+def test_the_semantic_stage_reports_a_timeout_as_a_gap_and_keeps_the_next_chunk_going(
+    tmp_path: Path,
+):
+    from skill_sentry_cli.core.models.base import ModelTimeout
+    from skill_sentry_cli.core.parser import parse_skill
+    from skill_sentry_cli.core.semantic import analyze_semantics, scan_anchors
+
+    skill = tmp_path / "s"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: s\ndescription: x\n---\n\nHello.\n", encoding="utf-8"
+    )
+
+    class _Slow(MockGemma):
+        def generate_json(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ModelTimeout("did not answer within 180 s")
+
+    package = parse_skill(skill)
+
+    stage = analyze_semantics(package, scan_anchors(package), _Slow())
+
+    assert stage.degraded is True
+    assert "did not answer within 180 s" in (stage.error or "")
