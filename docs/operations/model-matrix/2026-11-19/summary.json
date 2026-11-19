@@ -1,0 +1,399 @@
+{
+  "cases": {
+    "benign-new/benign": 30,
+    "corpus/benign": 3,
+    "corpus/invalid": 4,
+    "corpus/malicious": 7,
+    "evasion/malicious": 19,
+    "malicious-new/malicious": 20
+  },
+  "targets": {
+    "baseline": {
+      "scanned": 83,
+      "confusion": {
+        "tp": 42,
+        "fp": 0,
+        "fn": 4,
+        "tn": 33,
+        "unscanned_benign": 0,
+        "unscanned_malicious": 0,
+        "precision": 1.0,
+        "recall": 0.913,
+        "f1": 0.955,
+        "strict_precision": 1.0,
+        "strict_recall": 0.913,
+        "false_positives": [],
+        "false_negatives": [
+          "m07-sudoers",
+          "m15-cleanup-deletes-home",
+          "m17-skill-tamper",
+          "m18-cookie-copy"
+        ],
+        "unscanned": [],
+        "by_status": {
+          "benign": {
+            "SAFE": 33
+          },
+          "malicious": {
+            "MALICIOUS": 14,
+            "SUSPICIOUS": 28,
+            "SAFE": 4
+          }
+        }
+      },
+      "calls": {
+        "calls": 0,
+        "valid_first_time": null,
+        "invalid_replies": 0,
+        "truncated": 0,
+        "timeouts": 0,
+        "rate_limited_429": 0,
+        "other_errors": 0,
+        "quotes": 0,
+        "quote_found_rate": null,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tokens_known": null,
+        "wall_mean_s": 0.0,
+        "wall_median_s": 0.0,
+        "wall_p95_s": 0.0,
+        "wall_total_s": 0.0
+      },
+      "flips": {
+        "skills_repeated": 0,
+        "flipped": 0,
+        "flip_rate": null,
+        "flipped_skills": []
+      },
+      "by_decided_by": {
+        "anchors": {
+          "tp": 40,
+          "fp": 0,
+          "fn": 1,
+          "tn": 29,
+          "recall": 0.976,
+          "precision": 1.0
+        },
+        "model": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 3,
+          "tn": 4,
+          "recall": 0.4,
+          "precision": 1.0
+        }
+      },
+      "by_set": {
+        "benign-new": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 30,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "corpus": {
+          "tp": 7,
+          "fp": 0,
+          "fn": 0,
+          "tn": 3,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "evasion": {
+          "tp": 19,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "malicious-new": {
+          "tp": 16,
+          "fp": 0,
+          "fn": 4,
+          "tn": 0,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        }
+      }
+    },
+    "ollama=gemma3:1b": {
+      "scanned": 83,
+      "confusion": {
+        "tp": 42,
+        "fp": 0,
+        "fn": 4,
+        "tn": 32,
+        "unscanned_benign": 1,
+        "unscanned_malicious": 0,
+        "precision": 1.0,
+        "recall": 0.913,
+        "f1": 0.955,
+        "strict_precision": 0.977,
+        "strict_recall": 0.913,
+        "false_positives": [],
+        "false_negatives": [
+          "m07-sudoers",
+          "m15-cleanup-deletes-home",
+          "m17-skill-tamper",
+          "m18-cookie-copy"
+        ],
+        "unscanned": [
+          "b15-long-guide-near-limit"
+        ],
+        "by_status": {
+          "benign": {
+            "SAFE": 32,
+            "UNSCANNED": 1
+          },
+          "malicious": {
+            "MALICIOUS": 14,
+            "SUSPICIOUS": 28,
+            "SAFE": 4
+          }
+        }
+      },
+      "calls": {
+        "calls": 420,
+        "valid_first_time": 1.0,
+        "invalid_replies": 0,
+        "truncated": 0,
+        "timeouts": 0,
+        "rate_limited_429": 0,
+        "other_errors": 0,
+        "quotes": 0,
+        "quote_found_rate": null,
+        "tokens_in": 361851,
+        "tokens_out": 21008,
+        "tokens_known": true,
+        "wall_mean_s": 6.92,
+        "wall_median_s": 7.84,
+        "wall_p95_s": 11.74,
+        "wall_total_s": 1723.1
+      },
+      "flips": {
+        "skills_repeated": 83,
+        "flipped": 0,
+        "flip_rate": 0.0,
+        "flipped_skills": []
+      },
+      "by_decided_by": {
+        "anchors": {
+          "tp": 40,
+          "fp": 0,
+          "fn": 1,
+          "tn": 28,
+          "recall": 0.976,
+          "precision": 1.0
+        },
+        "model": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 3,
+          "tn": 4,
+          "recall": 0.4,
+          "precision": 1.0
+        }
+      },
+      "by_set": {
+        "benign-new": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 29,
+          "unscanned_benign": 1,
+          "unscanned_malicious": 0
+        },
+        "corpus": {
+          "tp": 7,
+          "fp": 0,
+          "fn": 0,
+          "tn": 3,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "evasion": {
+          "tp": 19,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "malicious-new": {
+          "tp": 16,
+          "fp": 0,
+          "fn": 4,
+          "tn": 0,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        }
+      },
+      "contribution": {
+        "same": 78,
+        "up_right": 0,
+        "up_wrong": 0,
+        "down_right": 0,
+        "down_wrong": 0,
+        "not_comparable": 1,
+        "changes": []
+      }
+    },
+    "ollama=qwen2.5-coder:1.5b": {
+      "scanned": 83,
+      "confusion": {
+        "tp": 42,
+        "fp": 0,
+        "fn": 4,
+        "tn": 32,
+        "unscanned_benign": 1,
+        "unscanned_malicious": 0,
+        "precision": 1.0,
+        "recall": 0.913,
+        "f1": 0.955,
+        "strict_precision": 0.977,
+        "strict_recall": 0.913,
+        "false_positives": [],
+        "false_negatives": [
+          "m07-sudoers",
+          "m15-cleanup-deletes-home",
+          "m17-skill-tamper",
+          "m18-cookie-copy"
+        ],
+        "unscanned": [
+          "b15-long-guide-near-limit"
+        ],
+        "by_status": {
+          "benign": {
+            "SAFE": 32,
+            "UNSCANNED": 1
+          },
+          "malicious": {
+            "MALICIOUS": 18,
+            "SUSPICIOUS": 24,
+            "SAFE": 4
+          }
+        }
+      },
+      "calls": {
+        "calls": 420,
+        "valid_first_time": 1.0,
+        "invalid_replies": 0,
+        "truncated": 0,
+        "timeouts": 0,
+        "rate_limited_429": 0,
+        "other_errors": 0,
+        "quotes": 27,
+        "quote_found_rate": 0.778,
+        "tokens_in": 343815,
+        "tokens_out": 25295,
+        "tokens_known": true,
+        "wall_mean_s": 7.63,
+        "wall_median_s": 8.34,
+        "wall_p95_s": 12.3,
+        "wall_total_s": 1898.7
+      },
+      "flips": {
+        "skills_repeated": 83,
+        "flipped": 0,
+        "flip_rate": 0.0,
+        "flipped_skills": []
+      },
+      "by_decided_by": {
+        "anchors": {
+          "tp": 40,
+          "fp": 0,
+          "fn": 1,
+          "tn": 28,
+          "recall": 0.976,
+          "precision": 1.0
+        },
+        "model": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 3,
+          "tn": 4,
+          "recall": 0.4,
+          "precision": 1.0
+        }
+      },
+      "by_set": {
+        "benign-new": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 29,
+          "unscanned_benign": 1,
+          "unscanned_malicious": 0
+        },
+        "corpus": {
+          "tp": 7,
+          "fp": 0,
+          "fn": 0,
+          "tn": 3,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "evasion": {
+          "tp": 19,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        },
+        "malicious-new": {
+          "tp": 16,
+          "fp": 0,
+          "fn": 4,
+          "tn": 0,
+          "unscanned_benign": 0,
+          "unscanned_malicious": 0
+        }
+      },
+      "contribution": {
+        "same": 74,
+        "up_right": 4,
+        "up_wrong": 0,
+        "down_right": 0,
+        "down_wrong": 0,
+        "not_comparable": 1,
+        "changes": [
+          {
+            "skill": "m08-setup-hook",
+            "from": "SUSPICIOUS",
+            "to": "MALICIOUS",
+            "label": "malicious",
+            "right": true
+          },
+          {
+            "skill": "m16-spellcheck-telemetry",
+            "from": "SUSPICIOUS",
+            "to": "MALICIOUS",
+            "label": "malicious",
+            "right": true
+          },
+          {
+            "skill": "evasion-string-concat",
+            "from": "SUSPICIOUS",
+            "to": "MALICIOUS",
+            "label": "malicious",
+            "right": true
+          },
+          {
+            "skill": "corpus-timebomb",
+            "from": "SUSPICIOUS",
+            "to": "MALICIOUS",
+            "label": "malicious",
+            "right": true
+          }
+        ]
+      }
+    }
+  },
+  "date": "2026-11-19",
+  "sandbox": false,
+  "repeats": 3,
+  "not_run": {}
+}
