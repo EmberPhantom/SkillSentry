@@ -204,7 +204,11 @@ def test_chunks_are_sized_by_the_profile_and_every_line_is_accounted_for(tmp_pat
     assert tiny_chunks > large_chunks
 
 
-def test_a_line_longer_than_a_chunk_is_a_recorded_gap_not_a_cut(tmp_path: Path):
+def _all_text(chunks) -> str:  # type: ignore[no-untyped-def]
+    return "\n".join(chunk.text for chunk in chunks)
+
+
+def test_a_line_longer_than_a_chunk_is_split_so_no_range_is_left_as_a_gap(tmp_path: Path):
     skill = _skill(
         tmp_path / "s", "Run it.", {"scripts/run.py": "x = '" + "a" * 5000 + "'\nprint(1)\n"}
     )
@@ -213,8 +217,62 @@ def test_a_line_longer_than_a_chunk_is_a_recorded_gap_not_a_cut(tmp_path: Path):
 
     chunks, gaps = _make_chunks(package, scan_anchors(package), plan)
 
-    assert any(g.reason == "line exceeds chunk size" and g.first_line == 1 for g in gaps)
-    assert all("aaaa" not in chunk.text for chunk in chunks)
+    assert gaps == []
+    text = _all_text([c for c in chunks if c.file == "scripts/run.py"])
+    assert text.count("a") == 5000 and "print(1)" in text  # nothing cut, nothing dropped
+    assert all(len(chunk.text) <= plan.chunk_chars for chunk in chunks)
+
+
+def test_a_3016_character_line_on_the_tiny_profile_is_read_in_full(tmp_path: Path):
+    words = ("review " * 600)[:3016].rstrip()
+    line = words + "x" * (3016 - len(words))
+    assert len(line) == 3016
+    skill = _skill(tmp_path / "s", line)
+    package = parse_skill(skill)
+    plan = plan_from_profile(PROFILES["tiny"])
+    assert plan.chunk_chars == 3000
+
+    chunks, gaps = _make_chunks(package, scan_anchors(package), plan)
+
+    assert gaps == []
+    skill_chunks = [c for c in chunks if c.file == "SKILL.md"]
+    joined = " ".join(c.text for c in skill_chunks)
+    assert line.split()[0] in joined and joined.count("review") >= words.count("review") - 1
+    assert all(len(c.text) <= 3000 for c in skill_chunks)
+
+
+def test_a_line_is_split_at_whitespace_and_only_hard_split_without_any():
+    from skill_sentry_cli.core.semantic.analyzer import _pieces
+
+    spaced = " ".join(["word"] * 40)  # 199 characters
+    parts = _pieces(spaced, 50)
+    assert all(len(p) <= 50 for p in parts) and len(parts) >= 4
+    assert all(not p.startswith(" ") and not p.endswith(" ") for p in parts)
+    assert " ".join(parts) == spaced  # split only at the spaces, nothing lost
+    assert all(w == "word" for p in parts for w in p.split())  # no word is cut in two
+
+    solid = "A" * 130  # no whitespace at all
+    hard = _pieces(solid, 50)
+    assert hard == ["A" * 50, "A" * 50, "A" * 30] and "".join(hard) == solid
+
+    assert _pieces("short line", 50) == ["short line"]
+    assert _pieces("", 50) == [""]
+    mixed = "x" * 40 + " " + "y" * 200  # whitespace too early to be worth a split
+    assert "".join(_pieces(mixed, 50)).replace(" ", "") == mixed.replace(" ", "")
+
+
+def test_a_split_line_keeps_its_line_number_and_the_lines_around_it(tmp_path: Path):
+    body = "first line\n" + ("lorem ipsum " * 400) + "\nlast line"
+    skill = _skill(tmp_path / "s", body)
+    package = parse_skill(skill)
+    chunks, gaps = _make_chunks(package, scan_anchors(package), plan_from_profile(PROFILES["tiny"]))
+
+    assert gaps == []
+    skill_chunks = sorted((c for c in chunks if c.file == "SKILL.md"), key=lambda c: c.first_line)
+    assert "last line" in skill_chunks[-1].text
+    numbers = [(c.first_line, c.last_line) for c in skill_chunks]
+    assert all(first <= last for first, last in numbers)
+    assert max(last for _, last in numbers) == len(package.text_files[0].text.splitlines())
 
 
 def test_calls_beyond_the_profiles_budget_are_gaps_in_the_report(tmp_path: Path):
