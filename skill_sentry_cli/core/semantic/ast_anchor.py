@@ -8,6 +8,7 @@ relative file, a 1-based line, and the exact source line.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from dataclasses import dataclass
 
@@ -22,6 +23,11 @@ from skill_sentry_cli.core.contracts import (
 )
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
 from skill_sentry_cli.core.semantic.ast_python import scan_python_ast
+from skill_sentry_cli.core.semantic.confusables import (
+    mixed_script_words,
+    normalise_line,
+    normalise_text,
+)
 
 MAX_FINDINGS = 80
 
@@ -243,11 +249,20 @@ def _scan_file(
     seen: set[tuple[str, str, int]],
     findings: list[Finding],
 ) -> None:
+    is_markdown = text_file.relative.lower().endswith((".md", ".markdown", ".txt"))
+    in_fence = False
     for line_number, line in enumerate(text_file.text.splitlines(), start=1):
         if len(line) > 4000:
             line = line[:4000]
+        if is_markdown and line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+        # Every rule is tried on the line as written and on its normalised form (lookalike
+        # letters mapped, compatibility forms folded, invisible characters dropped), so a
+        # rule can only gain matches. The finding keeps the original line.
+        normalised = normalise_line(line)
         for rule in rules:
-            if not rule.pattern.search(line):
+            as_written = bool(rule.pattern.search(line))
+            if not as_written and not (normalised != line and rule.pattern.search(normalised)):
                 continue
             key = (rule.type, text_file.relative, line_number)
             if key in seen:
@@ -257,7 +272,11 @@ def _scan_file(
                 Finding(
                     stage=Stage.DETERMINISTIC_ANCHOR,
                     severity=rule.severity,
-                    message=rule.message,
+                    message=(
+                        rule.message
+                        if as_written
+                        else f"{rule.message} (written with lookalike or invisible characters)"
+                    ),
                     finding_type=rule.type,
                     evidence=FindingEvidence(
                         file=text_file.relative,
@@ -268,6 +287,57 @@ def _scan_file(
             )
             if len(findings) >= MAX_FINDINGS:
                 return
+        _flag_mixed_script(
+            line,
+            line_number,
+            text_file.relative,
+            code_context=not is_markdown or in_fence or _looks_like_command(line),
+            seen=seen,
+            findings=findings,
+        )
+
+
+def _looks_like_command(line: str) -> bool:
+    """A markdown line that is a command rather than prose: indented, a prompt, or in backticks."""
+
+    stripped = line.lstrip()
+    return line.startswith(("    ", "\t")) or stripped.startswith(("$ ", "> ", "# ")) or "`" in line
+
+
+def _flag_mixed_script(
+    line: str,
+    line_number: int,
+    relative: str,
+    *,
+    code_context: bool,
+    seen: set[tuple[str, str, int]],
+    findings: list[Finding],
+) -> None:
+    """A word spelled with Latin and lookalike letters is a spoof, not a language.
+
+    It is MEDIUM in code, a script or a command (where a lookalike hides a command or a name
+    from the other checks) and LOW in prose. Text written wholly in one alphabet is never
+    reported.
+    """
+
+    words = mixed_script_words(line)
+    key = ("mixed-script", relative, line_number)
+    if not words or key in seen:
+        return
+    seen.add(key)
+    first = words[0]
+    shown = ", ".join(f"{item.word!r} (reads as {item.looks_like!r})" for item in words[:3])
+    findings.append(
+        Finding(
+            stage=Stage.DETERMINISTIC_ANCHOR,
+            severity=Severity.MEDIUM if code_context else Severity.LOW,
+            message=(
+                f"Word mixes Latin letters with lookalike {'/'.join(first.scripts)} letters: {shown}"
+            ),
+            finding_type="mixed-script",
+            evidence=FindingEvidence(file=relative, line=line_number, code=line.strip()[:500]),
+        )
+    )
 
 
 _SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
@@ -343,6 +413,51 @@ def _merge(findings: list[Finding], item: Finding) -> None:
     findings.append(item)
 
 
+def _with_original_code(items: list[Finding], original: str) -> list[Finding]:
+    """Findings from a normalised pass, with the evidence text taken from the original line."""
+
+    lines = original.splitlines()
+    restored: list[Finding] = []
+    for item in items:
+        line = item.evidence.line
+        if item.evidence.code is not None and line is not None and 1 <= line <= len(lines):
+            evidence = item.evidence.model_copy(update={"code": lines[line - 1].strip()[:500]})
+            item = item.model_copy(update={"evidence": evidence})
+        restored.append(item)
+    return restored
+
+
+def _normalised_credential_flows(package: SkillPackage, existing: list[Finding]) -> list[Finding]:
+    """Credential-flow findings that only appear once lookalikes are mapped."""
+
+    changed = [
+        dataclasses.replace(item, text=normalise_text(item.text))
+        for item in package.text_files
+        if normalise_text(item.text) != item.text
+    ]
+    if not changed:
+        return []
+    names = {item.relative for item in changed}
+    view = dataclasses.replace(
+        package,
+        text_files=[
+            *(item for item in package.text_files if item.relative not in names),
+            *changed,
+        ],
+    )
+    known = {
+        (item.finding_type, item.evidence.file, item.evidence.line, item.message)
+        for item in existing
+    }
+    originals = {item.relative: item.text for item in package.text_files}
+    fresh: list[Finding] = []
+    for item in analyze_credential_flows(view):
+        if (item.finding_type, item.evidence.file, item.evidence.line, item.message) in known:
+            continue
+        fresh.extend(_with_original_code([item], originals.get(item.evidence.file or "", "")))
+    return fresh
+
+
 def scan_anchors(package: SkillPackage) -> StageResult:
     """Run all deterministic rules and return a normalised stage result."""
 
@@ -371,8 +486,16 @@ def scan_anchors(package: SkillPackage) -> StageResult:
             parse_errors.append(error)
         for item in ast_findings:
             _merge(findings, item)
+        normalised_text = normalise_text(text_file.text)
+        if normalised_text != text_file.text:
+            # The same file read with lookalikes mapped. A parse error here is not reported
+            # again; the original text was already judged.
+            extra, _ = scan_python_ast(text_file.relative, normalised_text)
+            for item in _with_original_code(extra, text_file.text):
+                _merge(findings, item)
 
     findings.extend(analyze_credential_flows(package))
+    findings.extend(_normalised_credential_flows(package, findings))
 
     score = 0.0
     if findings:
