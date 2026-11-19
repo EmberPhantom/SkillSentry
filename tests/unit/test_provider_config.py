@@ -323,6 +323,9 @@ def test_a_scan_through_a_provider_in_a_real_process_never_shows_the_key(
     db = tmp_path / "db.sqlite"
     env = {
         **os.environ,
+        # Windows decodes a child's output with the console code page unless told otherwise.
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
         "MY_PROVIDER_KEY": KEY,
         "SKILLSENTRY_CONFIG": str(config),
         "SKILLSENTRY_DB": str(db),
@@ -346,6 +349,8 @@ def test_a_scan_through_a_provider_in_a_real_process_never_shows_the_key(
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=env,
             timeout=120,
             cwd=str(tmp_path),
