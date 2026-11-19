@@ -15,7 +15,7 @@ import logging
 import os
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -185,6 +185,60 @@ class _ScanContext:
 
 
 ProgressCallback = Callable[[WSMessage], None]
+
+# Package issues that make a skill INVALID SKILL: the frontmatter, the entrypoint, a symlink, a
+# file that is not UTF-8, a reserved name. (`kind` None is a frontmatter issue.)
+_INVALID_ISSUE_KINDS = frozenset(
+    {None, "manifest-entrypoint", "package-symlink", "package-encoding", "package-name"}
+)
+
+
+def _refusal_reason(package: SkillPackage, static_findings: Sequence[Finding]) -> str | None:
+    """Why a package is refused (no model, no sandbox), or ``None`` to analyse it fully.
+
+    Refused: the package is malformed (a HIGH frontmatter, entrypoint, symlink, encoding or name
+    problem), or it holds content nothing can read (an executable, a file near the size cap, an
+    unread script). Its status is INVALID SKILL or UNSCANNED whatever a model would say, so
+    running one costs seconds and changes nothing. A package that the static checks already
+    found a threat in (MEDIUM or worse) is not refused: its verdict is a real verdict, and it
+    gets the full analysis as before.
+    """
+
+    if any(item.severity.rank >= Severity.MEDIUM.rank for item in static_findings):
+        return None
+    for issue in package.issues:
+        if issue.severity not in {"high", "critical"}:
+            continue
+        if issue.kind == "opaque-content" or (
+            issue.kind in _INVALID_ISSUE_KINDS and not issue.coverage
+        ):
+            return issue.message
+    return None
+
+
+def _refused_stage(stage: Stage, reason: str) -> StageResult:
+    findings = (
+        [
+            Finding(
+                stage=stage,
+                severity=Severity.NOTE,
+                message=(
+                    "The model and the sandbox were not run: the package was refused "
+                    f"({reason}). Nothing was sent to a model. The static checks ran."
+                ),
+                finding_type="analysis-skipped",
+                evidence=FindingEvidence(file="SKILL.md", line=1),
+            )
+        ]
+        if stage is Stage.SEMANTIC
+        else []
+    )
+    return StageResult(
+        stage=stage,
+        findings=findings,
+        telemetry={"skipped": True, "reason": "package refused"},
+    )
+
 
 # A sandbox run needs this many seconds of the scan's time limit left to be worth starting.
 _MIN_SANDBOX_SECONDS = 5.0
@@ -458,26 +512,35 @@ class ScanEngine:
         self._record(ctx, anchors, emit)
         self._check_cancel(cancel)
 
-        model = self._get_model()
-        semantic = self._semantic_stage(ctx.package, anchors, model, ctx.deadline)
-        self._record(ctx, semantic, emit)
-        self._check_cancel(cancel)
+        refusal = _refusal_reason(ctx.package, [*typosquat.findings, *anchors.findings])
+        if refusal is not None:
+            # The package is refused: malformed, or it holds content that cannot be read. Its
+            # status will be INVALID SKILL or UNSCANNED whatever a model says, so the model and
+            # the sandbox are not run. The static findings above are kept.
+            for stage in (Stage.SEMANTIC, Stage.VISION, Stage.SANDBOX):
+                self._record(ctx, _refused_stage(stage, refusal), emit)
+            self._check_cancel(cancel)
+        else:
+            model = self._get_model()
+            semantic = self._semantic_stage(ctx.package, anchors, model, ctx.deadline)
+            self._record(ctx, semantic, emit)
+            self._check_cancel(cancel)
 
-        vision = scan_vision(
-            ctx.package,
-            model,
-            max_px=self.config.model.image_max_px,
-            deadline=ctx.deadline,
-        )
-        self._record(ctx, vision, emit)
-        ctx.vision_evidence = self._vision_evidence(vision)
-        self._check_cancel(cancel)
+            vision = scan_vision(
+                ctx.package,
+                model,
+                max_px=self.config.model.image_max_px,
+                deadline=ctx.deadline,
+            )
+            self._record(ctx, vision, emit)
+            ctx.vision_evidence = self._vision_evidence(vision)
+            self._check_cancel(cancel)
 
-        sandbox = self._sandbox_stage(ctx, emit)
-        self._record(ctx, sandbox, emit)
-        if ctx.sandbox_result is not None:
-            ctx.trace = ctx.sandbox_result.to_trace()
-        self._check_cancel(cancel)
+            sandbox = self._sandbox_stage(ctx, emit)
+            self._record(ctx, sandbox, emit)
+            if ctx.sandbox_result is not None:
+                ctx.trace = ctx.sandbox_result.to_trace()
+            self._check_cancel(cancel)
 
         pw_stage, evasion_stage = self._active_defense_stages(ctx, emit)
         self._record(ctx, pw_stage, emit)

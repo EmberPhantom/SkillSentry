@@ -60,7 +60,7 @@
     }
   },
   "evasion": {
-    "_comment": "Evasion cases in tests/fixtures/evasion. Each states what a good scanner should do. A case with known_gap is one the deterministic checks miss today: the test is a strict xfail, so it fails loudly when the gap closes (remove known_gap then). The known gaps are listed with their reasons below. Cases are scanned with the benign mock model, so only the deterministic stages can catch them. See docs/security/evasion-limits.md.",
+    "_comment": "Evasion cases in tests/fixtures/evasion. Each states what a good scanner should do. A case with known_gap is one the deterministic checks miss today: the test is a strict xfail, so it fails loudly when the gap closes (remove known_gap then). None is a known gap right now. Cases are scanned with the benign mock model, so only the deterministic stages can catch them. See docs/security/evasion-limits.md.",
     "control-plain": {
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
@@ -139,11 +139,22 @@
     "bit-encoded-text": {
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
-      "known_gap": {
-        "reason": "An instruction encoded in a run of zero-width characters (one invisible character per bit) is not decoded. The checks drop invisible characters before matching, but a payload that is only those characters leaves no text to match, and nothing flags the run itself.",
-        "tracking": "docs/security/evasion-limits.md#hidden-characters-that-carry-a-message"
-      },
-      "note": "Found by the real-model verification run (docs/operations/verification-2.1.x.md): the corpus's unicode injection scanned SAFE."
+      "note": "An instruction encoded as zero-width characters, one per bit. Found by the real-model verification run as a miss; now decoded, and the decoded text is matched by the instruction and credential rules."
+    },
+    "tag-characters": {
+      "min_verdict": "MALICIOUS",
+      "min_risk": 71,
+      "note": "The same instruction as Unicode tag characters (ASCII shifted into an invisible block)."
+    },
+    "variation-selectors": {
+      "min_verdict": "MALICIOUS",
+      "min_risk": 71,
+      "note": "The same instruction as variation selectors used as bytes."
+    },
+    "invisible-run": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "90 invisible characters in a row that decode to nothing: a run that long is HIGH by itself."
     }
   }
 }

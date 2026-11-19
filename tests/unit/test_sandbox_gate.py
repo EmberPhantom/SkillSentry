@@ -113,7 +113,7 @@ def test_strict_sandbox_keeps_a_missing_entrypoint_a_failure(tmp_path: Path) -> 
     assert outcome.verdict.verdict.value != "SAFE"
 
 
-def test_a_declared_but_invalid_entrypoint_still_degrades(tmp_path: Path) -> None:
+def test_a_declared_but_invalid_entrypoint_is_refused_and_never_run(tmp_path: Path) -> None:
     runner = _CountingRunner()
     skill = _skill(
         tmp_path / "badentry",
@@ -124,7 +124,10 @@ def test_a_declared_but_invalid_entrypoint_still_degrades(tmp_path: Path) -> Non
     outcome = _scan(tmp_path, skill, runner)
 
     assert runner.calls == 0
-    assert _sandbox(outcome).degraded is True
+    # The package is refused, so the sandbox is skipped on purpose, not marked failed.
+    assert _sandbox(outcome).degraded is False
+    assert (_sandbox(outcome).telemetry or {}).get("reason") == "package refused"
+    assert outcome.verdict.status == "INVALID SKILL"
 
 
 def test_declared_entrypoint_runs_exactly_once(tmp_path: Path) -> None:
