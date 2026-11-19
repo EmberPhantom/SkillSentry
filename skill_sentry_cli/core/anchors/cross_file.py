@@ -123,8 +123,8 @@ def _code_like(path: str) -> bool:
     """A path that looks like a program or script, not a configuration or data file.
 
     A file one script generates and another runs is common (a sourced ``.env`` or a ``.conf``),
-    so a plain local write is HIGH only when the target looks like code, or has no suffix at
-    all, which is how executables are usually named.
+    so a plain local write is reported only when the target looks like code, or has no suffix
+    at all, which is how executables are usually named. A download is always reported.
     """
 
     name = path.rsplit("/", 1)[-1].lower()
@@ -738,12 +738,15 @@ def analyze_cross_file(package: SkillPackage) -> list[Finding]:
                 by_file[executor.file] = executor
         for executor in by_file.values():
             downloaded = writer.kind == "download"
+            if not downloaded and not _code_like(writer.path):
+                # A config or data file that one script generates and another sources is a
+                # normal pattern, and its content is the skill's own text. Only a download, or
+                # a local write of something that looks like a program, is reported.
+                continue
             findings.append(
                 Finding(
                     stage=Stage.DETERMINISTIC_ANCHOR,
-                    severity=Severity.HIGH
-                    if downloaded or _code_like(writer.path)
-                    else Severity.MEDIUM,
+                    severity=Severity.HIGH,
                     message=(
                         f"{writer.file}:{writer.line} {'downloads to' if downloaded else 'writes'} "
                         f"{writer.path}, and {executor.file}:{executor.line} "
