@@ -49,7 +49,7 @@ skill-sentry-cli scan [PATH] [OPTIONS]
 | `--no-cache` | off | Ignore saved results and scan again. |
 | `--sandbox` / `--no-sandbox` | sandbox on | With `--no-sandbox`, the entrypoint never runs and the verdict is weaker. |
 | `--strict-sandbox` | off | Fail with `UNSCANNED` when the sandbox cannot test a skill's scripts because no `entrypoint:` is declared. Without it, the scripts are skipped with a warning on stderr and a `sandbox-no-entrypoint` note, and the verdict comes from the static and model stages. A strict scan is not cached. |
-| `--backend` | `auto` | Model backend: `auto`, `local`, `cloud`, or `demo`. `demo` is refused unless `SKILLSENTRY_DEV=1` is set. |
+| `--backend` | `auto` | Model backend: `auto`, `local`, `cloud`, `openai`, `openrouter`, `nim`, `groq`, or `demo`. `openai` is any OpenAI-compatible server (see [`[model.provider]`](#openai-compatible-servers)); `openrouter`, `nim` and `groq` are presets for it. A provider backend is never chosen by `auto`. `demo` is refused unless `SKILLSENTRY_DEV=1` is set. |
 | `--timeout` | `60` | Sandbox time limit in seconds, from 5 to 600. |
 | `--max-time` | `300` (`[scan] max_time_s`) | Wall-clock cap for scanning one skill, in seconds, from 5 to 86400. Model calls and the sandbox stop at it. A stage that runs out of time is reported as degraded with a `scan-time-limit` note, the findings from the stages that finished are kept, and the scan returns. The cap covers the model and sandbox work; parsing a very large skill and cleaning up the container add a little on top. A model request that overruns is abandoned, not killed, and ends on its own client timeout (`[model] request_timeout_s`). |
 | `--timings` | off | Print how long each stage took to stderr, for example `timings: my-skill: semantic 41.2s, sandbox 8.0s, total 49.6s`. |
@@ -311,10 +311,16 @@ The keys below use the defaults in the code. `init` writes a commented file with
 
 | Section | Key | Default | Meaning |
 |:---|:---|:---|:---|
-| `[model]` | `backend` | `auto` | `auto`, `local`, `cloud`, or `demo`. |
+| `[model]` | `backend` | `auto` | `auto`, `local`, `cloud`, `openai`, `openrouter`, `nim`, `groq`, or `demo`. |
 | `[model]` | `ollama_url` | `http://localhost:11434` | Where the local model server listens. |
 | `[model]` | `ollama_model` | the model named in the file | The model to pull and use. `doctor` names it. |
 | `[model]` | `gemini_model` | the model named in the file | Used only by the cloud backend. |
+| `[model.provider]` | `base_url` | the preset's | Address of an OpenAI-compatible server, ending in `/v1`. Required for `openai`. |
+| `[model.provider]` | `model` | none | The model id the server should use. Required for every provider backend. |
+| `[model.provider]` | `api_key_env` | the preset's | The **name** of the environment variable that holds the key. A value that looks like a key is refused. |
+| `[model.provider]` | `headers` | the preset's | Extra non-secret headers (OpenRouter's referer and title). `Authorization`, `X-API-Key` and similar are refused. |
+| `[model.provider]` | `structured_output` | `auto` | `auto`, `json_schema`, `json_object` or `prompt`: where the ladder starts (see below). |
+| `[model.provider]` | `max_tokens` | `2048` | Output limit of one reply, from 16 to 65536. A reasoning model needs more. |
 | `[model]` | `image_max_px` | `768` | Longest side of images sent to the model, from 256 to 4096. |
 | `[model]` | `request_timeout_s` | `180` | Time limit for one model request. |
 | `[scan]` | `max_time_s` | `300` | Wall-clock cap for scanning one skill, from 5 to 86400. `--max-time` overrides it. |
@@ -334,6 +340,32 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[discovery]` | `agents` | `[]` (all agents) | Limits discovery to these agents. Names as for `scan --agent`. `--agent` on the command line replaces this list. |
 | `[discovery]` | `include_experimental` | `false` | Also look in the experimental agent locations. `--include-experimental` turns them on for one run. |
 
+### OpenAI-compatible servers
+
+One client reaches OpenRouter, NVIDIA NIM, Groq, Cerebras, Mistral, GitHub Models, LM Studio, vLLM, llama.cpp and Ollama's `/v1` endpoint: anything that speaks `/chat/completions`. Choose it with `backend`, and set the model:
+
+```toml
+[model]
+backend = "groq"                  # or openrouter, nim, or openai for any other server
+
+[model.provider]
+model = "openai/gpt-oss-20b"      # a model id the provider lists
+# base_url = "https://example.com/v1"      # only for backend = "openai" or to override a preset
+# api_key_env = "MY_KEY_VARIABLE"          # the NAME of the variable, never the key
+```
+
+```bash
+export GROQ_API_KEY=...           # set in your shell; the key is never written to a file
+skill-sentry-cli scan my-skill --backend groq
+```
+
+- **Keys** come only from the environment, are read when a request is made, and are sent in the `Authorization` header. They are not stored in the configuration file, a log, an error message, a report, the JSON, SARIF or Markdown output, or the verdict cache. A configuration that names a key where an environment variable name belongs is refused, and the error does not repeat the value.
+- **Privacy.** A remote provider receives the skill's content. The banner of every scan names it (`Cloud analysis · code excerpts sent to OpenRouter`), a provider backend is never chosen by `auto`, and a server on this machine (`localhost`, `127.0.0.1`, `::1`) is reported as local and needs no key. Use a remote provider on skills you are willing to send to it, and read its terms: free tiers often allow the provider to use prompts to improve its products.
+- **Structured output.** The client starts with `json_schema` (the server enforces the schema), steps down to `json_object` and then to plain prompting when the server answers 400 or 422 to `response_format`, and remembers what worked for the rest of the run. In every mode the reply is parsed and checked against the schema, so a server that ignores the request cannot slip through. Set `structured_output` to start lower.
+- **Reasoning models.** `<think>` blocks (and a `reasoning` field) are removed before the JSON is read. If a model spends its whole `max_tokens` thinking, the error says to raise it.
+- **Limits.** HTTP 429 is honoured once, using `Retry-After` (up to 30 s); a request that times out, and a reply cut at `max_tokens`, fail at once and are not retried. 401 and 403 name the variable to check; 404 names the model id.
+- The older `ollama_*` and `gemini_model` keys, and the `local` and `cloud` backends, are unchanged.
+
 Two sections deserve a warning:
 
 - **`[ci]`** is accepted so that older files still load, but the CLI **does not read** it, and `init` no longer writes it. The gate is set with `--fail-on`, which defaults to `suspicious`. Do not rely on this section.
@@ -349,6 +381,7 @@ Two sections deserve a warning:
 | `SKILLSENTRY_NO_SANDBOX` | Set to `1` to turn the sandbox off. |
 | `OLLAMA_HOST` | Address of the local model server. |
 | `GEMINI_API_KEY` | API key for the cloud backend. Used only when the cloud backend is selected. |
+| `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`, `GROQ_API_KEY` | Keys for the `openrouter`, `nim` and `groq` presets. Any other variable can be named in `[model.provider] api_key_env`. |
 | `SKILLSENTRY_DEV` | Set to `1` to allow `--backend demo` for development. |
 | `SKILLSENTRY_ALLOWED_SCAN_ROOTS` | Folders the API may scan, separated by the platform path separator (`:` on Linux and macOS, `;` on Windows). Overrides `[server] allowed_scan_roots`. Each must be an absolute path. Read by `serve`. |
 | `SKILLSENTRY_EXTRA_SKILL_PATHS` | Extra folders for `scan` and `discover` with no path, separated by the platform path separator (`:` on Linux and macOS, `;` on Windows). Replaces `[discovery] extra_paths`. Each must be an absolute path after `~` expansion. |

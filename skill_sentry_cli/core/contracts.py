@@ -134,6 +134,10 @@ class Backend(str, Enum):
     LOCAL = "local"
     CLOUD = "cloud"
     DEMO = "demo"
+    OPENAI = "openai"
+    OPENROUTER = "openrouter"
+    NIM = "nim"
+    GROQ = "groq"
 
 
 class ExportFormat(str, Enum):

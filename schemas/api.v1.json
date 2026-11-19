@@ -319,7 +319,11 @@
           "auto",
           "local",
           "cloud",
-          "demo"
+          "demo",
+          "openai",
+          "openrouter",
+          "nim",
+          "groq"
         ],
         "title": "Backend",
         "type": "string"

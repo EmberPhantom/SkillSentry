@@ -12,7 +12,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from skill_sentry_cli.core.version import DEFAULT_WEIGHTS, engine_version
 
@@ -32,8 +32,48 @@ class _ConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
 
+class ProviderSettings(_ConfigModel):
+    """An OpenAI-compatible server: OpenRouter, NVIDIA NIM, Groq, a local server, or any other.
+
+    Select it with ``[model] backend = "openrouter"`` (or ``nim``, ``groq``, ``openai``). A preset
+    fills ``base_url`` and ``api_key_env``; ``openai`` needs a ``base_url``. The key itself is
+    never in this file: ``api_key_env`` is the NAME of the environment variable that holds it.
+    """
+
+    base_url: str = ""
+    model: str = ""
+    api_key_env: str = ""
+    headers: dict[str, str] = Field(default_factory=dict)
+    structured_output: str = "auto"  # auto | json_schema | json_object | prompt
+    max_tokens: int = Field(default=2048, ge=16, le=65536)
+
+    @field_validator("api_key_env")
+    @classmethod
+    def _env_name(cls, value: str) -> str:
+        from skill_sentry_cli.core.models.providers import check_env_name
+
+        return check_env_name(value)
+
+    @field_validator("headers")
+    @classmethod
+    def _headers(cls, value: dict[str, str]) -> dict[str, str]:
+        from skill_sentry_cli.core.models.providers import check_headers
+
+        return check_headers(value)
+
+    @field_validator("structured_output")
+    @classmethod
+    def _mode(cls, value: str) -> str:
+        from skill_sentry_cli.core.models.providers import STRUCTURED_MODES
+
+        normalised = value.strip().lower()
+        if normalised not in STRUCTURED_MODES:
+            raise ValueError(f"structured_output must be one of {list(STRUCTURED_MODES)}")
+        return normalised
+
+
 class ModelSettings(_ConfigModel):
-    backend: str = "auto"  # auto | local | cloud | demo
+    backend: str = "auto"  # auto | local | cloud | demo | openai | openrouter | nim | groq
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "gemma4:e4b-it-qat"
     gemini_model: str = "gemma-4-e4b"
@@ -42,6 +82,7 @@ class ModelSettings(_ConfigModel):
     ollama_num_ctx: int = Field(default=8192, ge=512, le=32768)
     ollama_num_predict: int = Field(default=2048, ge=1, le=4096)
     ollama_keep_alive: str = "30m"
+    provider: ProviderSettings = Field(default_factory=ProviderSettings)
 
 
 class DecisionSettings(_ConfigModel):
@@ -293,6 +334,16 @@ weights = { anchors = 0.15, semantic = 0.20, vision = 0.20, sandbox = 0.25 }
 typosquat_bonus = 15
 tiers = { safe_max = 30, malicious_min = 70 }
 
+# An OpenAI-compatible server instead of Ollama or Gemini (OpenRouter, NVIDIA NIM, Groq, LM Studio, ...).
+# The key comes from an environment variable and is never written here. A remote provider receives
+# the skill's content.
+# [model]
+# backend = "groq"                # openrouter | nim | groq | openai
+# [model.provider]
+# model = "openai/gpt-oss-20b"
+# base_url = ""                   # only for backend = "openai", or to override a preset
+# api_key_env = ""                # the NAME of the variable (a preset fills in GROQ_API_KEY and so on)
+
 [cache]
 db_path = "~/.skillsentry/skillsentry.db"
 backend_strict = false
@@ -431,8 +482,24 @@ def load_config(path: str | Path | None = None) -> SkillsEntryConfig:
     data = _deep_merge(data, _env_overrides())
     try:
         return SkillsEntryConfig.model_validate(data)
-    except Exception as exc:  # pydantic ValidationError
+    except ValidationError as exc:
+        # The text names the keys and the problems, never the values: a value that is
+        # wrong may be a key that was pasted into the file, and it must not be echoed.
+        raise ConfigError(
+            f"invalid configuration in {config_path}: {_validation_summary(exc)}"
+        ) from exc
+    except Exception as exc:
         raise ConfigError(f"invalid configuration in {config_path}: {exc}") from exc
+
+
+def _validation_summary(exc: ValidationError) -> str:
+    lines = []
+    for error in exc.errors(include_input=False, include_url=False, include_context=False):
+        location = ".".join(str(part) for part in error.get("loc", ()))
+        message = str(error.get("msg", "invalid value"))
+        message = message.removeprefix("Value error, ")
+        lines.append(f"{location}: {message}" if location else message)
+    return "; ".join(lines) or "invalid value"
 
 
 def write_default_config(path: str | Path, *, force: bool = False) -> Path:

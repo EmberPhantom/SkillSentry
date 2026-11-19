@@ -24,8 +24,15 @@ GEMMA_BADGE = "Fully local analysis · open weights"
 CLOUD_BADGE = "Cloud analysis · code excerpts sent to the Gemini API"
 UNKNOWN_BADGE = "Analysis backend unknown"
 
-_LOCAL_BACKENDS = frozenset({"local", "ollama", "mock", "demo"})
+_LOCAL_BACKENDS = frozenset({"local", "ollama", "mock", "demo", "openai-local"})
 _CLOUD_BACKENDS = frozenset({"cloud", "gemini-api"})
+# OpenAI-compatible servers that are not on this machine, and who receives the code excerpts.
+_PROVIDER_LABELS = {
+    "openrouter": "OpenRouter",
+    "nim": "NVIDIA NIM",
+    "groq": "Groq",
+    "openai": "a remote OpenAI-compatible server",
+}
 
 DEFAULT_WEIGHTS: dict[str, float] = {
     "anchors": 0.15,
@@ -44,6 +51,8 @@ def badge_for_backend(backend: str | None) -> str:
     or ``None``) is reported as unknown rather than claiming local analysis.
     """
     normalized = (backend or "").strip().lower()
+    if normalized in _PROVIDER_LABELS:
+        return f"Cloud analysis · code excerpts sent to {_PROVIDER_LABELS[normalized]}"
     if normalized in _CLOUD_BACKENDS:
         return CLOUD_BADGE
     if normalized in _LOCAL_BACKENDS:

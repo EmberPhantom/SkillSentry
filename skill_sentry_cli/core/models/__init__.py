@@ -5,6 +5,7 @@ from skill_sentry_cli.core.models.gemma_cloud import GemmaCloud
 from skill_sentry_cli.core.models.gemma_local import GemmaLocal
 from skill_sentry_cli.core.models.image_utils import ImagePreparationError, load_image_for_model
 from skill_sentry_cli.core.models.mock import MockGemma
+from skill_sentry_cli.core.models.openai_compat import OpenAICompat
 from skill_sentry_cli.core.models.selector import select_model
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "ModelClient",
     "ModelError",
     "ModelUnavailable",
+    "OpenAICompat",
     "load_image_for_model",
     "select_model",
 ]

@@ -86,7 +86,7 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 _FAIL_ON = {"safe", "suspicious", "malicious"}
 _RANK = {VerdictTier.SAFE: 0, VerdictTier.SUSPICIOUS: 1, VerdictTier.MALICIOUS: 2}
 _FORMATS = {"text", "json", "sarif", "markdown"}
-_BACKENDS = {"auto", "local", "cloud", "demo"}
+_BACKENDS = {"auto", "local", "cloud", "demo", "openai", "openrouter", "nim", "groq"}
 _SAVE_REPORT_CHOICES = {"markdown", "sarif", "none"}
 # Formats that --save-report (or the prompt) can write. "none" writes nothing.
 _SAVE_NOW = {"markdown", "sarif"}
@@ -998,6 +998,11 @@ def _backend_label(backend: str) -> str:
         "gemini-api": "cloud (gemini)",
         "demo": "demo/mock",
         "mock": "demo/mock",
+        "openrouter": "openrouter (OpenRouter, cloud)",
+        "nim": "nim (NVIDIA NIM, cloud)",
+        "groq": "groq (Groq, cloud)",
+        "openai": "openai (a remote OpenAI-compatible server, cloud)",
+        "openai-local": "openai-compatible (local server)",
         "unavailable": "unavailable (no model ran)",
     }.get(backend, backend)
 
