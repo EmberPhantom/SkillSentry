@@ -36,6 +36,7 @@ SkillSentry audits agent skills before you install them. This index groups the d
 | [Deployment](operations/deployment.md) | Installing and running SkillSentry, container use, and a checklist before you rely on it. |
 | [Verification of 2.1.x](operations/verification-2.1.x.md) | A real-model, real-sandbox run of a 14-skill corpus, with raw numbers, the timing analysis and what failed. |
 | [Model roster](operations/model-roster.md) | `scripts/list_free_models.py`: what each provider offers today, as a dated roster, and the rules it keeps about keys and requests. |
+| [Model benchmark](operations/model-benchmark.md) | `scripts/benchmark_models.py`: a labelled set and the precision, recall, false positives, model contribution and behaviour of each model, with the results under `operations/model-matrix/`. |
 | [Release process](operations/release-process.md) | Cutting a release, the release workflow, and verifying a release. |
 | [Registry accounts](operations/registry-accounts.md) | The PyPI and TestPyPI accounts and trusted publishing. |
 | [Governance](operations/governance.md) | Roles, decisions, release authority, the support policy, and the repository settings checklist. |

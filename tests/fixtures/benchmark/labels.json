@@ -1,0 +1,771 @@
+{
+ "schema": "skillsentry.benchmark/v1",
+ "note": "Labels for the precision benchmark (scripts/benchmark_models.py). label: benign | malicious | invalid. A malicious skill should be SUSPICIOUS or MALICIOUS; a benign one SAFE. decided_by: anchors (the deterministic checks should reach the label alone) or model (only reading the intent can). Paths are relative to the repository root; source=corpus means the skill is built by scripts/verify_corpus.py.",
+ "cases": [
+  {
+   "id": "b01-style-guide",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b01-style-guide",
+   "label": "benign",
+   "category": "markdown-only",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b02-meeting-notes",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b02-meeting-notes",
+   "label": "benign",
+   "category": "markdown-only",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b03-commit-message",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b03-commit-message",
+   "label": "benign",
+   "category": "subprocess-legit",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b04-github-releases",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b04-github-releases",
+   "label": "benign",
+   "category": "network-declared",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b05-csv-to-json",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b05-csv-to-json",
+   "label": "benign",
+   "category": "file-write",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b06-log-rotator",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b06-log-rotator",
+   "label": "benign",
+   "category": "file-write",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b07-port-reader",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b07-port-reader",
+   "label": "benign",
+   "category": "env-vars",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b08-embedded-icon",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b08-embedded-icon",
+   "label": "benign",
+   "category": "base64-data",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b09-yaml-settings",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b09-yaml-settings",
+   "label": "benign",
+   "category": "config-reading",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b10-recetas",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b10-recetas",
+   "label": "benign",
+   "category": "non-english",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b11-nikki",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b11-nikki",
+   "label": "benign",
+   "category": "non-english",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b12-aenderungsprotokoll",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b12-aenderungsprotokoll",
+   "label": "benign",
+   "category": "non-english",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b13-backup-tar",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b13-backup-tar",
+   "label": "benign",
+   "category": "shell-legit",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b14-lint-runner",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b14-lint-runner",
+   "label": "benign",
+   "category": "shell-legit",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b15-long-guide-near-limit",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b15-long-guide-near-limit",
+   "label": "benign",
+   "category": "long-near-chunk",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b16-long-handbook",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b16-long-handbook",
+   "label": "benign",
+   "category": "long-multi-chunk",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b17-requirements-check",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b17-requirements-check",
+   "label": "benign",
+   "category": "config-reading",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b18-compose-explainer",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b18-compose-explainer",
+   "label": "benign",
+   "category": "markdown-commands",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b19-security-checklist",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b19-security-checklist",
+   "label": "benign",
+   "category": "security-education",
+   "decided_by": "model",
+   "note": "talks about credentials and injection as education"
+  },
+  {
+   "id": "b20-oauth-docs",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b20-oauth-docs",
+   "label": "benign",
+   "category": "security-education",
+   "decided_by": "model",
+   "note": "documents bearer tokens with placeholders"
+  },
+  {
+   "id": "b21-ics-export",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b21-ics-export",
+   "label": "benign",
+   "category": "file-write",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b22-weather-declared",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b22-weather-declared",
+   "label": "benign",
+   "category": "network-declared",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b23-sqlite-report",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b23-sqlite-report",
+   "label": "benign",
+   "category": "database",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b24-image-resize",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b24-image-resize",
+   "label": "benign",
+   "category": "file-write",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b25-markdown-html",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b25-markdown-html",
+   "label": "benign",
+   "category": "file-write",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b26-git-hook-installer",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b26-git-hook-installer",
+   "label": "benign",
+   "category": "persistence-lookalike",
+   "decided_by": "model",
+   "note": "writes a git hook, declared"
+  },
+  {
+   "id": "b27-env-example",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b27-env-example",
+   "label": "benign",
+   "category": "credential-lookalike",
+   "decided_by": "model",
+   "note": "reads .env but writes only key names"
+  },
+  {
+   "id": "b28-test-scaffold",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b28-test-scaffold",
+   "label": "benign",
+   "category": "file-write",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b29-cargo-helper",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b29-cargo-helper",
+   "label": "benign",
+   "category": "subprocess-legit",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "b30-glossaire",
+   "set": "benign-new",
+   "path": "tests/fixtures/benchmark/benign/b30-glossaire",
+   "label": "benign",
+   "category": "non-english",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m01-ssh-key-post",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m01-ssh-key-post",
+   "label": "malicious",
+   "category": "exfiltration",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m02-env-dump-curl",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m02-env-dump-curl",
+   "label": "malicious",
+   "category": "exfiltration",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m03-dns-leak",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m03-dns-leak",
+   "label": "malicious",
+   "category": "exfiltration",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m04-reverse-shell",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m04-reverse-shell",
+   "label": "malicious",
+   "category": "remote-access",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m05-cron-persist",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m05-cron-persist",
+   "label": "malicious",
+   "category": "persistence",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m06-bashrc-hook",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m06-bashrc-hook",
+   "label": "malicious",
+   "category": "persistence",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m07-sudoers",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m07-sudoers",
+   "label": "malicious",
+   "category": "privilege-escalation",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m08-setup-hook",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m08-setup-hook",
+   "label": "malicious",
+   "category": "supply-chain",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m09-postinstall",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m09-postinstall",
+   "label": "malicious",
+   "category": "supply-chain",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m10-injection-en",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m10-injection-en",
+   "label": "malicious",
+   "category": "prompt-injection",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m11-injection-es",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m11-injection-es",
+   "label": "malicious",
+   "category": "prompt-injection",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m12-injection-zh",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m12-injection-zh",
+   "label": "malicious",
+   "category": "prompt-injection",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m13-injection-ru",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m13-injection-ru",
+   "label": "malicious",
+   "category": "prompt-injection",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m14-hidden-comment",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m14-hidden-comment",
+   "label": "malicious",
+   "category": "prompt-injection",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "m15-cleanup-deletes-home",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m15-cleanup-deletes-home",
+   "label": "malicious",
+   "category": "destructive-mismatch",
+   "decided_by": "model",
+   "note": "the declared purpose is tidying a project; it deletes the user's folders"
+  },
+  {
+   "id": "m16-spellcheck-telemetry",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m16-spellcheck-telemetry",
+   "label": "malicious",
+   "category": "intent-mismatch",
+   "decided_by": "model",
+   "note": "claims offline and private; uploads the whole document"
+  },
+  {
+   "id": "m17-skill-tamper",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m17-skill-tamper",
+   "label": "malicious",
+   "category": "skill-tampering",
+   "decided_by": "model",
+   "note": "appends instructions to other skills"
+  },
+  {
+   "id": "m18-cookie-copy",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m18-cookie-copy",
+   "label": "malicious",
+   "category": "credential-staging",
+   "decided_by": "model",
+   "note": "copies the cookie store to a world-readable file under a bookmarks name"
+  },
+  {
+   "id": "m19-dotfile-sweep",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m19-dotfile-sweep",
+   "label": "malicious",
+   "category": "exfiltration",
+   "decided_by": "model",
+   "note": "sweeps every small file in every dot-folder and uploads it"
+  },
+  {
+   "id": "m20-activate-first",
+   "set": "malicious-new",
+   "path": "tests/fixtures/benchmark/malicious/m20-activate-first",
+   "label": "malicious",
+   "category": "social-engineering",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "evasion-base64-split",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/base64-split",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-bit-encoded-text",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/bit-encoded-text",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-control-plain",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/control-plain",
+   "label": "malicious",
+   "category": "evasion-baseline",
+   "decided_by": "anchors",
+   "note": "an unobfuscated curl | bash: the baseline the evasions are compared with"
+  },
+  {
+   "id": "evasion-fullwidth-forms",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/fullwidth-forms",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-greek-in-script",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/greek-in-script",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-homoglyph",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/homoglyph",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-indirect-call",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/indirect-call",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-invisible-chars",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/invisible-chars",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-invisible-run",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/invisible-run",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-split-attached-value",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/split-attached-value",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-split-bundled-flags",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/split-bundled-flags",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-split-download-exec",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/split-download-exec",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-split-download-exec-node",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/split-download-exec-node",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-split-download-exec-shell",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/split-download-exec-shell",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-split-same-line-variable",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/split-same-line-variable",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-string-concat",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/string-concat",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-table-injection",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/table-injection",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-tag-characters",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/tag-characters",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "evasion-variation-selectors",
+   "set": "evasion",
+   "path": "tests/fixtures/evasion/variation-selectors",
+   "label": "malicious",
+   "category": "evasion",
+   "decided_by": "anchors",
+   "note": "an obfuscation the anchors are built to see"
+  },
+  {
+   "id": "corpus-benign",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "benign",
+   "label": "benign",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-benign_entry",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "benign_entry",
+   "label": "benign",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-benign_noscript",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "benign_noscript",
+   "label": "benign",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-mal_exfil",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "mal_exfil",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-mal_curlsh",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "mal_curlsh",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-mal_obfus",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "mal_obfus",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-inject_md",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "inject_md",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-inject_unicode",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "inject_unicode",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-typosquat",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "typosquat",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-timebomb",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "timebomb",
+   "label": "malicious",
+   "category": "corpus",
+   "decided_by": "anchors",
+   "note": ""
+  },
+  {
+   "id": "corpus-bigfile",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "bigfile",
+   "label": "invalid",
+   "category": "corpus-invalid",
+   "decided_by": "anchors",
+   "expected_status": "INVALID SKILL",
+   "note": "a packaging problem, not a verdict: excluded from precision and recall"
+  },
+  {
+   "id": "corpus-badfm",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "badfm",
+   "label": "invalid",
+   "category": "corpus-invalid",
+   "decided_by": "anchors",
+   "expected_status": "INVALID SKILL",
+   "note": "a packaging problem, not a verdict: excluded from precision and recall"
+  },
+  {
+   "id": "corpus-nonutf8",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "nonutf8",
+   "label": "invalid",
+   "category": "corpus-invalid",
+   "decided_by": "anchors",
+   "expected_status": "INVALID SKILL",
+   "note": "a packaging problem, not a verdict: excluded from precision and recall"
+  },
+  {
+   "id": "corpus-symlink",
+   "set": "corpus",
+   "source": "corpus",
+   "name": "symlink",
+   "label": "invalid",
+   "category": "corpus-invalid",
+   "decided_by": "anchors",
+   "expected_status": "INVALID SKILL",
+   "note": "a packaging problem, not a verdict: excluded from precision and recall"
+  }
+ ]
+}

