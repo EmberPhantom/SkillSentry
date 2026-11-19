@@ -8,6 +8,7 @@ SkillSentry audits agent skills before you install them. This index groups the d
 |:---|:---|
 | [Overview](user/overview.md) | What SkillSentry does, what ships today, and what is planned. |
 | [User guide](user/guide.md) | Installing, the first scans, reading verdicts, reports, the dashboard, CI use, and troubleshooting (section 15). |
+| [Choosing a model](user/models.md) | Which provider and model class to use, the configuration for each, free-tier limits, the privacy rule, how to measure a model, and what the local-tier results say. |
 
 ## For reference
 

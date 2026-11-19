@@ -41,7 +41,7 @@ No Docker or model? Try the offline demo:
 skill-sentry-cli scan cloud-sync-pro --demo-mode
 ```
 
-The [user guide](docs/user/guide.md) walks through installation, the first scans, reading verdicts, reports, and CI use. The [CLI reference](docs/reference/cli.md) lists every command and option.
+The [user guide](docs/user/guide.md) walks through installation, the first scans, reading verdicts, reports, and CI use. [Choosing a model](docs/user/models.md) covers providers, free-tier limits and privacy. The [CLI reference](docs/reference/cli.md) lists every command and option.
 
 ## Install
 
@@ -70,7 +70,7 @@ Exit codes: `0` below the gate, `1` at or above it, `2` a usage error, `3` an op
 
 | For | Start here |
 |:---|:---|
-| Using SkillSentry | [User guide](docs/user/guide.md) · [Overview](docs/user/overview.md) |
+| Using SkillSentry | [User guide](docs/user/guide.md) · [Choosing a model](docs/user/models.md) · [Overview](docs/user/overview.md) |
 | Commands, configuration, and exit codes | [CLI reference](docs/reference/cli.md) |
 | The HTTP API and report formats | [API reference](docs/reference/api.md) |
 | How it works inside | [Architecture](docs/developer/architecture.md) · [Security model](docs/developer/security.md) |
