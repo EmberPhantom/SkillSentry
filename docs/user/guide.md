@@ -430,7 +430,7 @@ skill-sentry-cli serve
 
 Open <http://127.0.0.1:8000> in a browser. The server listens only on your own machine.
 
-The dashboard has no login. Anyone who can reach the port can see your scans and start new ones, so keep the server on `127.0.0.1`. `serve` refuses any other `--host` unless you set `SKILLSENTRY_TOKEN`, which makes the API require a bearer token (the dashboard does not send one yet).
+The dashboard has no login. Anyone who can reach the port can see your scans and start new ones, so keep the server on `127.0.0.1`. `serve` refuses any other `--host` unless you set `SKILLSENTRY_TOKEN`, which makes the API require a bearer token. With a token set, the dashboard shows an "Access token needed" page: enter the token to continue. It is kept for that browser tab only (in `sessionStorage`, never `localStorage`, never in the address bar), is sent only to this server, and **Sign out** in the header forgets it. A wrong token is refused with a message, and a token that stops working (the server was restarted with another) brings the page back.
 
 The server only scans inside the folder you started it in (it prints that folder). To scan elsewhere, start it there, or set `[server] allowed_scan_roots`.
 

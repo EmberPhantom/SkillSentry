@@ -1,8 +1,10 @@
 import { api, type Health, type Meta } from "./api";
+import { signOut, useAuth } from "./auth";
 import { useLoad, useRoute } from "./hooks";
 import { CachePage } from "./views/CachePage";
 import { NewScanPage } from "./views/NewScanPage";
 import { SkillPage } from "./views/SkillPage";
+import { TokenPrompt } from "./views/TokenPrompt";
 import { TriagePage } from "./views/TriagePage";
 
 // Shown even before /meta loads or when it fails. The server value wins when present.
@@ -11,6 +13,7 @@ const FALLBACK_COMPLIANCE_BADGE = "Analysis backend unknown";
 
 export function App() {
   const route = useRoute();
+  const auth = useAuth();
   const meta = useLoad<Meta>(api.meta, "meta");
   const health = useLoad<Health>(api.health, "health", 15000);
   const complianceBadge = meta.data?.gemmaBadge || FALLBACK_COMPLIANCE_BADGE;
@@ -40,6 +43,11 @@ export function App() {
             </span>
           ) : null}
           {meta.data?.demoMode ? <span className="pill warn">DEMO</span> : null}
+          {auth.token ? (
+            <button type="button" className="link-button" onClick={signOut}>
+              Sign out
+            </button>
+          ) : null}
           {health.data ? (
             <>
               <Dot label="Model" state={health.data.ollama} />
@@ -51,10 +59,16 @@ export function App() {
       </header>
 
       <main>
-        {route.name === "triage" ? <TriagePage /> : null}
-        {route.name === "new-scan" ? <NewScanPage /> : null}
-        {route.name === "cache" ? <CachePage /> : null}
-        {route.name === "skill" ? <SkillPage skillId={route.skillId} /> : null}
+        {auth.required ? (
+          <TokenPrompt />
+        ) : (
+          <>
+            {route.name === "triage" ? <TriagePage /> : null}
+            {route.name === "new-scan" ? <NewScanPage /> : null}
+            {route.name === "cache" ? <CachePage /> : null}
+            {route.name === "skill" ? <SkillPage skillId={route.skillId} /> : null}
+          </>
+        )}
       </main>
     </div>
   );

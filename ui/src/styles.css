@@ -543,3 +543,26 @@ tr:last-child td {
     animation: none !important;
   }
 }
+
+.token-form {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.error-text {
+  color: var(--bad);
+  margin: 0;
+}
+
+.error-text::before {
+  content: "\26A0\FE0E  ";
+}
+
+.link-button {
+  background: transparent;
+  color: var(--accent);
+  border-color: transparent;
+  padding: 2px 6px;
+  text-decoration: underline;
+}
