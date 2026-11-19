@@ -357,3 +357,29 @@ def test_serve_prints_the_launch_folder_as_the_scan_root(served, tmp_path: Path,
     assert "scans are limited to (launch folder)" in result.output
     assert str(tmp_path.resolve()) in result.output or str(tmp_path) in result.output
     assert "API token: none (loopback only)" in result.output
+
+
+def test_the_websocket_handshake_selects_the_plain_subprotocol_and_never_echoes_the_token():
+    # A browser that offers a subprotocol needs the server to select one of them.
+    backend = DemoBackend(speed=0)
+    app_client = TestClient(create_app(backend, token=TOKEN), base_url=BASE)
+    scan = app_client.post(
+        "/scan", json={"path": "pdf-summarizer"}, headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+
+    with app_client.websocket_connect(
+        f"ws://localhost{scan.json()['stream']}",
+        subprotocols=["skillsentry.v1", f"bearer.{TOKEN}"],
+    ) as ws:
+        assert ws.accepted_subprotocol == "skillsentry.v1"
+        assert TOKEN not in str(ws.accepted_subprotocol)
+        assert ws.receive_json()["stage"]
+
+
+def test_a_websocket_with_no_subprotocol_is_still_accepted_without_a_token_configured():
+    app_client = TestClient(create_app(DemoBackend(speed=0)), base_url=BASE)
+    scan = app_client.post("/scan", json={"path": "pdf-summarizer"})
+
+    with app_client.websocket_connect(f"ws://localhost{scan.json()['stream']}") as ws:
+        assert ws.accepted_subprotocol is None
+        assert ws.receive_json()["stage"]

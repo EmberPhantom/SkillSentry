@@ -5,6 +5,8 @@ export type VerdictTier = "SAFE" | "SUSPICIOUS" | "MALICIOUS";
 export type Severity = "low" | "medium" | "high" | "critical" | "note";
 export type ScanStatus = "queued" | "running" | "completed" | "failed" | "cached-hit";
 
+import { getToken, reportUnauthorized } from "./auth";
+
 export interface Evidence {
   file?: string | null;
   line?: number | null;
@@ -211,6 +213,7 @@ export class NetworkError extends Error {
 /** A short, actionable message for a failed request. Server messages are shown as sent. */
 export function describeError(err: unknown): string {
   if (err instanceof ApiError) {
+    if (err.status === 401) return "This server needs an access token.";
     if (err.status >= 500) {
       return `The server hit an error (${err.status}). Try again; if it keeps failing, check the server log.`;
     }
@@ -226,16 +229,27 @@ export function describeError(err: unknown): string {
   return err instanceof Error ? err.message : "The request failed. Try again.";
 }
 
+/** Headers for a request: JSON, plus the access token when there is one. */
+function authHeaders(extra?: HeadersInit): Record<string, string> {
+  const token = getToken();
+  return {
+    Accept: "application/json",
+    ...(extra as Record<string, string> | undefined),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, {
-      ...init,
-      headers: { Accept: "application/json", ...(init?.headers ?? {}) },
-    });
+    response = await fetch(path, { ...init, headers: authHeaders(init?.headers) });
   } catch (err) {
     // Wrap only the fetch itself, so a TypeError raised anywhere else is not mistaken for this.
     throw new NetworkError(err instanceof Error ? err.message : undefined);
+  }
+  if (response.status === 401) {
+    // The server needs a token, or did not accept the one sent: ask for one.
+    reportUnauthorized();
   }
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
@@ -248,6 +262,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(message, response.status);
   }
   return (await response.json()) as T;
+}
+
+/**
+ * Whether the server accepts this token. Used by the prompt before the token is kept, so a wrong
+ * one never replaces a working state. Any failure other than a refusal is thrown.
+ */
+export async function verifyToken(token: string): Promise<boolean> {
+  let response: Response;
+  try {
+    response = await fetch("/cache/stats", {
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    });
+  } catch (err) {
+    throw new NetworkError(err instanceof Error ? err.message : undefined);
+  }
+  if (response.status === 401) return false;
+  if (!response.ok) throw new ApiError(`${response.status} ${response.statusText}`, response.status);
+  return true;
 }
 
 export const api = {
@@ -273,6 +305,8 @@ export const api = {
     }),
 };
 
+const WS_PROTOCOL = "skillsentry.v1";
+
 export interface ScanStream {
   /** Ask the server to stop the scan. Sent as soon as the socket is open. */
   cancel: () => void;
@@ -287,7 +321,13 @@ export function openScanStream(
   onClose: () => void,
 ): ScanStream {
   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${scheme}://${window.location.host}/scan/${scanId}/stream`);
+  // A browser cannot set headers on a WebSocket, so the token goes in a subprotocol. The server
+  // answers with "skillsentry.v1" and never repeats the token.
+  const token = getToken();
+  const socket = new WebSocket(
+    `${scheme}://${window.location.host}/scan/${scanId}/stream`,
+    token ? [WS_PROTOCOL, `bearer.${token}`] : undefined,
+  );
   socket.onmessage = (event: MessageEvent<string>) => {
     try {
       onMessage(JSON.parse(event.data) as WSMessage);

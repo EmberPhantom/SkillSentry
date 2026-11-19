@@ -32,6 +32,9 @@ from skill_sentry_cli.server.errors import ApiError
 
 router = APIRouter()
 
+# The WebSocket subprotocol the dashboard offers next to its token.
+WS_SUBPROTOCOL = "skillsentry.v1"
+
 # After a client cancel, how long the socket keeps delivering events that were
 # already produced (including the backend's "cancelled" ERROR) before it closes.
 _CANCEL_DRAIN_S = 2.5
@@ -115,7 +118,11 @@ async def meta(request: Request) -> MetaResponse:
 
 @router.websocket("/scan/{scan_id}/stream")
 async def scan_stream(websocket: WebSocket, scan_id: UUID) -> None:
-    await websocket.accept()
+    # A browser that sends the access token as a "bearer.<token>" subprotocol also offers
+    # "skillsentry.v1", and the handshake must select one of the offered protocols. Select the
+    # plain one so the token is never echoed back.
+    offered = websocket.scope.get("subprotocols") or []
+    await websocket.accept(subprotocol=WS_SUBPROTOCOL if WS_SUBPROTOCOL in offered else None)
     backend: ScanBackend = websocket.app.state.backend
     cancel = asyncio.Event()
 

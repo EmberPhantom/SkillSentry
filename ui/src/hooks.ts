@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { describeError } from "./api";
+import { useAuth } from "./auth";
 
 export interface Loadable<T> {
   data: T | null;
@@ -14,6 +15,8 @@ export function useLoad<T>(load: () => Promise<T>, key: string, intervalMs?: num
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  // A new token, or a sign-out, runs every loader again.
+  const { version: authVersion } = useAuth();
 
   // A manual retry drops the old error so the loading state shows instead of a stale failure.
   const reload = useCallback(() => {
@@ -42,7 +45,7 @@ export function useLoad<T>(load: () => Promise<T>, key: string, intervalMs?: num
     };
     // `load` is intentionally keyed by `key` and `tick`, not by identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, tick]);
+  }, [key, tick, authVersion]);
 
   useEffect(() => {
     if (!intervalMs) return undefined;
