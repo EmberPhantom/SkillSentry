@@ -21,6 +21,7 @@ from skill_sentry_cli.core.models.base import (
     ModelTruncated,
     ModelUnavailable,
 )
+from skill_sentry_cli.core.models.limiter import RateLimiter
 from skill_sentry_cli.core.models.openai_compat import (
     OpenAICompat,
     _strict_compatible,
@@ -68,6 +69,21 @@ def _reply(content: Any = GOOD, *, finish: str = "stop", **extra: Any) -> httpx.
     )
 
 
+class FakeClock:
+    """A clock that only moves when something sleeps, so waits are exact and instant."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+        self.sleeps: list[float] = []
+
+    def __call__(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
 class Server:
     """A scripted OpenAI-compatible server that records what it was sent."""
 
@@ -95,15 +111,15 @@ def _client(
         monkeypatch.delenv("TEST_PROVIDER_KEY", raising=False)
     else:
         monkeypatch.setenv("TEST_PROVIDER_KEY", key)
-    sleeps: list[float] = []
+    clock = FakeClock()
     provider = kwargs.pop("provider", None) or _provider()
     client = OpenAICompat(
         provider,
         client=httpx.Client(transport=httpx.MockTransport(server)),
-        sleep=sleeps.append,
+        limiter=RateLimiter(clock=clock, sleep=clock.sleep, jitter=lambda: 0.0),
         **kwargs,
     )
-    client.sleeps = sleeps  # type: ignore[attr-defined]
+    client.sleeps = clock.sleeps  # type: ignore[attr-defined]
     return client
 
 
@@ -267,15 +283,16 @@ def test_429_with_an_http_date_is_honoured(monkeypatch):
     assert 0 < client.sleeps[0] <= 3.5  # type: ignore[attr-defined]
 
 
-def test_429_twice_is_a_rate_limit_error_carrying_the_wait(monkeypatch):
+def test_429_over_and_over_is_a_rate_limit_error_carrying_the_wait(monkeypatch):
     server = Server(httpx.Response(429, headers={"Retry-After": "1"}, json={}))
     client = _client(server, monkeypatch)
 
-    with pytest.raises(ModelRateLimited) as caught:
+    with pytest.raises(ModelRateLimited, match="after 3 retries") as caught:
         client.generate_json("s", "u", SCHEMA)
 
     assert caught.value.retry_after == 1.0
-    assert len(server.bodies) == 2  # one wait, one retry, then it stops
+    assert len(server.bodies) == 4  # the first try and three retries, each after the wait asked for
+    assert client.sleeps == [1.0, 1.0, 1.0]  # type: ignore[attr-defined]
 
 
 def test_a_wait_longer_than_the_cap_is_not_slept(monkeypatch):
@@ -290,7 +307,7 @@ def test_a_wait_longer_than_the_cap_is_not_slept(monkeypatch):
     assert len(server.bodies) == 1
 
 
-def test_429_without_a_wait_is_not_retried(monkeypatch):
+def test_429_without_a_wait_backs_off_with_a_doubling_delay(monkeypatch):
     server = Server(httpx.Response(429, json={}))
     client = _client(server, monkeypatch)
 
@@ -298,7 +315,12 @@ def test_429_without_a_wait_is_not_retried(monkeypatch):
         client.generate_json("s", "u", SCHEMA)
 
     assert caught.value.retry_after is None
-    assert len(server.bodies) == 1
+    assert len(server.bodies) == 4
+    sleeps = client.sleeps  # type: ignore[attr-defined]
+    assert len(sleeps) == 3
+    for delay, base in zip(sleeps, (2.0, 4.0, 8.0), strict=True):
+        assert 0.75 * base <= delay <= 1.25 * base  # jitter of a quarter either way
+    assert sleeps[0] < sleeps[1] < sleeps[2]
 
 
 def test_a_reply_cut_at_max_tokens_fails_at_once(monkeypatch):

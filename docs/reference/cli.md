@@ -25,11 +25,12 @@ Scripts and CI should branch on these.
 | `1` | At least one verdict meets the `--fail-on` gate. |
 | `2` | Usage error: a bad option or value, a missing configuration file, or an unknown scan ID. |
 | `3` | Operational error: a bad path, a missing `--project` or `extra_paths` folder (see [Scan with no path](#scan-with-no-path)), Docker or database failure, or nothing could be scanned. |
+| `4` | The model could not finish the run because the provider's limits stopped it (a daily quota used up, or pacing that the `--max-time` limit could not afford). The skills it could not read are `UNSCANNED`, never `SAFE`. See [Rate limits](#rate-limits-and-quota). |
 | `5` | An `INVALID SKILL` result: a skill that is malformed (bad frontmatter or entrypoint, a symlink, a non-UTF-8 `SKILL.md`, a reserved file name) or a package that is too large to scan. It is a packaging problem, not a verdict, so `--fail-on` does not change it and it is never counted as MALICIOUS. |
 
-When one run scans several skills, the exit code is the most serious result, highest first: `3` (a skill could not be scanned for an operational reason), then `1` (a verdict at or above `--fail-on`), then `5` (an INVALID SKILL result), then `0`. A malicious skill in a folder therefore exits `1` even when another skill is invalid, and a folder with an invalid skill and otherwise clean skills exits `5`. An unreadable content finding (an executable, a large or unknown binary) is a verdict, not INVALID, and exits `1` at the default gate.
+When one run scans several skills, the exit code is the most serious result, highest first: `3` (a skill could not be scanned for an operational reason), then `1` (a verdict at or above `--fail-on`), then `4` (the provider's limits cut the model analysis short), then `5` (an INVALID SKILL result), then `0`. A malicious skill in a folder therefore exits `1` even when another skill is invalid, and a folder with an invalid skill and otherwise clean skills exits `5`. An unreadable content finding (an executable, a large or unknown binary) is a verdict, not INVALID, and exits `1` at the default gate.
 
-Code `4` is defined in the source but is never returned. A scan that cannot reach the local model completes with an `UNSCANNED` verdict and exits with the code for its verdict.
+A scan that cannot reach the model completes with an `UNSCANNED` verdict and exits with the code for its verdict. Code `4` is only for a run the provider's rate limits stopped; a skill that is unsafe on the static checks still exits `1`.
 
 ## `scan`
 
@@ -325,6 +326,7 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[model.provider]` | `headers` | the preset's | Extra non-secret headers (OpenRouter's referer and title). `Authorization`, `X-API-Key` and similar are refused. |
 | `[model.provider]` | `structured_output` | `auto` | `auto`, `json_schema`, `json_object` or `prompt`: where the ladder starts (see below). |
 | `[model.provider]` | `max_tokens` | the profile's | Output limit of one reply, from 16 to 65536. Unset takes the model profile's value (below). |
+| `[model.provider]` | `requests_per_minute`, `tokens_per_minute`, `requests_per_day` | the preset's | The limits the provider enforces for this model. The client paces itself to them. `0` turns one off. See [Rate limits](#rate-limits-and-quota). |
 | `[model.profile]` | `name` | `auto` | `auto` picks a class from the model id; or `tiny`, `small`, `mid`, `large`, `reasoning`. |
 | `[model.profile]` | `context_tokens`, `max_output_tokens`, `chunk_chars`, `max_chunks`, `retries`, `structured_output`, `few_shot` | the class's | Override one value of the class. Unset keeps the class's value. |
 | `[model]` | `image_max_px` | `768` | Longest side of images sent to the model, from 256 to 4096. |
@@ -371,6 +373,27 @@ skill-sentry-cli scan my-skill --backend groq
 - **Reasoning models.** `<think>` blocks (and a `reasoning` field) are removed before the JSON is read. If a model spends its whole `max_tokens` thinking, the error says to raise it.
 - **Limits.** HTTP 429 is honoured once, using `Retry-After` (up to 30 s); a request that times out, and a reply cut at `max_tokens`, fail at once and are not retried. 401 and 403 name the variable to check; 404 names the model id.
 - The older `ollama_*` and `gemini_model` keys, and the `local` and `cloud` backends, are unchanged.
+
+### Rate limits and quota
+
+Free tiers cap requests a minute, tokens a minute and requests a day, per model. The OpenAI-compatible client (and the Gemini client, when limits are set) shares one limiter per provider and model, so a scan of a folder paces itself instead of failing the first time the provider says 429.
+
+| Preset | Starting limits | Notes |
+|:---|:---|:---|
+| `groq` | 30 requests/min, 6,000 tokens/min | Limits differ by model; the daily limit is learned from the provider's answer. |
+| `nim` | 40 requests/min | |
+| `openrouter` | 20 requests/min; 50 requests/day for a model id ending `:free` | A key with credits has a higher daily allowance: set `requests_per_day`. |
+| `openai`, a local server | none | |
+
+These are conservative starting values from what the providers publish, not promises: free-tier limits change. Set `requests_per_minute`, `tokens_per_minute` and `requests_per_day` under `[model.provider]` to match your account; `0` turns one off. `doctor` shows the limits it will use.
+
+How the client behaves:
+
+- **Pacing.** Requests and tokens a minute are sliding windows: a call waits until it fits. Tokens are estimated before a call (3.2 characters to a token) and replaced by the provider's own `usage` figures after it.
+- **429.** The provider's `Retry-After` is used as given, up to three retries and at most 30 s each; with none, the wait starts at 2 s and doubles to a cap of 30 s, with jitter. A 429 holds every request on that provider and model until the wait has passed.
+- **A daily quota** (the provider's message says so, a `Retry-After` of an hour or more, or the configured `requests_per_day` reached) ends the run's use of the model at once. The client sends nothing more. The run finishes the static checks for the remaining skills, reports them `UNSCANNED`, prints one message with how many skills the model read in full and how many it did not, and exits `4`. Run it again after the limit resets, or choose another model or provider. The count of requests a day is kept for the run only, so a new run starts at zero and learns the quota from the provider's first refusal.
+- **`--max-time`.** A wait is never slept past the scan's time limit. When pacing needs longer than the time left, the request is not sent and the stage is degraded with a note, so a scan with a limit still ends on time.
+- **Secrets.** The key is read from the environment and scrubbed from every message; it is not in output, reports, logs or the cache.
 
 ### Model profiles
 

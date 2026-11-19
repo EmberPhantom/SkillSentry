@@ -37,6 +37,21 @@ class ModelNotFound(ModelUnavailable):
     """The provider has no such model or endpoint (HTTP 404). Asking again cannot help."""
 
 
+class ModelQuotaExhausted(ModelUnavailable):
+    """The provider's daily (or longer) quota is used up. Waiting inside a scan cannot help, so
+    the run stops asking and says so once. ``retry_after`` is when the provider says it resets."""
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class ModelThrottled(ModelUnavailable):
+    """Pacing the requests to the provider's limits would take longer than the scan may.
+
+    Nothing was sent. The scan's time limit is kept, and the stage says it was throttled."""
+
+
 class ModelRateLimited(ModelUnavailable):
     """The provider answered 429. ``retry_after`` is how long it asked callers to wait, if known."""
 

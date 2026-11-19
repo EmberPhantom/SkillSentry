@@ -21,11 +21,13 @@ Four things differ between servers, and this client handles each:
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from collections.abc import Callable
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from random import random
 from typing import Any
 
 import httpx
@@ -36,17 +38,40 @@ from skill_sentry_cli.core.models.base import (
     ModelAuthError,
     ModelError,
     ModelNotFound,
+    ModelQuotaExhausted,
     ModelRateLimited,
+    ModelThrottled,
     ModelTimeout,
     ModelTruncated,
     ModelUnavailable,
 )
 from skill_sentry_cli.core.models.gemma_local import _image_prompt, _schema_prompt
 from skill_sentry_cli.core.models.image_utils import ImagePreparationError, load_image_for_model
+from skill_sentry_cli.core.models.limiter import RateLimiter, estimate_tokens
 from skill_sentry_cli.core.models.profiles import ModelProfile, resolve_profile
 from skill_sentry_cli.core.models.providers import ResolvedProvider
 
 LADDER = ("json_schema", "json_object", "prompt")
+# Failures that asking again cannot fix, or that the limiter has already decided.
+_FAIL_FAST = (
+    ModelTimeout,
+    ModelTruncated,
+    ModelAuthError,
+    ModelNotFound,
+    ModelRateLimited,
+    ModelQuotaExhausted,
+    ModelThrottled,
+)
+# Words a provider uses when the limit is per day or per account, not per minute.
+_DAILY = re.compile(
+    r"per[- ]day|daily|rpd\b|tpd\b|24[- ]hour|free-models-per-day|insufficient[_ ]quota",
+    re.IGNORECASE,
+)
+# A wait this long is a quota, not a rate limit.
+QUOTA_WAIT_S = 3600.0
+# After a 429 with no Retry-After, wait this long, then double it, up to the cap.
+BACKOFF_BASE_S = 2.0
+BACKOFF_CAP_S = 30.0
 _THINK_PAIR = re.compile(r"<(think|thinking|reasoning)>.*?</\1>", re.DOTALL | re.IGNORECASE)
 _THINK_OPEN = re.compile(r"^\s*<(think|thinking|reasoning)>", re.IGNORECASE)
 _THINK_CLOSE = re.compile(r"</(think|thinking|reasoning)>", re.IGNORECASE)
@@ -118,6 +143,8 @@ class OpenAICompat:
         sleep: Callable[[float], None] = time.sleep,
         max_retry_after_s: float = 30.0,
         profile: ModelProfile | None = None,
+        limiter: RateLimiter | None = None,
+        max_rate_limit_retries: int = 3,
     ) -> None:
         if timeout_s <= 0:
             raise ValueError("timeout_s must be positive")
@@ -138,6 +165,10 @@ class OpenAICompat:
         self._owns_client = client is None
         self._sleep = sleep
         self._max_retry_after = max_retry_after_s
+        # Paces requests to the provider's limits. Clients for the same provider and model share
+        # one; a client built without one has none to enforce.
+        self._limiter = limiter or RateLimiter(label=provider.label, sleep=sleep)
+        self._max_429_retries = max_rate_limit_retries
         self.last_usage: dict[str, int] = {}
         self.last_health_error: str | None = None
 
@@ -197,7 +228,7 @@ class OpenAICompat:
                 parsed = parse_json_object(text)
                 validate_json(parsed, schema)
                 return parsed
-            except (ModelTimeout, ModelTruncated, ModelAuthError, ModelNotFound, ModelRateLimited):
+            except _FAIL_FAST:
                 # Asking again repeats the cost and the result, or cannot succeed.
                 raise
             except (ModelError, ValueError) as exc:
@@ -223,7 +254,7 @@ class OpenAICompat:
             try:
                 text = self._chat([{"role": "user", "content": content}], response_format=None)
                 return ImageAnalysis.model_validate(parse_json_object(text))
-            except (ModelTimeout, ModelTruncated, ModelAuthError, ModelNotFound, ModelRateLimited):
+            except _FAIL_FAST:
                 raise
             except _FormatRejected as exc:  # pragma: no cover - no response_format is sent
                 last_error = exc
@@ -334,16 +365,32 @@ class OpenAICompat:
         }
         if response_format is not None:
             body["response_format"] = response_format
-        response = self._post("/chat/completions", body, has_format=response_format is not None)
+        # What this call will cost against a tokens-a-minute limit, before the provider counts it.
+        estimated = estimate_tokens(json.dumps(messages, ensure_ascii=False)) + min(
+            self.max_tokens, 400
+        )
+        response = self._post(
+            "/chat/completions", body, has_format=response_format is not None, estimated=estimated
+        )
         try:
             data = response.json()
         except ValueError as exc:
             raise ModelUnavailable(f"{self.label} sent a reply that is not JSON") from exc
-        return self._read_choice(data)
+        text = self._read_choice(data)
+        used = self.last_usage.get("total_tokens")
+        if used is None:
+            used = estimated - min(self.max_tokens, 400) + estimate_tokens(text)
+        self._limiter.record(estimated, used)
+        return text
 
-    def _post(self, path: str, body: dict[str, Any], *, has_format: bool) -> httpx.Response:
-        waited = False
+    def _post(
+        self, path: str, body: dict[str, Any], *, has_format: bool, estimated: int = 0
+    ) -> httpx.Response:
+        retries = 0
         while True:
+            # Pace to the provider's limits. Raises when the daily quota is used up, or when
+            # waiting would run past the scan's time limit; either way nothing is sent.
+            self._limiter.acquire(estimated)
             try:
                 response = self._client.post(
                     f"{self.base_url}{path}",
@@ -360,18 +407,40 @@ class OpenAICompat:
             status = response.status_code
             if status == 200:
                 return response
+            detail = self._scrub(_error_message(response))
             if status == 429:
                 delay = _retry_after(response)
-                if not waited and delay is not None and delay <= self._max_retry_after:
-                    waited = True
-                    self._sleep(delay)
-                    continue
-                raise ModelRateLimited(
-                    f"{self.label} is rate limiting requests"
-                    + (f"; it asked for {delay:g} s" if delay is not None else ""),
-                    retry_after=delay,
+                reset = _reset_seconds(response)
+                if _DAILY.search(detail) or (delay is not None and delay >= QUOTA_WAIT_S):
+                    wait_for = delay if delay is not None else reset
+                    message = f"{self.label}'s quota for {self.model} is used up" + (
+                        f" (it resets in about {_human(wait_for)})" if wait_for else ""
+                    )
+                    self._limiter.exhaust(message, seconds=wait_for)
+                    raise ModelQuotaExhausted(message, retry_after=wait_for)
+                if delay is not None and delay > self._max_retry_after:
+                    # Too long to wait inside a scan, and not long enough to be a daily quota.
+                    self._limiter.penalize(delay)
+                    raise ModelRateLimited(
+                        f"{self.label} is rate limiting requests; it asked for {delay:g} s",
+                        retry_after=delay,
+                    )
+                if retries >= self._max_429_retries:
+                    raise ModelRateLimited(
+                        f"{self.label} is still rate limiting requests after {retries} "
+                        "retries" + (f"; it asked for {delay:g} s" if delay is not None else ""),
+                        retry_after=delay,
+                    )
+                # The provider's own wait is used as given. With none, back off, with jitter.
+                wait = (
+                    delay
+                    if delay is not None
+                    else min(BACKOFF_CAP_S, BACKOFF_BASE_S * 2**retries) * (0.75 + 0.5 * random())
                 )
-            detail = self._scrub(_error_message(response))
+                self._limiter.penalize(wait)
+                self._limiter.wait(wait)
+                retries += 1
+                continue
             if status in (401, 403):
                 raise ModelAuthError(
                     f"{self.label} refused the credentials (HTTP {status}). Check the key in "
@@ -420,6 +489,29 @@ class OpenAICompat:
                 + (" (only reasoning text: raise max_tokens)" if reasoned else "")
             )
         return text
+
+
+def _reset_seconds(response: httpx.Response) -> float | None:
+    """Seconds until a limit resets, from ``X-RateLimit-Reset`` (epoch seconds or milliseconds)."""
+
+    value = response.headers.get("x-ratelimit-reset")
+    if not value:
+        return None
+    try:
+        stamp = float(value)
+    except ValueError:
+        return None
+    if stamp > 1e11:  # milliseconds since the epoch
+        stamp /= 1000.0
+    return max(0.0, stamp - time.time()) if stamp > 1e8 else max(0.0, stamp)
+
+
+def _human(seconds: float | None) -> str:
+    if seconds is None:
+        return "an unknown time"
+    if seconds >= 3600:
+        return f"{seconds / 3600:.1f} hours"
+    return f"{max(1, round(seconds / 60))} minutes" if seconds >= 90 else f"{seconds:.0f} seconds"
 
 
 def _error_message(response: httpx.Response) -> str:

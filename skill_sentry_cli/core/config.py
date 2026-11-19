@@ -47,6 +47,12 @@ class ProviderSettings(_ConfigModel):
     structured_output: str = "auto"  # auto | json_schema | json_object | prompt
     # Output limit of one reply. Unset means the model profile's value.
     max_tokens: int | None = Field(default=None, ge=16, le=65536)
+    # Limits the provider enforces, for this model. Unset takes the preset's starting value; 0
+    # turns the limit off. The client paces its requests to them and stops cleanly when a daily
+    # quota is used up.
+    requests_per_minute: int | None = Field(default=None, ge=0, le=100_000)
+    tokens_per_minute: int | None = Field(default=None, ge=0, le=100_000_000)
+    requests_per_day: int | None = Field(default=None, ge=0, le=10_000_000)
 
     @field_validator("api_key_env")
     @classmethod
