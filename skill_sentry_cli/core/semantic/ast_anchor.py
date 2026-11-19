@@ -13,7 +13,13 @@ import re
 from dataclasses import dataclass
 
 from skill_sentry_cli.core.anchors import analyze_credential_flows
+from skill_sentry_cli.core.anchors.confusables import (
+    mixed_script_words,
+    normalise_line,
+    normalise_text,
+)
 from skill_sentry_cli.core.anchors.credential_flow import RULES_VERSION
+from skill_sentry_cli.core.anchors.cross_file import analyze_cross_file
 from skill_sentry_cli.core.contracts import (
     Finding,
     FindingEvidence,
@@ -23,11 +29,6 @@ from skill_sentry_cli.core.contracts import (
 )
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
 from skill_sentry_cli.core.semantic.ast_python import scan_python_ast
-from skill_sentry_cli.core.semantic.confusables import (
-    mixed_script_words,
-    normalise_line,
-    normalise_text,
-)
 
 MAX_FINDINGS = 80
 
@@ -496,6 +497,7 @@ def scan_anchors(package: SkillPackage) -> StageResult:
 
     findings.extend(analyze_credential_flows(package))
     findings.extend(_normalised_credential_flows(package, findings))
+    findings.extend(analyze_cross_file(package))
 
     score = 0.0
     if findings:

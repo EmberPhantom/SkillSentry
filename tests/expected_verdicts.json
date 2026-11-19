@@ -60,7 +60,7 @@
     }
   },
   "evasion": {
-    "_comment": "Evasion cases in tests/fixtures/evasion. Each states what a good scanner should do. A case with known_gap is one the deterministic anchors miss today: the test is a strict xfail, so it fails loudly when the gap closes (remove known_gap then). Cases are scanned with the benign mock model, so only the deterministic stages can catch them. See docs/security/evasion-limits.md.",
+    "_comment": "Evasion cases in tests/fixtures/evasion. Each states what a good scanner should do. A case with known_gap is one the deterministic checks miss today: the test is a strict xfail, so it fails loudly when the gap closes (remove known_gap then). None is a known gap right now. Cases are scanned with the benign mock model, so only the deterministic stages can catch them. See docs/security/evasion-limits.md.",
     "control-plain": {
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
@@ -94,10 +94,7 @@
     "split-download-exec": {
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
-      "known_gap": {
-        "reason": "One file downloads a script to /tmp and another runs it. Each file alone looks ordinary and no anchor ties them together; only the sandbox sees the pair run.",
-        "tracking": "docs/security/evasion-limits.md#download-in-one-file-run-in-another"
-      }
+      "note": "One file downloads to /tmp, another runs it. Caught by the cross-file check (download-then-exec), which names both places."
     },
     "fullwidth-forms": {
       "min_verdict": "SUSPICIOUS",
@@ -113,6 +110,16 @@
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
       "note": "A Greek alpha in 'bash' in a shell script."
+    },
+    "split-download-exec-shell": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "The same split in shell, with the destination in a variable."
+    },
+    "split-download-exec-node": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "The same split in Node: https.get plus createWriteStream, then child_process."
     }
   }
 }
