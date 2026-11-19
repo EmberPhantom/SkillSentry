@@ -1,0 +1,217 @@
+[
+  {
+    "skill": "benign_entry",
+    "exit_code": 0,
+    "wall_s": 22.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 14.4,
+      "sandbox": 6.9,
+      "total": 21.4
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "benign_entry",
+    "exit_code": 0,
+    "wall_s": 22.3,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 14.6,
+      "sandbox": 7.0,
+      "total": 21.7
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 2
+  },
+  {
+    "skill": "benign_entry",
+    "exit_code": 0,
+    "wall_s": 22.7,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 15.3,
+      "sandbox": 6.8,
+      "total": 22.1
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 3
+  },
+  {
+    "skill": "benign_entry",
+    "exit_code": 0,
+    "wall_s": 22.4,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 14.9,
+      "sandbox": 7.0,
+      "total": 21.9
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 4
+  },
+  {
+    "skill": "benign_entry",
+    "exit_code": 0,
+    "wall_s": 23.3,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 15.6,
+      "sandbox": 7.1,
+      "total": 22.7
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 5
+  },
+  {
+    "skill": "mal_exfil",
+    "exit_code": 1,
+    "wall_s": 21.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 13.3,
+      "sandbox": 7.1,
+      "total": 20.4
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 95,
+    "confidence": 1.0,
+    "coverage": 1.0,
+    "findings": [
+      "canary-exfiltration",
+      "canary-read",
+      "credential-path",
+      "exfil-http-post"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "mal_exfil",
+    "exit_code": 1,
+    "wall_s": 21.1,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 13.3,
+      "sandbox": 7.1,
+      "total": 20.4
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 95,
+    "confidence": 1.0,
+    "coverage": 1.0,
+    "findings": [
+      "canary-exfiltration",
+      "canary-read",
+      "credential-path",
+      "exfil-http-post"
+    ],
+    "error": null,
+    "attempt": 2
+  },
+  {
+    "skill": "mal_exfil",
+    "exit_code": 1,
+    "wall_s": 21.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 13.3,
+      "sandbox": 7.1,
+      "total": 20.4
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 95,
+    "confidence": 1.0,
+    "coverage": 1.0,
+    "findings": [
+      "canary-exfiltration",
+      "canary-read",
+      "credential-path",
+      "exfil-http-post"
+    ],
+    "error": null,
+    "attempt": 3
+  },
+  {
+    "skill": "mal_exfil",
+    "exit_code": 1,
+    "wall_s": 21.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 13.4,
+      "sandbox": 7.0,
+      "total": 20.4
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 95,
+    "confidence": 1.0,
+    "coverage": 1.0,
+    "findings": [
+      "canary-exfiltration",
+      "canary-read",
+      "credential-path",
+      "exfil-http-post"
+    ],
+    "error": null,
+    "attempt": 4
+  },
+  {
+    "skill": "mal_exfil",
+    "exit_code": 1,
+    "wall_s": 21.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 13.2,
+      "sandbox": 7.1,
+      "total": 20.4
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 95,
+    "confidence": 1.0,
+    "coverage": 1.0,
+    "findings": [
+      "canary-exfiltration",
+      "canary-read",
+      "credential-path",
+      "exfil-http-post"
+    ],
+    "error": null,
+    "attempt": 5
+  }
+]

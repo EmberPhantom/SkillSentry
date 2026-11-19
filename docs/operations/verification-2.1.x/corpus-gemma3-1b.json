@@ -1,0 +1,283 @@
+[
+  {
+    "skill": "benign",
+    "exit_code": 0,
+    "wall_s": 16.1,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 15.5,
+      "total": 15.6
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.762,
+    "coverage": 0.583,
+    "findings": [],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "benign_entry",
+    "exit_code": 0,
+    "wall_s": 21.8,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 14.4,
+      "sandbox": 6.8,
+      "total": 21.2
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "benign_noscript",
+    "exit_code": 0,
+    "wall_s": 4.2,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 3.6,
+      "total": 3.6
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "mal_exfil",
+    "exit_code": 1,
+    "wall_s": 23.6,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 16.1,
+      "sandbox": 6.9,
+      "total": 23.0
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 95,
+    "confidence": 1.0,
+    "coverage": 1.0,
+    "findings": [
+      "canary-exfiltration",
+      "canary-read",
+      "credential-path",
+      "exfil-http-post"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "mal_curlsh",
+    "exit_code": 1,
+    "wall_s": 13.4,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 12.7,
+      "total": 12.8
+    },
+    "status": "SUSPICIOUS",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.65,
+    "coverage": 0.583,
+    "findings": [
+      "shell-exec"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "mal_obfus",
+    "exit_code": 1,
+    "wall_s": 16.7,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 9.5,
+      "sandbox": 6.6,
+      "total": 16.2
+    },
+    "status": "SUSPICIOUS",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.65,
+    "coverage": 1.0,
+    "findings": [
+      "dynamic-code"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "inject_md",
+    "exit_code": 1,
+    "wall_s": 11.3,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 10.7,
+      "total": 10.7
+    },
+    "status": "MALICIOUS",
+    "verdict": "MALICIOUS",
+    "risk": 96,
+    "confidence": 0.85,
+    "coverage": 1.0,
+    "findings": [
+      "credential-path",
+      "instruction-injection"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "inject_unicode",
+    "exit_code": 0,
+    "wall_s": 6.5,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 5.9,
+      "total": 6.0
+    },
+    "status": "SAFE",
+    "verdict": "SAFE",
+    "risk": 0,
+    "confidence": 0.95,
+    "coverage": 1.0,
+    "findings": [],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "typosquat",
+    "exit_code": 1,
+    "wall_s": 5.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 4.4,
+      "total": 4.4
+    },
+    "status": "SUSPICIOUS",
+    "verdict": "SUSPICIOUS",
+    "risk": 40,
+    "confidence": 0.65,
+    "coverage": 1.0,
+    "findings": [
+      "typosquat"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "timebomb",
+    "exit_code": 1,
+    "wall_s": 17.3,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 9.8,
+      "sandbox": 6.9,
+      "total": 16.8
+    },
+    "status": "SUSPICIOUS",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.65,
+    "coverage": 1.0,
+    "findings": [
+      "shell-exec"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "bigfile",
+    "exit_code": 1,
+    "wall_s": 5.0,
+    "harness_timeout": false,
+    "stage_s": {
+      "spec": 0.1,
+      "semantic": 4.3,
+      "total": 4.4
+    },
+    "status": "UNSCANNED",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.3,
+    "coverage": 1.0,
+    "findings": [
+      "opaque-content"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "badfm",
+    "exit_code": 5,
+    "wall_s": 4.5,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 3.8,
+      "total": 3.9
+    },
+    "status": "INVALID SKILL",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.3,
+    "coverage": 1.0,
+    "findings": [
+      "manifest-issue"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "nonutf8",
+    "exit_code": 5,
+    "wall_s": 4.9,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 4.4,
+      "total": 4.4
+    },
+    "status": "INVALID SKILL",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.3,
+    "coverage": 1.0,
+    "findings": [
+      "package-encoding"
+    ],
+    "error": null,
+    "attempt": 1
+  },
+  {
+    "skill": "symlink",
+    "exit_code": 5,
+    "wall_s": 20.6,
+    "harness_timeout": false,
+    "stage_s": {
+      "semantic": 20.0,
+      "total": 20.0
+    },
+    "status": "INVALID SKILL",
+    "verdict": "SUSPICIOUS",
+    "risk": 70,
+    "confidence": 0.3,
+    "coverage": 1.0,
+    "findings": [
+      "package-symlink"
+    ],
+    "error": null,
+    "attempt": 1
+  }
+]

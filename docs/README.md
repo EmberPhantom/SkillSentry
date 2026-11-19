@@ -34,6 +34,7 @@ SkillSentry audits agent skills before you install them. This index groups the d
 | Document | What it covers |
 |:---|:---|
 | [Deployment](operations/deployment.md) | Installing and running SkillSentry, container use, and a checklist before you rely on it. |
+| [Verification of 2.1.x](operations/verification-2.1.x.md) | A real-model, real-sandbox run of a 14-skill corpus, with raw numbers, the timing analysis and what failed. |
 | [Release process](operations/release-process.md) | Cutting a release, the release workflow, and verifying a release. |
 | [Registry accounts](operations/registry-accounts.md) | The PyPI and TestPyPI accounts and trusted publishing. |
 | [Governance](operations/governance.md) | Roles, decisions, release authority, the support policy, and the repository settings checklist. |
