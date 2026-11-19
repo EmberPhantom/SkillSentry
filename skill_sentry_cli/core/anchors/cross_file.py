@@ -227,38 +227,7 @@ def _command_sites(
     args = command[1:]
 
     if name in {"curl", "wget"}:
-        out: str | None = None
-        directory = ""
-        remote_name = False
-        url = next((a for a in args if re.match(r"^[a-z]+://", a)), "")
-        for position, arg in enumerate(args):
-            nxt = args[position + 1] if position + 1 < len(args) else None
-            if name == "curl":
-                if arg in {"-o", "--output"} and nxt:
-                    out = nxt
-                elif arg.startswith("--output="):
-                    out = arg.split("=", 1)[1]
-                elif arg in {"-O", "--remote-name"} or (
-                    arg.startswith("-")
-                    and not arg.startswith("--")
-                    and "O" in arg[1:]
-                    and "o" not in arg[1:]
-                ):
-                    remote_name = True
-            else:
-                if arg in {"-O", "--output-document"} and nxt:
-                    out = nxt
-                elif arg.startswith("--output-document="):
-                    out = arg.split("=", 1)[1]
-                elif arg in {"-P", "--directory-prefix"} and nxt:
-                    directory = nxt
-                elif arg.startswith("--directory-prefix="):
-                    directory = arg.split("=", 1)[1]
-        if out is None and (remote_name or (name == "wget" and url and not out)):
-            base = url.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1] if url else ""
-            if base and "://" not in base:
-                out = (directory.rstrip("/") + "/" if directory else "") + base
-        target = _norm_path(out) if out else None
+        target = _norm_path(_fetch_output(name, args) or "")
         if target and target != "-":
             sites.append(_Site(target, file, line, code, "download"))
         return sites
@@ -321,6 +290,105 @@ def _command_sites(
     return sites
 
 
+# Short options that take a value, so that in a bundle like `-sSLo FILE` the letters after one of
+# them are its value and not more flags.
+_CURL_VALUE_SHORT = frozenset("oHduAeXxbcwmyYzKTrFDECPQtUZ")
+_WGET_VALUE_SHORT = frozenset("OoPaetTwQUiBlIXDAR")
+
+
+def _short_option_values(args: list[str], value_letters: frozenset[str]) -> list[tuple[str, str]]:
+    """``(letter, value)`` for each value-taking short option, in a bundle or on its own.
+
+    Handles ``-o file``, ``-ofile`` and ``-sSLo file`` (the file-taking letter last in a
+    bundle). A bundle stops at the first letter that takes a value: what follows it is the
+    value, or, when nothing follows, the next argument is.
+    """
+
+    found: list[tuple[str, str]] = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        index += 1
+        if not arg.startswith("-") or arg.startswith("--") or arg == "-":
+            continue
+        for position, letter in enumerate(arg[1:], start=1):
+            if letter not in value_letters:
+                continue
+            attached = arg[position + 1 :]
+            if attached:
+                value = attached[1:] if attached.startswith("=") and letter != "H" else attached
+            elif index < len(args):
+                value = args[index]
+                index += 1
+            else:
+                value = ""
+            found.append((letter, value))
+            break
+    return found
+
+
+def _long_option(args: list[str], names: tuple[str, ...]) -> str | None:
+    for position, arg in enumerate(args):
+        for name in names:
+            if arg == name and position + 1 < len(args):
+                return args[position + 1]
+            if arg.startswith(name + "="):
+                return arg.split("=", 1)[1]
+    return None
+
+
+def _fetch_output(name: str, args: list[str]) -> str | None:
+    """The path a ``curl`` or ``wget`` command saves to, or ``None``.
+
+    curl: ``-o FILE`` (also bundled, ``-sSLo FILE``, or attached, ``-oFILE``), ``--output FILE``
+    or ``--output=FILE``; ``-O`` saves under the name in the URL. wget: ``-O FILE`` (also
+    ``-qO FILE``, ``-OFILE``, ``--output-document=FILE``), ``-P DIR`` for the directory, and the
+    URL's name when no file is given. ``wget -o`` is the log file, not the download.
+    """
+
+    url = next((a for a in args if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", a)), "")
+    base = url.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1] if url else ""
+    if base and "://" in base:
+        base = ""
+    if name == "curl":
+        out = _long_option(args, ("--output",))
+        for letter, value in _short_option_values(args, _CURL_VALUE_SHORT):
+            if letter == "o":
+                out = value
+        remote_name = "--remote-name" in args or any(
+            a.startswith("-")
+            and not a.startswith("--")
+            and "O" in _flag_letters(a, _CURL_VALUE_SHORT)
+            for a in args
+        )
+        if out:
+            return out
+        return base if remote_name and base else None
+    out = _long_option(args, ("--output-document",))
+    directory = _long_option(args, ("--directory-prefix",)) or ""
+    for letter, value in _short_option_values(args, _WGET_VALUE_SHORT):
+        if letter == "O":
+            out = value
+        elif letter == "P":
+            directory = value
+    if out:
+        return out
+    if base:
+        return (directory.rstrip("/") + "/" if directory else "") + base
+    return None
+
+
+def _flag_letters(bundle: str, value_letters: frozenset[str]) -> str:
+    """The flag letters of a short-option bundle, up to the first one that takes a value."""
+
+    letters = ""
+    for letter in bundle[1:]:
+        letters += letter
+        if letter in value_letters:
+            break
+    return letters
+
+
 def _shell_constants(lines: list[str]) -> dict[str, str]:
     constants: dict[str, str] = {}
     for line in lines:
@@ -343,23 +411,43 @@ def _substitute(value: str, constants: dict[str, str]) -> str:
     return re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)", replace, value)
 
 
+_ASSIGNMENT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
+_DECLARERS = {"export", "readonly", "local", "declare", "typeset"}
+
+
 def _shell_sites(text_file: TextFile) -> list[_Site]:
     lines = text_file.text.splitlines()
-    constants = _shell_constants([normalise_line(line) for line in lines])
+    normalised = [normalise_line(line) for line in lines]
+    constants = _shell_constants(normalised)
     sites: list[_Site] = []
-    for number, raw in enumerate(lines, start=1):
-        line = normalise_line(raw)
+    for number, (raw, line) in enumerate(zip(lines, normalised, strict=True), start=1):
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         if len(line) > 4000:
             continue
-        tokens = _tokenise(_substitute(line, constants))
+        tokens = _tokenise(line)
         if not tokens:
             continue
+        # Variables set earlier on the same line (`D=/tmp/w; curl -o $D/z`) or just before a
+        # command (`D=/tmp/w curl -o $D/z`) are known to the commands that follow. The second
+        # form is not what a shell does, but treating it as visible can only find more.
+        local = dict(constants)
         for command in _split_commands(tokens):
+            while command and command[0] in _DECLARERS:
+                command = command[1:]
+            assigned = 0
+            for token in command:
+                match = _ASSIGNMENT.match(token)
+                if not match:
+                    break
+                local[match.group(1)] = _substitute(match.group(2), local)
+                assigned += 1
+            command = command[assigned:]
+            if not command:
+                continue
             sites.extend(
                 _command_sites(
-                    command,
+                    [_substitute(token, local) for token in command],
                     file=text_file.relative,
                     line=number,
                     code=raw.strip()[:200],

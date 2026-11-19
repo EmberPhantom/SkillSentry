@@ -120,6 +120,21 @@
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
       "note": "The same split in Node: https.get plus createWriteStream, then child_process."
+    },
+    "split-bundled-flags": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "curl -sSLo FILE and wget -qO FILE: the file-taking letter is last in a bundle of short options."
+    },
+    "split-attached-value": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "curl -o/tmp/p.sh: the value is attached to the option."
+    },
+    "split-same-line-variable": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "D=/tmp/w; curl ... -o $D/z.sh: the variable is set on the same line as the download."
     }
   }
 }
