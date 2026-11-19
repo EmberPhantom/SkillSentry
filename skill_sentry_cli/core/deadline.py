@@ -13,11 +13,22 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import TypeVar
 
 from skill_sentry_cli.core.contracts import Finding, FindingEvidence, Severity, Stage
 
 T = TypeVar("T")
+
+# The deadline of the call running on this thread. A model client reads it, so that pacing a
+# request to a provider's rate limit never sleeps past the scan's time limit.
+_ACTIVE: ContextVar[Deadline | None] = ContextVar("skillsentry_call_deadline", default=None)
+
+
+def active_deadline() -> Deadline | None:
+    """The deadline of the :func:`call_within` call this code is running in, if any."""
+
+    return _ACTIVE.get()
 
 
 class TimeLimitExceeded(Exception):
@@ -81,6 +92,7 @@ def call_within(deadline: Deadline | None, fn: Callable[[], T]) -> T:
     box: dict[str, object] = {}
 
     def run() -> None:
+        _ACTIVE.set(deadline)
         try:
             box["value"] = fn()
         except BaseException as exc:  # carried back to the caller

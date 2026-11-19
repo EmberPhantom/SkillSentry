@@ -430,6 +430,7 @@ def scan(
         # Nothing was scanned. A skill refused as malformed is INVALID_SKILL, not a failure
         # of the tool.
         raise typer.Exit(code=int(failed or ExitCode.OPERATIONAL))
+    _announce_quota(outcomes, len(outcomes), quiet=quiet)
 
     # The tip is for a person at a terminal. Piped or redirected runs get no extra line.
     if output_format == "text" and not quiet and _stream_is_tty(sys.stderr):
@@ -1073,6 +1074,37 @@ def _worse_failure(current: ExitCode | None, new: ExitCode) -> ExitCode:
     return ExitCode.OPERATIONAL if ExitCode.OPERATIONAL in (current, new) else new
 
 
+def _provider_limit(outcome: ScanOutcome) -> dict[str, str] | None:
+    """What stopped the model for this skill (a daily quota, or throttling), if anything."""
+
+    for result in outcome.stage_results:
+        limit = (result.telemetry or {}).get("provider_limit")
+        if isinstance(limit, dict):
+            return {str(k): str(v) for k, v in limit.items()}
+    return None
+
+
+def _announce_quota(outcomes: Sequence[ScanOutcome], total: int, *, quiet: bool) -> None:
+    """Say, once, that the provider's limits cut the model analysis short, and how far it got."""
+
+    limited = [o for o in outcomes if _provider_limit(o) is not None]
+    if not limited or quiet:
+        return
+    first = _provider_limit(limited[0]) or {}
+    undone = [o for o in limited if is_unscanned(o.verdict.verdict, o.stage_results)]
+    read = len(outcomes) - len(limited)
+    typer.echo(
+        f"note: {first.get('message', 'the provider limited the requests')}",
+        err=True,
+    )
+    typer.echo(
+        f"note: the model read {read} of {total} skill(s) in full; {len(limited)} had its model "
+        f"analysis cut short ({len(undone)} reported UNSCANNED, not SAFE). Run again after the "
+        "limit resets, or choose another model or provider. Exit code 4.",
+        err=True,
+    )
+
+
 def _run_exit_code(
     outcomes: Sequence[ScanOutcome], fail_on: str, failure: ExitCode | None
 ) -> ExitCode:
@@ -1084,9 +1116,19 @@ def _run_exit_code(
 
     if failure is ExitCode.OPERATIONAL:
         return ExitCode.OPERATIONAL
-    codes = {_outcome_exit(outcome, fail_on) for outcome in outcomes}
+    # A skill the model could not read because the provider's limits stopped the run is not a
+    # verdict about the skill. It is its own outcome, so a pipeline can tell "unsafe" from "not
+    # fully scanned, try again later". A skill that is unsafe on the static checks still wins.
+    limited = [o for o in outcomes if _provider_limit(o) is not None]
+    codes = {
+        _outcome_exit(outcome, fail_on)
+        for outcome in outcomes
+        if not (outcome in limited and is_unscanned(outcome.verdict.verdict, outcome.stage_results))
+    }
     if ExitCode.VERDICT in codes:
         return ExitCode.VERDICT
+    if any(is_unscanned(o.verdict.verdict, o.stage_results) for o in limited):
+        return ExitCode.MODEL_UNAVAILABLE
     if ExitCode.INVALID_SKILL in codes or failure is ExitCode.INVALID_SKILL:
         return ExitCode.INVALID_SKILL
     return ExitCode.OK
@@ -1222,6 +1264,15 @@ def _provider_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
     profile = cfg.model.profile.name
     profile = classify(resolved.model) if profile == "auto" else profile
     where = "this machine" if resolved.local else f"{resolved.label}, a remote server"
+    limits = ", ".join(
+        f"{value:,} {name}"
+        for value, name in (
+            (resolved.requests_per_minute, "requests/min"),
+            (resolved.tokens_per_minute, "tokens/min"),
+            (resolved.requests_per_day, "requests/day"),
+        )
+        if value
+    )
     checks = [
         ReadinessCheck(
             "provider",
@@ -1229,7 +1280,13 @@ def _provider_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
             True,
             f"{choice} -> {resolved.base_url} on {where}; model {resolved.model} "
             f"(profile: {profile})",
-        )
+        ),
+        ReadinessCheck(
+            "rate limits",
+            True,
+            False,
+            f"paced to {limits}" if limits else "not paced (no limits set)",
+        ),
     ]
     if resolved.local:
         checks.append(
@@ -1901,6 +1958,7 @@ def _scan_installed(
     )
     ran_backend = _ran_backend(engine) if outcomes else backend
     engine.close()
+    _announce_quota(outcomes, len(outcomes), quiet=quiet)
 
     skipped = len(roots) - len(outcomes)
     summary = {"scanned": len(outcomes), "failed": skipped, "skipped": result.set_aside}

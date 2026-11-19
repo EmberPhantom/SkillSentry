@@ -45,6 +45,38 @@ PRESETS: dict[str, Preset] = {
     "groq": Preset("groq", "Groq", "https://api.groq.com/openai/v1", "GROQ_API_KEY"),
 }
 # Backend names that select an OpenAI-compatible server; "openai" has no preset and needs a base_url.
+# Starting limits for each preset, from what the providers publish for their free tiers. They are
+# conservative: the smallest per-model figure reported, so a scan paces itself instead of being
+# refused. Free-tier limits change and differ by model, so every value can be set under
+# [model.provider]; `0` turns one off. A daily limit that is not listed here is learned from the
+# provider's own answer.
+RATE_DEFAULTS: dict[str, dict[str, int]] = {
+    "groq": {"requests_per_minute": 30, "tokens_per_minute": 6000},
+    "nim": {"requests_per_minute": 40},
+    "openrouter": {"requests_per_minute": 20},
+}
+OPENROUTER_FREE_PER_DAY = 50  # an account with no credits: ids ending ":free"
+
+
+def rate_limits(provider: Any, backend: str, model: str, *, local: bool) -> dict[str, int | None]:
+    """The limits for ``model``: the configured value, else the preset's, else none.
+
+    ``0`` in the configuration means "no limit" and is kept as ``None``. A server on this
+    machine gets no starting limits.
+    """
+
+    # A server on this machine has no starting limits; one the user sets is still kept.
+    defaults = {} if local else dict(RATE_DEFAULTS.get(backend, {}))
+    if backend == "openrouter" and model.endswith(":free") and not local:
+        defaults["requests_per_day"] = OPENROUTER_FREE_PER_DAY
+    result: dict[str, int | None] = {}
+    for name in ("requests_per_minute", "tokens_per_minute", "requests_per_day"):
+        configured = getattr(provider, name, None)
+        value = defaults.get(name) if configured is None else configured
+        result[name] = value or None
+    return result
+
+
 PROVIDER_BACKENDS = frozenset({"openai", *PRESETS})
 STRUCTURED_MODES = ("auto", "json_schema", "json_object", "prompt")
 
@@ -100,6 +132,15 @@ class ResolvedProvider:
     api_key_env: str
     headers: dict[str, str] = field(default_factory=dict)
     local: bool = False
+    requests_per_minute: int | None = None
+    tokens_per_minute: int | None = None
+    requests_per_day: int | None = None
+
+    @property
+    def limiter_key(self) -> str:
+        """Calls to the same address and model share one budget."""
+
+        return f"{self.base_url}|{self.model}"
 
     @property
     def api_key(self) -> str:
@@ -138,6 +179,7 @@ def resolve_provider(settings: Any, backend: str) -> ResolvedProvider:
     else:
         name, label = "openai", host
     headers = {**dict(preset.headers if preset else ()), **provider.headers}
+    limits = rate_limits(provider, name, model, local=local)
     return ResolvedProvider(
         backend=name,
         label=label,
@@ -146,4 +188,5 @@ def resolve_provider(settings: Any, backend: str) -> ResolvedProvider:
         api_key_env=provider.api_key_env or (preset.api_key_env if preset else ""),
         headers=headers,
         local=local,
+        **limits,
     )

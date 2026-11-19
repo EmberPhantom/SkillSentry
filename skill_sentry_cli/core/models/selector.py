@@ -14,6 +14,7 @@ from skill_sentry_cli.core.contracts import Backend
 from skill_sentry_cli.core.models.base import ModelClient, ModelUnavailable
 from skill_sentry_cli.core.models.gemma_cloud import GemmaCloud
 from skill_sentry_cli.core.models.gemma_local import GemmaLocal
+from skill_sentry_cli.core.models.limiter import limiter_for
 from skill_sentry_cli.core.models.mock import MockGemma
 from skill_sentry_cli.core.models.openai_compat import OpenAICompat
 from skill_sentry_cli.core.models.profiles import ModelProfile, resolve_profile
@@ -143,6 +144,14 @@ def _provider_client(settings: ModelSettings, choice: str) -> ModelClient:
         max_tokens=settings.provider.max_tokens or profile.max_output_tokens,
         structured_output=mode if mode != "auto" else profile.structured_output,
         profile=profile,
+        # Every client for this provider and model shares one budget.
+        limiter=limiter_for(
+            provider.limiter_key,
+            rpm=provider.requests_per_minute,
+            tpm=provider.tokens_per_minute,
+            rpd=provider.requests_per_day,
+            label=provider.label,
+        ),
     )
 
 
@@ -168,6 +177,14 @@ def _cloud_client(settings: ModelSettings) -> ModelClient:
         timeout_s=settings.request_timeout_s,
         max_px=settings.image_max_px,
         profile=profile_for(settings, settings.gemini_model),
+        # Only limits the user set under [model.provider]; Google publishes no fixed free figures.
+        limiter=limiter_for(
+            f"gemini|{settings.gemini_model}",
+            rpm=settings.provider.requests_per_minute,
+            tpm=settings.provider.tokens_per_minute,
+            rpd=settings.provider.requests_per_day,
+            label="Gemini",
+        ),
     )
 
 

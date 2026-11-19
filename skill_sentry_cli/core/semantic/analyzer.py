@@ -32,7 +32,7 @@ from skill_sentry_cli.core.deadline import (
     time_limit_finding,
 )
 from skill_sentry_cli.core.models._json import validate_json
-from skill_sentry_cli.core.models.base import ModelClient
+from skill_sentry_cli.core.models.base import ModelClient, ModelQuotaExhausted, ModelThrottled
 from skill_sentry_cli.core.models.profiles import ModelProfile
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
 from skill_sentry_cli.core.semantic.plan import SemanticPlan, plan_from_profile
@@ -321,6 +321,23 @@ def _findings_from(
     return findings, dropped
 
 
+def _limit_finding(limit: dict[str, str]) -> Finding:
+    """A NOTE that says the provider's limits cut the analysis short, and why."""
+
+    what = "daily quota" if limit["kind"] == "daily-quota" else "rate limits"
+    return Finding(
+        stage=Stage.SEMANTIC,
+        severity=Severity.NOTE,
+        message=(
+            f"The model analysis stopped early because of {limit['provider']}'s {what}: "
+            f"{limit['message']}. The static checks ran; the rest of the skill was not read by "
+            "the model."
+        ),
+        finding_type="provider-limit",
+        evidence=FindingEvidence(file="SKILL.md", line=1),
+    )
+
+
 def _gap_text(gaps: list[_Gap]) -> str:
     shown = [f"{gap.file}:{gap.first_line}-{gap.last_line} ({gap.reason})" for gap in gaps]
     shown = shown[:MAX_GAP_LINES_IN_NOTE]
@@ -393,6 +410,7 @@ def analyze_semantics(
     failed: list[_Gap] = []
     prompt_chars = 0
     anchors_omitted = 0
+    provider_limit: dict[str, str] | None = None
     last_error: str | None = None
     timed_out = False
     for index, chunk in enumerate(selected):
@@ -417,6 +435,21 @@ def analyze_semantics(
                     _Gap(skipped.file, skipped.first_line, skipped.last_line, str(exc)[:160])
                 )
             break
+        except (ModelQuotaExhausted, ModelThrottled) as exc:
+            # The provider's limits stop the run's use of the model: say so once, keep the rest of
+            # the analysis, and do not keep asking.
+            kind = "daily-quota" if isinstance(exc, ModelQuotaExhausted) else "throttled"
+            provider_limit = {
+                "kind": kind,
+                "provider": str(getattr(model, "backend", "provider")),
+                "message": str(exc)[:300],
+            }
+            last_error = str(exc)[:300]
+            for skipped in selected[index:]:
+                failed.append(
+                    _Gap(skipped.file, skipped.first_line, skipped.last_line, str(exc)[:160])
+                )
+            break
         except Exception as exc:
             last_error = str(exc)[:300]
             reason = f"model call failed ({type(exc).__name__}: {str(exc)[:160]})"
@@ -430,8 +463,16 @@ def analyze_semantics(
             degraded=True,
             error=f"semantic model unavailable: {last_error or 'no chunk analysed'}",
             signals={"semantic": instruction_floor} if instruction_floor else {},
-            findings=[time_limit_finding(Stage.SEMANTIC, budget)] if timed_out else [],
-            telemetry={"time_limit_reached": True} if timed_out else None,
+            findings=(
+                [time_limit_finding(Stage.SEMANTIC, budget)]
+                if timed_out
+                else ([_limit_finding(provider_limit)] if provider_limit else [])
+            ),
+            telemetry=(
+                {"time_limit_reached": True}
+                if timed_out
+                else ({"provider_limit": provider_limit} if provider_limit else None)
+            ),
         )
 
     findings: list[Finding] = []
@@ -456,6 +497,8 @@ def analyze_semantics(
         )
     if timed_out:
         findings.append(time_limit_finding(Stage.SEMANTIC, budget))
+    if provider_limit:
+        findings.append(_limit_finding(provider_limit))
     if all_gaps:
         findings.append(
             Finding(
@@ -537,6 +580,7 @@ def analyze_semantics(
             "gap_ranges": [f"{gap.file}:{gap.first_line}-{gap.last_line}" for gap in all_gaps],
             "unverified_model_findings": unverified,
             "time_limit_reached": timed_out,
+            "provider_limit": provider_limit,
         },
     )
 
