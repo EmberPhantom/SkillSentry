@@ -60,7 +60,7 @@ def _make_set(tmp_path: Path, *, quality: dict[str, str] | None = None):
         folder = cache / "skills" / eid
         folder.mkdir(parents=True)
         body = text.format(n=eid)
-        (folder / "SKILL.md").write_text(body, encoding="utf-8")
+        (folder / "SKILL.md").write_bytes(body.encode("utf-8"))
         entry = {
             "id": eid,
             "source": "s",
@@ -107,8 +107,8 @@ def test_loader_refuses_missing_tampered_and_unqualified_skills(tmp_path):
     (cache / "skills" / "b-one" / "SKILL.md").write_text("changed", encoding="utf-8")
     with pytest.raises(fh.FetchError, match="hash mismatch"):
         bm.load_heldout_cases(manifest, cache)
-    (cache / "skills" / "b-one" / "SKILL.md").write_text(
-        BENIGN_TEXT.format(n="b-one"), encoding="utf-8"
+    (cache / "skills" / "b-one" / "SKILL.md").write_bytes(
+        BENIGN_TEXT.format(n="b-one").encode("utf-8")
     )
     import shutil
 
