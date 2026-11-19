@@ -67,19 +67,35 @@ def _slug_exists(text: str, anchor: str) -> bool:
     return False
 
 
-def test_the_harness_reports_known_gaps_separately_from_failures():
+def test_every_case_is_caught_today():
     results = {item.skill: item.status for item in harness.check_evasion()}
 
-    assert results["homoglyph"] == "PASS"
-    assert results["split-download-exec"] == "KNOWN-GAP"
-    assert results["control-plain"] == "PASS"
-    assert "FAIL" not in results.values()
+    assert set(results.values()) == {"PASS"}, results
 
 
-def test_a_known_gap_that_gets_caught_is_a_failure_not_a_quiet_pass(monkeypatch):
-    monkeypatch.setattr(harness, "evasion_caught", lambda name, expected: True)
+def _with_a_gap(monkeypatch, *, caught: bool):  # type: ignore[no-untyped-def]
+    cases = {
+        "gap-case": {
+            "min_verdict": "SUSPICIOUS",
+            "known_gap": {"reason": "r", "tracking": "docs/security/evasion-limits.md#x"},
+        },
+        "plain-case": {"min_verdict": "SUSPICIOUS"},
+    }
+    monkeypatch.setattr(harness, "evasion_expected", lambda: cases)
+    monkeypatch.setattr(harness, "evasion_caught", lambda name, expected: caught)
+
+
+def test_the_harness_reports_a_missed_known_gap_separately_from_a_failure(monkeypatch):
+    _with_a_gap(monkeypatch, caught=False)
 
     statuses = {item.skill: item.status for item in harness.check_evasion()}
 
-    assert statuses["split-download-exec"] == "FAIL"
-    assert statuses["control-plain"] == "PASS"
+    assert statuses == {"gap-case": "KNOWN-GAP", "plain-case": "FAIL"}
+
+
+def test_a_known_gap_that_gets_caught_is_a_failure_not_a_quiet_pass(monkeypatch):
+    _with_a_gap(monkeypatch, caught=True)
+
+    statuses = {item.skill: item.status for item in harness.check_evasion()}
+
+    assert statuses == {"gap-case": "FAIL", "plain-case": "PASS"}

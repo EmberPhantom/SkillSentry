@@ -28,7 +28,7 @@ The cases live in `tests/fixtures/evasion/`, with the expectation for each in `t
 | `fullwidth-forms` | `ｃｕｒｌ ... \| bash` in full-width letters. | Caught: NFKC folds them. |
 | `invisible-chars` | Zero-width characters inside `curl` and `bash`. | Caught: invisible characters are dropped before matching. |
 | `greek-in-script` | A Greek `α` in `bash` in a shell script. | Caught. |
-| `split-download-exec` | One file downloads a script to `/tmp`, another runs it. | **Not caught.** See below. |
+| `split-download-exec`, `-shell`, `-node` | One file downloads a script to `/tmp`, another runs it (Python, shell with a variable, and Node). | Caught by the cross-file check, which names both places. |
 
 "Caught" means the verdict is at least `SUSPICIOUS`, which fails the default gate. These cases are examples, not a measure of coverage: each was written to be found or to evade, by the person who wrote the patterns. Expect real skills to be messier in both directions.
 
@@ -38,13 +38,17 @@ Every line is matched twice: as written, and in a normalised form. The normalise
 
 A word that mixes Latin letters with lookalikes and reads as an ASCII word (`сurl`) is its own `mixed-script` finding: MEDIUM in code, a script, a code block or a command line, and LOW in prose (a LOW finding does not change the verdict). Text written in one alphabet is not flagged, and neither is a word that carries a letter with no Latin lookalike, so Russian, Greek, Chinese, Japanese, Korean and accented text stays `SAFE`. The table is short on purpose; a lookalike that is not in it is not seen. Characters that look alike only in some fonts (Cyrillic `к`, `т`, `в`, `м`) are left out, because they would turn ordinary Russian words into Latin ones.
 
+## Download in one file, run in another
+
+A script that only downloads to a path, and another that only runs that path, are each ordinary, so no single-file pattern matches. A cross-file check collects, for each script, the paths it writes (and whether the write is a network download) and the paths it runs, and reports a path that one file writes and a different file runs. The finding is `download-then-exec` (HIGH) when the write is a download, and `write-then-exec` (HIGH) when it is a local write of something that looks like code (a script suffix, or no suffix). A local write of a config or data file (`.conf`, `.env`, `.json`) that another script sources is not reported, because a generated configuration is a normal pattern and its content is the skill's own text; a download is reported whatever the file is called. It names both places: the run is the finding's file and line, and the write is in `writerFile`, `writerLine` and `writerCode` in the evidence.
+
+What it reads: `curl` and `wget` with their options in any common spelling (`-o FILE`, `-ofile`, `-sSLo FILE` with the file-taking letter last in a bundle, `-O`, `--output FILE`, `--output=FILE`, `-P DIR`, `>`; `wget -o` is the log file, not the download), `urlretrieve`, `open(path, "w")` and `Path.write_*` in Python, `fs.writeFile*` and `createWriteStream` in Node, `-OutFile` in PowerShell, and `tee` and redirections in shell. A path counts as run when it is the command (`/tmp/x.sh`), the script of an interpreter (`bash x`, `python3 x`, `node x`, `source x`), made executable (`chmod +x`, `os.chmod`), or passed to `subprocess`, `os.system`, `runpy`, `exec(open(x))`, `child_process` or `require`. Paths are followed through string constants, f-strings, `+`, `os.path.join`, `Path / x` and shell variables, including a variable set earlier on the same line (`D=/tmp/w; curl ... -o $D/z`). A path that is only read (`cat x`, `jq . x`, `open(x)`) or passed as an argument to another program (`python3 process.py x`) does not count, so a script that downloads data and another that processes it stays `SAFE`.
+
+Limits: a path built any other way (read from the command line, from the environment, or computed at run time) is not seen; the check does not follow a copy or a rename; a file that downloads and runs its own download is left to the single-file patterns (the piped forms); and only script files (by suffix or `#!` line) are read, not commands written in prose.
+
 ## Known gaps
 
-The remaining gap is a case in the test suite marked as a strict expected failure with its reason. If a change makes the checks catch it, the test fails until the `known_gap` entry and this section are updated. Nothing here was hidden by loosening a pattern or an expectation.
-
-### Download in one file, run in another
-
-A script that only downloads to a path, and another that only runs that path, are each ordinary. No pattern connects the two. The sandbox sees the pair run if the entrypoint runs both; a skill whose entrypoint runs only one of them, or that downloads only in some conditions, is not seen. Detection would need a cross-file view of data flow (a path written in one file and executed in another). The credential-flow check does this for credentials only.
+None of the cases above is a known gap today. A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, and content the sandbox does not reach.
 
 ## What this means in practice
 
