@@ -65,7 +65,9 @@ class RateLimiter:
         self._jitter = jitter
         self._lock = threading.Lock()
         self._requests: deque[float] = deque()  # one entry per request, in the last day
-        self._tokens: deque[tuple[float, int]] = deque()  # (time, tokens) in the last minute
+        # [time, tokens] per request in the last minute. The list is the request's ticket, so the
+        # count can be replaced by what the provider reports without searching for it.
+        self._tokens: deque[list[float]] = deque()
         self._blocked_until = 0.0
         self._exhausted_until = 0.0
         self._exhausted_reason = ""
@@ -89,8 +91,11 @@ class RateLimiter:
             self._tokens.popleft()
 
     # -- before a call ------------------------------------------------------------------------
-    def acquire(self, tokens: int = 0) -> None:
+    def acquire(self, tokens: int = 0) -> list[float]:
         """Wait until a call of about ``tokens`` fits the budget, then count it.
+
+        Returns the call's ticket: pass it to :meth:`record` with the provider's own count, or to
+        :meth:`release` when the request failed and cost nothing.
 
         Raises :class:`ModelQuotaExhausted` when the daily budget is used up, and
         :class:`ModelThrottled` when the wait would run past the scan's time limit.
@@ -121,18 +126,19 @@ class RateLimiter:
                     wait = max(wait, self._token_wait(now, min(tokens, self.tpm)))
                 if wait <= 0:
                     self._requests.append(now)
-                    self._tokens.append((now, tokens))
+                    ticket = [now, float(tokens)]
+                    self._tokens.append(ticket)
                     self.calls += 1
-                    return
+                    return ticket
             self._wait(wait + self._jitter() * min(0.25 * wait, 1.0))
 
     def _token_wait(self, now: float, tokens: int) -> float:
         assert self.tpm is not None
-        in_window = sum(count for _, count in self._tokens)
+        in_window = int(sum(count for _, count in self._tokens))
         if in_window + tokens <= self.tpm:
             return 0.0
         needed = in_window + tokens - self.tpm
-        freed = 0
+        freed = 0.0
         for stamp, count in self._tokens:
             freed += count
             if freed >= needed:
@@ -140,17 +146,22 @@ class RateLimiter:
         return MINUTE
 
     # -- after a call ----------------------------------------------------------------------------
-    def record(self, estimated: int, actual: int | None) -> None:
-        """Replace the estimate for the last call with the provider's own token count."""
+    def record(self, ticket: list[float], actual: int | None) -> None:
+        """Replace the estimate a call was admitted with by the provider's own token count, so the
+        window holds what was really spent and a call that cost far less than its estimate does
+        not keep others waiting."""
 
-        if actual is None or actual == estimated:
+        if actual is None:
             return
         with self._lock:
-            for index in range(len(self._tokens) - 1, -1, -1):
-                stamp, count = self._tokens[index]
-                if count == estimated:
-                    self._tokens[index] = (stamp, actual)
-                    return
+            ticket[1] = float(max(0, actual))
+
+    def release(self, ticket: list[float]) -> None:
+        """A request that failed before the provider counted it (a 429, a timeout, a refusal)
+        gives its tokens back. Its slot in the request count stays: the provider saw it."""
+
+        with self._lock:
+            ticket[1] = 0.0
 
     def penalize(self, seconds: float) -> None:
         """A 429 with a wait: hold every caller until it has passed."""

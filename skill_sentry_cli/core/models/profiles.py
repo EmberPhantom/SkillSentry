@@ -159,6 +159,23 @@ def classify(model_id: str) -> str:
     return DEFAULT_PROFILE
 
 
+# Models whose real window is known to be smaller than their class assumes. A request sized for the
+# class would not fit, so the window is stated. An id matches when it contains the key.
+_KNOWN_WINDOWS: tuple[tuple[str, dict[str, int]], ...] = (
+    ("allam", {"context_tokens": 4096, "max_output_tokens": 1024}),
+)
+
+
+def known_limits(model_id: str) -> dict[str, int]:
+    """Window and reply limits that are known for this model id, or an empty dict."""
+
+    lowered = model_id.lower()
+    for key, limits in _KNOWN_WINDOWS:
+        if key in lowered:
+            return dict(limits)
+    return {}
+
+
 def resolve_profile(
     model_id: str, *, name: str = "auto", overrides: dict[str, Any] | None = None
 ) -> ModelProfile:
@@ -170,7 +187,8 @@ def resolve_profile(
     if chosen not in PROFILES:
         raise ValueError(f"unknown model profile {name!r}; use one of {list(CLASSES)} or 'auto'")
     profile = PROFILES[chosen]
-    return profile.with_overrides(overrides or {})
+    # What is known about this model beats its class; an explicit override beats both.
+    return profile.with_overrides({**known_limits(model_id), **(overrides or {})})
 
 
 __all__ = [
@@ -179,6 +197,7 @@ __all__ = [
     "PROFILES",
     "ModelProfile",
     "classify",
+    "known_limits",
     "parameter_billions",
     "resolve_profile",
 ]

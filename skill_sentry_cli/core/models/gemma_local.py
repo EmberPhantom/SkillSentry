@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from skill_sentry_cli.core.contracts import ImageAnalysis
-from skill_sentry_cli.core.models._json import parse_json_object, validate_json
+from skill_sentry_cli.core.models._json import parse_json_object, retry_prompt, validate_json
 from skill_sentry_cli.core.models.base import (
     ModelError,
     ModelTimeout,
@@ -107,9 +107,11 @@ class GemmaLocal:
         prompt = _schema_prompt(user, schema)
         attempts = max(0, retries) + 1
         last_error: Exception | None = None
+        current, last_text = prompt, None
         for _ in range(attempts):
+            text = None
             try:
-                text = self._generate(prompt=prompt, system=system, schema=schema)
+                text = self._generate(prompt=current, system=system, schema=schema)
                 parsed = parse_json_object(text)
                 validate_json(parsed, schema)
                 return parsed
@@ -120,6 +122,13 @@ class GemmaLocal:
                 raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
+                if text is not None:
+                    # A reply came and was refused. Say why on the retry; stop if it comes back
+                    # byte for byte the same.
+                    if text == last_text:
+                        break
+                    last_text = text
+                    current = retry_prompt(prompt, exc)
         # Carry the last cause (for example an HTTP status) into the message, so
         # a failing server is not reported as malformed output.
         # A failure to reach the model, or an HTTP, truncated or empty reply, keeps its

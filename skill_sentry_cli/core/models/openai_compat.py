@@ -33,7 +33,7 @@ from typing import Any
 import httpx
 
 from skill_sentry_cli.core.contracts import ImageAnalysis
-from skill_sentry_cli.core.models._json import parse_json_object, validate_json
+from skill_sentry_cli.core.models._json import parse_json_object, retry_prompt, validate_json
 from skill_sentry_cli.core.models.base import (
     ModelAuthError,
     ModelError,
@@ -169,6 +169,13 @@ class OpenAICompat:
         # one; a client built without one has none to enforce.
         self._limiter = limiter or RateLimiter(label=provider.label, sleep=sleep)
         self._max_429_retries = max_rate_limit_retries
+        # What a call costs, learned from the provider's own usage figures. Until the first reply,
+        # the character estimate stands, and a reply is assumed to be short: a schema-shaped answer
+        # is a few hundred tokens, a reasoning model's much more. The reply limit is a cap, not
+        # what is reserved.
+        self._in_ratio = 1.0
+        reasoning = profile is not None and profile.name == "reasoning"
+        self._out_tokens = float(min(max_tokens, 1200 if reasoning else 200))
         self.last_usage: dict[str, int] = {}
         self.last_health_error: str | None = None
 
@@ -222,9 +229,11 @@ class OpenAICompat:
         self._require_key()
         prompt = _schema_prompt(user, schema)
         last_error: Exception | None = None
+        current, last_text = prompt, None
         for _ in range(max(0, retries) + 1):
+            text = None
             try:
-                text = self._complete_with_ladder(system, prompt, schema)
+                text = self._complete_with_ladder(system, current, schema)
                 parsed = parse_json_object(text)
                 validate_json(parsed, schema)
                 return parsed
@@ -233,6 +242,13 @@ class OpenAICompat:
                 raise
             except (ModelError, ValueError) as exc:
                 last_error = exc
+                if text is not None:
+                    # A reply came and was refused. Say why on the retry, and stop if the same
+                    # reply comes back: asking again cannot help and only spends quota.
+                    if text == last_text:
+                        break
+                    last_text = text
+                    current = retry_prompt(prompt, exc)
         if isinstance(last_error, ModelUnavailable):
             raise last_error
         raise ModelUnavailable(
@@ -366,31 +382,50 @@ class OpenAICompat:
         if response_format is not None:
             body["response_format"] = response_format
         # What this call will cost against a tokens-a-minute limit, before the provider counts it.
-        estimated = estimate_tokens(json.dumps(messages, ensure_ascii=False)) + min(
-            self.max_tokens, 400
-        )
-        response = self._post(
+        raw_in = estimate_tokens(json.dumps(messages, ensure_ascii=False))
+        estimated = int(raw_in * self._in_ratio) + int(self._out_tokens)
+        response, ticket = self._post(
             "/chat/completions", body, has_format=response_format is not None, estimated=estimated
         )
         try:
             data = response.json()
         except ValueError as exc:
+            self._limiter.release(ticket)
             raise ModelUnavailable(f"{self.label} sent a reply that is not JSON") from exc
-        text = self._read_choice(data)
-        used = self.last_usage.get("total_tokens")
-        if used is None:
-            used = estimated - min(self.max_tokens, 400) + estimate_tokens(text)
-        self._limiter.record(estimated, used)
+        try:
+            text = self._read_choice(data)
+        except Exception:
+            self._limiter.record(ticket, self._reported_total())
+            raise
+        usage = self.last_usage
+        tokens_in = usage.get("prompt_tokens")
+        tokens_out = usage.get("completion_tokens")
+        if tokens_in is None or tokens_out is None:
+            # No usage figures: fall back to the character estimate for what was spent.
+            tokens_in = int(raw_in * self._in_ratio)
+            tokens_out = estimate_tokens(text)
+        else:
+            # Learn how this provider's token count relates to the character estimate, and what a
+            # reply really costs, so the next reservation is close to the real cost.
+            self._in_ratio = _blend(self._in_ratio, tokens_in / max(1, raw_in), 0.3, 3.0)
+            self._out_tokens = _blend(
+                self._out_tokens, float(tokens_out), 8.0, float(self.max_tokens)
+            )
+        total = usage.get("total_tokens")
+        self._limiter.record(ticket, total if total is not None else tokens_in + tokens_out)
         return text
+
+    def _reported_total(self) -> int | None:
+        return self.last_usage.get("total_tokens")
 
     def _post(
         self, path: str, body: dict[str, Any], *, has_format: bool, estimated: int = 0
-    ) -> httpx.Response:
+    ) -> tuple[httpx.Response, list[float]]:
         retries = 0
         while True:
             # Pace to the provider's limits. Raises when the daily quota is used up, or when
             # waiting would run past the scan's time limit; either way nothing is sent.
-            self._limiter.acquire(estimated)
+            ticket = self._limiter.acquire(estimated)
             try:
                 response = self._client.post(
                     f"{self.base_url}{path}",
@@ -399,14 +434,18 @@ class OpenAICompat:
                     timeout=self.timeout_s,
                 )
             except httpx.TimeoutException as exc:
+                self._limiter.release(ticket)
                 raise ModelTimeout(
                     f"{self.label} did not answer within {self.timeout_s:g} s for {self.model}"
                 ) from exc
             except (httpx.HTTPError, OSError) as exc:
+                self._limiter.release(ticket)
                 raise ModelUnavailable(f"cannot reach {self.label} at {self.base_url}") from exc
             status = response.status_code
             if status == 200:
-                return response
+                return response, ticket
+            # Anything but a 200 cost no tokens: give the reservation back.
+            self._limiter.release(ticket)
             detail = self._scrub(_error_message(response))
             if status == 429:
                 delay = _retry_after(response)
@@ -489,6 +528,12 @@ class OpenAICompat:
                 + (" (only reasoning text: raise max_tokens)" if reasoned else "")
             )
         return text
+
+
+def _blend(old: float, new: float, low: float, high: float) -> float:
+    """A moving average that leans on the newest figure, kept within sane bounds."""
+
+    return min(high, max(low, 0.5 * old + 0.5 * new))
 
 
 def _reset_seconds(response: httpx.Response) -> float | None:

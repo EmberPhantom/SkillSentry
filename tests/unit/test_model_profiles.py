@@ -201,3 +201,49 @@ def test_the_existing_ollama_settings_are_unchanged():
     settings = ModelSettings()
 
     assert (settings.ollama_num_ctx, settings.ollama_num_predict) == (8192, 2048)
+
+
+# Ids a hosted provider lists (Groq, 2026-11): the class each gets, and the limits it is given.
+@pytest.mark.parametrize(
+    ("model_id", "name"),
+    [
+        ("allam-2-7b", "small"),
+        ("gpt-oss-20b", "reasoning"),
+        ("gpt-oss-120b", "reasoning"),
+        ("openai/gpt-oss-20b", "reasoning"),
+        ("qwen3.8-27b", "reasoning"),
+        ("qwen/qwen3-32b", "reasoning"),
+        ("llama-3.1-8b-instant", "small"),
+        ("llama-3.3-70b-versatile", "large"),
+    ],
+)
+def test_the_ids_a_hosted_provider_lists_get_sensible_classes(model_id, name):
+    assert classify(model_id) == name
+
+
+def test_a_model_with_a_known_small_window_is_given_it():
+    profile = resolve_profile("allam-2-7b")
+
+    assert profile.name == "small"
+    assert profile.context_tokens == 4096 and profile.max_output_tokens == 1024
+    # An explicit setting still wins over what is known.
+    assert resolve_profile("allam-2-7b", overrides={"context_tokens": 8192}).context_tokens == 8192
+    # Other models of the class are unchanged.
+    assert resolve_profile("llama-3.1-8b-instant").context_tokens == 8192
+
+
+def test_a_request_for_the_4k_window_model_fits_its_window():
+    from skill_sentry_cli.core.semantic.plan import CHARS_PER_TOKEN, plan_from_profile
+
+    plan = plan_from_profile(resolve_profile("allam-2-7b"))
+
+    assert plan.unusable_reason is None
+    # chunk + the fixed part of the prompt + the reply stay inside 4,096 tokens
+    assert plan.chunk_chars / CHARS_PER_TOKEN + 1024 < 4096
+
+
+def test_the_reasoning_profile_keeps_the_reply_room_and_does_not_retry():
+    profile = resolve_profile("gpt-oss-20b")
+
+    assert profile.name == "reasoning" and profile.max_output_tokens >= 4096
+    assert profile.retries == 0 and not profile.few_shot
