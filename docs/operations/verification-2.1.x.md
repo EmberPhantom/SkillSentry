@@ -43,7 +43,7 @@ The runner builds the 14 skills in a temporary folder (the 50 MB file is random 
 | nonutf8 | INVALID SKILL | 70 | 0.30 | 1.00 | 5 | 4.9 s | 4.4 s | - | package-encoding |
 | symlink | INVALID SKILL | 70 | 0.30 | 1.00 | 5 | 20.6 s | 20.0 s | - | package-symlink |
 
-Total wall time for the 14 scans: about 2.5 minutes. Every run exited with the documented code. The per-stage seconds are from `--timings`; stages under 50 ms are left out. The raw rows are `verification-2.1.x/corpus-gemma3-1b.json`.
+Total wall time for the 14 scans: 171 s (about 2.8 minutes). Every run exited with the documented code. The per-stage seconds are from `--timings`; stages under 50 ms are left out. The raw rows are `verification-2.1.x/corpus-gemma3-1b.json`.
 
 What this run showed:
 
