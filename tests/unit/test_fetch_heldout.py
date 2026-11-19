@@ -200,7 +200,7 @@ def test_a_cache_inside_the_repo_is_refused():
         "http://example.com/a.git",
         "git://example.com/a.git",
         "ssh://git@example.com/a.git",
-        "file:///tmp/x",
+        "file://localhost/tmp/x",
         "https://user:pw@example.com/a.git",
         "/tmp/local",
     ],
