@@ -63,6 +63,26 @@ or the skill text), so they cover the OpenAI-compatible, local and Gemini client
 - **Resumable.** Rows are appended as they are produced. Run the same command again and rows already in
   `rows.jsonl` are not repeated, so a quota stop, a crash or Ctrl-C does not lose results.
 
+## The held-out set
+
+The set above was written and labelled by us and the checks were tuned on it, so it flatters the tool. `--manifest` scores a second set of real skills that we did not write, listed in `tests/heldout/manifest.json` (where they come from is in `heldout-sources.md`):
+
+```
+python scripts/fetch_heldout.py fetch                       # once; downloads into a cache outside the repo
+python scripts/benchmark_models.py --manifest --model groq=openai/gpt-oss-20b
+```
+
+Rules this mode keeps:
+
+- **Skills are read only from the fetch cache**, after their hashes are checked again. A cache inside the repository, a missing skill or a hash mismatch stops the run (exit 2).
+- **The sandbox is never used** (half the set is known-bad), and `--sets` does not apply.
+- **The headline recall counts payload-confirmed malicious skills only** (`label_quality: payload`). Skills that only a study labelled malicious (`study_only`) are a separate group, "study-labelled, unverified": the report shows what the tool said about each and never counts them as false negatives, because several are not malicious by a plain reading. Ambiguous skills are listed apart and are in no rate.
+- **Intervals are Wilson 95%**, on recall and on the false-alarm rate. Results are split by benign category, source repository, attack class, provenance group (wild, injected, mixed_unresolved, fixture) and source dataset. Every false positive, false negative and unscanned skill is listed by id. Strict numbers count UNSCANNED as a flag.
+- **Output holds ids and counts only.** No line of a skill and no quote from a model is written, and the run fails if any line of a scanned skill turns up in the output. Error messages are reduced to their code.
+- **A guard records which checks produced the numbers.** Each run appends the git tree hashes of the checks and profiles (`skill_sentry_cli/core`, `rules`, `data`), any uncommitted change to them and the manifest hash to `runs.jsonl`, and the report says whether they are identical to the previous run. A skill that leads to a fix moves to the development set; the guard is how a later run shows nothing was tuned on this set in between.
+
+Output goes to `docs/operations/model-matrix/<date>-heldout/`. Resuming works as before.
+
 ## Limits
 
 - The sandbox is off by default. A skill that only the sandbox can catch (a runtime behaviour) counts as a false

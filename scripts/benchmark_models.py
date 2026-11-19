@@ -35,6 +35,7 @@ import contextlib
 import datetime as dt
 import hashlib
 import json
+import math
 import os
 import statistics
 import sys
@@ -71,6 +72,11 @@ class Case:
     corpus_name: str | None = None
     expected_status: str | None = None
     note: str = ""
+    # Held-out set only (see load_heldout_cases); empty for the development set.
+    source: str = ""
+    attack_class: str = ""
+    provenance_group: str = ""
+    label_quality: str = ""
 
 
 def load_cases(labels: Path = LABELS, *, repo: Path = REPO) -> list[Case]:
@@ -347,7 +353,13 @@ def skill_text_of(folder: Path) -> str:
 
 
 def scan_row(
-    engine: Any, case: Case, folder: Path, meter: Meter | None, *, sandbox: bool
+    engine: Any,
+    case: Case,
+    folder: Path,
+    meter: Meter | None,
+    *,
+    sandbox: bool,
+    redact: bool = False,
 ) -> dict[str, Any]:
     from skill_sentry_cli.core.contracts import ScanOptions, Stage
     from skill_sentry_cli.core.engine import ScanError
@@ -360,8 +372,10 @@ def scan_row(
     try:
         outcome = engine.scan(folder, options=ScanOptions(no_cache=True, sandbox=sandbox))
     except ScanError as exc:
+        # For the held-out set an error message could quote the skill, so only its code is kept.
         row.update(
-            status="INVALID SKILL" if exc.code == "invalid_skill" else "ERROR", error=str(exc)[:200]
+            status="INVALID SKILL" if exc.code == "invalid_skill" else "ERROR",
+            error=str(exc.code) if redact else str(exc)[:200],
         )
         row["wall_s"] = round(time.monotonic() - started, 2)
         return row
@@ -430,8 +444,8 @@ def confusion(cases: dict[str, Case], status_of: dict[str, str]) -> dict[str, An
     by_status: dict[str, Counter[str]] = defaultdict(Counter)
     for skill, status in status_of.items():
         case = cases.get(skill)
-        if case is None or case.label == "invalid":
-            continue
+        if case is None or case.label not in {"benign", "malicious"}:
+            continue  # invalid and ambiguous skills are not part of precision and recall
         by_status[case.label][status] += 1
         if status in {"UNSCANNED", "ERROR", "INVALID SKILL"}:
             cell[f"unscanned_{case.label}"] += 1
@@ -758,20 +772,395 @@ def markdown(
     return "\n".join(lines)
 
 
+# -- the held-out set ----------------------------------------------------------------------------------
+#
+# Real skills we did not write, listed in tests/heldout/manifest.json and fetched into a cache
+# outside the repository by scripts/fetch_heldout.py. Rules this block enforces:
+#   * skills are read only from that cache, after their hashes are checked again;
+#   * the sandbox is never used (half of the set is known-bad), and an in-repo cache is refused;
+#   * the headline recall counts payload-confirmed malicious skills only. Skills that only a study
+#     labelled malicious are a separate group, "study-labelled, unverified", and are never counted
+#     as false negatives;
+#   * nothing taken from a skill is written to the output: names and ids only, no quote of the
+#     skill and no quote from a model, and a check at the end fails the run if any slipped in;
+#   * every run records which version of the checks and profiles produced it, so a later run can
+#     show nothing was tuned on the set in between.
+DEFAULT_HELDOUT_MANIFEST = REPO / "tests" / "heldout" / "manifest.json"
+CHECK_PATHS = ("skill_sentry_cli/core", "skill_sentry_cli/rules", "skill_sentry_cli/data")
+UNSCANNED_STATUSES = {"UNSCANNED", "ERROR", "INVALID SKILL"}
+GROUPS = ("benign", "payload", "study_only", "ambiguous")
+GROUP_TITLES = {
+    "benign": "Benign (reputable repositories)",
+    "payload": "Malicious, payload-confirmed (the headline group)",
+    "study_only": "Malicious, study-labelled, unverified (reported apart, never a false negative)",
+    "ambiguous": "Ambiguous (left out of precision and recall)",
+}
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float] | None:
+    """Wilson score interval for k successes in n trials (95% by default)."""
+
+    if n <= 0:
+        return None
+    p = k / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return round(max(0.0, centre - half), 4), round(min(1.0, centre + half), 4)
+
+
+def _rate(k: int, n: int) -> dict[str, Any]:
+    return {"k": k, "n": n, "rate": _ratio(k, n), "ci95": wilson(k, n)}
+
+
+def group_of(case: Case) -> str:
+    if case.label == "benign":
+        return "benign"
+    if case.label == "malicious":
+        return "payload" if case.label_quality == "payload" else "study_only"
+    return "ambiguous"
+
+
+def load_heldout_cases(
+    manifest: Path = DEFAULT_HELDOUT_MANIFEST,
+    cache: Path | None = None,
+    which: str = "entries",
+    *,
+    verify: bool = True,
+) -> list[Case]:
+    """The held-out entries that are in the fetch cache, hash-checked. Nothing is fetched here."""
+
+    import fetch_heldout as fh
+
+    cache = fh.check_cache_location(cache or fh.DEFAULT_CACHE)
+    data = fh.load_manifest(manifest)
+    raw = {r["id"]: r for g in ("entries", "reserve") for r in data.get(g, [])}
+    cases: list[Case] = []
+    for entry in fh.iter_entries(data, which):
+        r = raw[entry.id]
+        quality = r.get("label_quality", "")
+        if entry.label == "malicious" and quality not in {"payload", "study_only"}:
+            raise ValueError(f"{entry.id}: malicious entries need label_quality payload|study_only")
+        folder = fh.skill_dir(cache, entry)
+        if not folder.is_dir():
+            raise FileNotFoundError(
+                f"{entry.id} is not in the cache; run: python scripts/fetch_heldout.py fetch"
+            )
+        if verify:
+            fh.verify_entry(entry, cache)
+        source = r["label_sources"][0].split()[0] if entry.label != "benign" else entry.source
+        cases.append(
+            Case(
+                id=entry.id,
+                set="heldout",
+                label=entry.label,
+                category=r.get("category", ""),
+                decided_by="model",
+                path=folder,
+                source=source,
+                attack_class=r.get("attack_class", ""),
+                provenance_group=r.get("provenance_group", ""),
+                label_quality=quality,
+            )
+        )
+    return cases
+
+
+def _git(*args: str) -> str:
+    import subprocess
+
+    out = subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, check=False)
+    return out.stdout.strip()
+
+
+def tuning_guard(manifest: Path) -> dict[str, Any]:
+    """Which version of the checks and profiles made a run, to show nothing was tuned between runs."""
+
+    trees = {p: _git("rev-parse", f"HEAD:{p}") for p in CHECK_PATHS}
+    diff = _git("diff", "HEAD", "--", *CHECK_PATHS)
+    return {
+        "git_head": _git("rev-parse", "HEAD"),
+        "trees": trees,
+        "uncommitted_changes_in_checks": bool(diff),
+        "uncommitted_diff_sha256": hashlib.sha256(diff.encode()).hexdigest() if diff else "",
+        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+    }
+
+
+def guard_note(out_dir: Path, guard: dict[str, Any], date: str) -> list[str]:
+    """Append this run to runs.jsonl and say whether the checks changed since the last one."""
+
+    runs_file = out_dir / "runs.jsonl"
+    previous = read_rows(runs_file)
+    with contextlib.suppress(OSError):
+        append_row(runs_file, {"date": date, **guard})
+    lines = [
+        f"- Checks and profiles at git `{guard['git_head'][:12]}`; manifest sha256 `{guard['manifest_sha256'][:12]}`."
+    ]
+    if guard["uncommitted_changes_in_checks"]:
+        lines.append(
+            "- **Uncommitted changes in the checks or profiles were present for this run.**"
+        )
+    if previous:
+        last = previous[-1]
+        changed = [p for p, sha in guard["trees"].items() if last["trees"].get(p) != sha]
+        if changed or last.get("uncommitted_diff_sha256") != guard["uncommitted_diff_sha256"]:
+            lines.append(
+                f"- Since the run on {last['date']} (git `{last['git_head'][:12]}`) the checks changed in: "
+                f"{', '.join(changed) or 'uncommitted edits'}. Results are not comparable as a hold-out."
+            )
+        else:
+            lines.append(
+                f"- The checks and profiles are identical to the run on {last['date']}: nothing was tuned in between."
+            )
+    return lines
+
+
+def assert_no_skill_content(out_dir: Path, folders: dict[str, Path]) -> None:
+    """Fail if any line of a scanned skill appears in what was written."""
+
+    written = "\n".join(
+        f.read_text(encoding="utf-8", errors="replace")
+        for f in sorted(out_dir.glob("*"))
+        if f.is_file()
+    )
+    for case_id, folder in folders.items():
+        for file in sorted(folder.rglob("*")):
+            if not file.is_file() or file.stat().st_size > 1_000_000:
+                continue
+            with contextlib.suppress(OSError):
+                for line in file.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if len(line) >= 30 and line in written:
+                        raise RuntimeError(
+                            f"output contains a line from skill {case_id}; refusing to keep it"
+                        )
+
+
+def _status_classes(status: str) -> str:
+    if status in UNSCANNED_STATUSES:
+        return "unscanned"
+    return "flagged" if status in POSITIVE else "clean"
+
+
+def _split(
+    cases: list[Case], statuses: dict[str, str], key: Any, *, want: str
+) -> dict[str, dict[str, Any]]:
+    """Flag rate per key. ``want`` is what counts as the numerator: always 'flagged'."""
+
+    buckets: dict[str, list[str]] = defaultdict(list)
+    for c in cases:
+        if c.id in statuses:
+            buckets[key(c) or "-"].append(_status_classes(statuses[c.id]))
+    out = {}
+    for k, classes in sorted(buckets.items()):
+        scanned = [x for x in classes if x != "unscanned"]
+        out[k] = {
+            **_rate(sum(1 for x in scanned if x == want), len(scanned)),
+            "unscanned": len(classes) - len(scanned),
+        }
+    return out
+
+
+def summarize_heldout(cases: list[Case], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    by_group: dict[str, list[Case]] = {g: [] for g in GROUPS}
+    for c in cases:
+        by_group[group_of(c)].append(c)
+    targets = list(dict.fromkeys(r["target"] for r in rows))
+    out: dict[str, Any] = {"groups": {g: len(v) for g, v in by_group.items()}, "targets": {}}
+    for target in targets:
+        statuses = {
+            r["skill"]: r["status"] for r in rows if r["target"] == target and r["repeat"] == 1
+        }
+        t: dict[str, Any] = {"scanned": len(statuses)}
+        # Benign: the false-alarm rate.
+        ben = by_group["benign"]
+        scanned = [c for c in ben if c.id in statuses and statuses[c.id] not in UNSCANNED_STATUSES]
+        fps = sorted(c.id for c in scanned if statuses[c.id] in POSITIVE)
+        unscanned_b = sorted(
+            c.id for c in ben if c.id in statuses and statuses[c.id] in UNSCANNED_STATUSES
+        )
+        t["benign"] = {
+            "false_alarm": _rate(len(fps), len(scanned)),
+            "strict_false_alarm": _rate(
+                len(fps) + len(unscanned_b), len(scanned) + len(unscanned_b)
+            ),
+            "false_positives": fps,
+            "unscanned": unscanned_b,
+            "by_category": _split(ben, statuses, lambda c: c.category, want="flagged"),
+            "by_source": _split(ben, statuses, lambda c: c.source, want="flagged"),
+        }
+        # Payload-confirmed malicious: the headline recall.
+        pay = by_group["payload"]
+        scanned = [c for c in pay if c.id in statuses and statuses[c.id] not in UNSCANNED_STATUSES]
+        tps = [c for c in scanned if statuses[c.id] in POSITIVE]
+        fns = sorted(c.id for c in scanned if statuses[c.id] not in POSITIVE)
+        unscanned_m = sorted(
+            c.id for c in pay if c.id in statuses and statuses[c.id] in UNSCANNED_STATUSES
+        )
+        t["payload"] = {
+            "recall": _rate(len(tps), len(scanned)),
+            "strict_recall": _rate(len(tps) + len(unscanned_m), len(scanned) + len(unscanned_m)),
+            "false_negatives": fns,
+            "unscanned": unscanned_m,
+            "by_attack_class": _split(pay, statuses, lambda c: c.attack_class, want="flagged"),
+            "by_provenance_group": _split(
+                pay, statuses, lambda c: c.provenance_group, want="flagged"
+            ),
+            "by_source": _split(pay, statuses, lambda c: c.source, want="flagged"),
+        }
+        # Study-labelled and ambiguous: what the tool said, with no right or wrong.
+        for name in ("study_only", "ambiguous"):
+            members = by_group[name]
+            said = {c.id: statuses[c.id] for c in members if c.id in statuses}
+            t[name] = {
+                "n": len(said),
+                "statuses": dict(Counter(said.values())),
+                "flagged": sum(1 for s in said.values() if s in POSITIVE),
+                "per_skill": {k: said[k] for k in sorted(said)},
+                "by_attack_class": _split(
+                    members, statuses, lambda c: c.attack_class, want="flagged"
+                ),
+                "by_provenance_group": _split(
+                    members, statuses, lambda c: c.provenance_group, want="flagged"
+                ),
+            }
+        out["targets"][target] = t
+    return out
+
+
+def _ci(r: dict[str, Any]) -> str:
+    if r["n"] == 0:
+        return "-"
+    lo, hi = r["ci95"]
+    return f"{r['k']}/{r['n']} = {r['rate']:.3f} (95% {lo:.3f} to {hi:.3f})"
+
+
+def _split_table(title: str, name: str, splits: dict[str, dict[str, Any]], label: str) -> list[str]:
+    lines = [f"**{title}** ({name})", "", f"| {label} | Flagged | Unscanned |", "|:---|:--|--:|"]
+    for k, v in splits.items():
+        lines.append(f"| {k} | {_ci(v)} | {v['unscanned']} |")
+    return [*lines, ""]
+
+
+def heldout_markdown(
+    summary: dict[str, Any], *, date: str, skipped: list[Target], guard_lines: list[str]
+) -> str:
+    g = summary["groups"]
+    lines = [
+        f"# Held-out set, {date}",
+        "",
+        "Generated by `scripts/benchmark_models.py --manifest`. Real skills we did not write, read from a "
+        "cache outside the repository. Static checks and the model only: the sandbox is never used on this set. "
+        "Nothing from a skill is written here, only ids and counts.",
+        "",
+        "## What was run",
+        "",
+        *guard_lines,
+        "",
+        "## Groups",
+        "",
+        "| Group | Skills |",
+        "|:---|--:|",
+        *[f"| {GROUP_TITLES[k]} | {g[k]} |" for k in GROUPS],
+        "",
+        "Recall is computed on the payload-confirmed group only. A study-labelled skill is not counted as a "
+        "false negative when missed: several of them are not malicious by a plain reading. Intervals are "
+        "Wilson 95%. Strict counts UNSCANNED as a flag.",
+        "",
+        "## Headline",
+        "",
+        "| Target | Recall, payload-confirmed | Strict recall | False-alarm rate, benign | Strict false-alarm rate |",
+        "|:---|:--|:--|:--|:--|",
+    ]
+    for name, t in summary["targets"].items():
+        lines.append(
+            f"| {name} | {_ci(t['payload']['recall'])} | {_ci(t['payload']['strict_recall'])} "
+            f"| {_ci(t['benign']['false_alarm'])} | {_ci(t['benign']['strict_false_alarm'])} |"
+        )
+    lines += ["", "## Study-labelled, unverified", ""]
+    lines += [
+        "What each target said about the skills a study labelled malicious but that have no payload we can "
+        "point at. These are not scored.",
+        "",
+        "| Target | Skills | Flagged | Statuses |",
+        "|:---|--:|--:|:--|",
+    ]
+    for name, t in summary["targets"].items():
+        s = t["study_only"]
+        lines.append(
+            f"| {name} | {s['n']} | {s['flagged']} | {json.dumps(s['statuses'], sort_keys=True)} |"
+        )
+    lines.append("")
+    for name, t in summary["targets"].items():
+        s = t["study_only"]["per_skill"]
+        if s:
+            lines.append(f"- {name}: " + ", ".join(f"`{k}` {v}" for k, v in s.items()))
+        a = t["ambiguous"]["per_skill"]
+        if a:
+            lines.append(f"- {name}, ambiguous: " + ", ".join(f"`{k}` {v}" for k, v in a.items()))
+    lines += ["", "## Every false positive and false negative", ""]
+    for name, t in summary["targets"].items():
+        b, p = t["benign"], t["payload"]
+        lines += [
+            f"**{name}**",
+            "",
+            f"- False positives ({len(b['false_positives'])}): {', '.join(b['false_positives']) or 'none'}",
+            f"- False negatives, payload-confirmed ({len(p['false_negatives'])}): {', '.join(p['false_negatives']) or 'none'}",
+            f"- Unscanned, benign ({len(b['unscanned'])}): {', '.join(b['unscanned']) or 'none'}",
+            f"- Unscanned, payload-confirmed ({len(p['unscanned'])}): {', '.join(p['unscanned']) or 'none'}",
+            "",
+        ]
+    lines += ["## Splits", ""]
+    for name, t in summary["targets"].items():
+        lines += _split_table(
+            "False alarms by benign category", name, t["benign"]["by_category"], "Category"
+        )
+        lines += _split_table(
+            "False alarms by source repository", name, t["benign"]["by_source"], "Source"
+        )
+        lines += _split_table(
+            "Recall by attack class", name, t["payload"]["by_attack_class"], "Attack class"
+        )
+        lines += _split_table(
+            "Recall by provenance group", name, t["payload"]["by_provenance_group"], "Provenance"
+        )
+        lines += _split_table(
+            "Recall by source dataset", name, t["payload"]["by_source"], "Dataset"
+        )
+    if skipped:
+        lines += ["## Not run", "", *[f"- `{t.name}`: {t.skipped}" for t in skipped], ""]
+    return "\n".join(lines)
+
+
 # -- main ------------------------------------------------------------------------------------------
 def run(args: argparse.Namespace) -> int:
     from skill_sentry_cli.core.cache import SQLiteStore
     from skill_sentry_cli.core.config import SkillsEntryConfig
     from skill_sentry_cli.core.engine import ScanEngine
 
-    cases = load_cases()
+    heldout = args.manifest is not None
+    if heldout:
+        if args.sandbox:
+            print("error: the sandbox is never used on the held-out set", file=sys.stderr)
+            return 2
+        if args.sets:
+            print("error: --sets does not apply to the held-out set", file=sys.stderr)
+            return 2
+        try:
+            cases = load_heldout_cases(args.manifest, args.cache, args.heldout_set)
+        except Exception as exc:  # not fetched, hash mismatch, in-repo cache, bad manifest
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+    else:
+        cases = load_cases()
     if args.only:
         cases = [c for c in cases if c.id in set(args.only)]
     if args.sets:
         cases = [c for c in cases if c.set in set(args.sets)]
     if args.limit_skills:
         cases = cases[: args.limit_skills]
-    out_dir = args.out / args.date
+    out_dir = args.out / (f"{args.date}-heldout" if heldout else args.date)
     out_dir.mkdir(parents=True, exist_ok=True)
     rows_file = out_dir / "rows.jsonl"
     done = done_keys(rows_file)
@@ -808,7 +1197,9 @@ def run(args: argparse.Namespace) -> int:
         for case in cases:
             if ("baseline", case.id, 1) in done:
                 continue
-            row = scan_row(baseline, case, folders[case.id], None, sandbox=args.sandbox)
+            row = scan_row(
+                baseline, case, folders[case.id], None, sandbox=args.sandbox, redact=heldout
+            )
             append_row(rows_file, {"target": "baseline", "repeat": 1, **row})
         print(f"baseline: {len(cases)} skills", flush=True)
 
@@ -833,7 +1224,14 @@ def run(args: argparse.Namespace) -> int:
                 for case in cases:
                     if (target.name, case.id, repeat) in done or stop:
                         continue
-                    row = scan_row(engine, case, folders[case.id], meter, sandbox=args.sandbox)
+                    row = scan_row(
+                        engine,
+                        case,
+                        folders[case.id],
+                        meter,
+                        sandbox=args.sandbox,
+                        redact=heldout,
+                    )
                     limit = row.get("provider_limit") or {}
                     if limit:
                         # The provider's limits cut this scan short, so it is not a result for
@@ -855,6 +1253,27 @@ def run(args: argparse.Namespace) -> int:
             store.close()
 
     rows = read_rows(rows_file)
+    if heldout:
+        ids = {c.id for c in cases}
+        held = summarize_heldout(cases, [r for r in rows if r["skill"] in ids])
+        guard = tuning_guard(args.manifest)
+        held["date"], held["repeats"], held["guard"] = args.date, args.repeat, guard
+        held["not_run"] = {t.name: t.skipped for t in skipped}
+        (out_dir / "summary.json").write_text(
+            json.dumps(held, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        (out_dir / "matrix.md").write_text(
+            heldout_markdown(
+                held,
+                date=args.date,
+                skipped=skipped,
+                guard_lines=guard_note(out_dir, guard, args.date),
+            ),
+            encoding="utf-8",
+        )
+        assert_no_skill_content(out_dir, folders)
+        print(f"wrote {out_dir}/matrix.md, summary.json, rows.jsonl")
+        return exit_code
     summary = summarize(cases, [r for r in rows if r["skill"] in {c.id for c in cases}])
     summary["date"], summary["sandbox"], summary["repeats"] = args.date, args.sandbox, args.repeat
     summary["not_run"] = {t.name: t.skipped for t in skipped}
@@ -911,6 +1330,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--limit-skills", type=int, help="run only the first N skills (a smoke test)"
     )
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        nargs="?",
+        const=DEFAULT_HELDOUT_MANIFEST,
+        help="score the held-out set in this manifest (skills are read from the fetch cache; "
+        "no sandbox; output goes to <date>-heldout)",
+    )
+    parser.add_argument("--cache", type=Path, help="fetch cache for --manifest (outside the repo)")
+    parser.add_argument("--heldout-set", choices=["entries", "reserve", "all"], default="entries")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--date", default=dt.date.today().isoformat())
     args = parser.parse_args(argv)
