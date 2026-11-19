@@ -11,8 +11,10 @@ by the benchmark (``docs/operations/model-matrix/``), not guessed per model.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 CLASSES = ("tiny", "small", "mid", "large", "reasoning")
@@ -36,6 +38,20 @@ class ModelProfile:
     temperature: float
     # Whether the prompt carries short worked examples (for models that need them).
     few_shot: bool
+    # Findings listed in one call's prompt, and whether the reply schema is the short one.
+    max_anchors: int
+    compact_schema: bool
+
+    @property
+    def fingerprint(self) -> str:
+        """A short hash of every value, for the cache identity: a changed profile is a new model."""
+
+        payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode()).hexdigest()[:8]
+
+    @property
+    def identity(self) -> str:
+        return f"profile={self.name}#{self.fingerprint}"
 
     def with_overrides(self, overrides: dict[str, Any]) -> ModelProfile:
         """A copy with every non-``None`` override applied."""
@@ -44,13 +60,17 @@ class ModelProfile:
 
 
 PROFILES: dict[str, ModelProfile] = {
-    "tiny": ModelProfile("tiny", 4096, 1024, "auto", 2000, 3, 1, 0.0, True),
-    "small": ModelProfile("small", 8192, 1536, "auto", 3000, 3, 1, 0.0, True),
-    "mid": ModelProfile("mid", 32768, 2048, "auto", 4000, 4, 1, 0.0, False),
-    "large": ModelProfile("large", 128000, 4096, "auto", 8000, 6, 1, 0.0, False),
+    # chunk_chars x max_chunks stays at the 12,000 characters the fixed legacy shape covered, so a
+    # long skill that was fully read before is not a partial read (and so UNSCANNED) on a small
+    # model. The split between size and count is a guess until the benchmark measures it: smaller
+    # chunks cost more calls (about 40% more time on a 7,000-character script with a 1B model).
+    "tiny": ModelProfile("tiny", 4096, 1024, "auto", 3000, 4, 1, 0.0, True, 8, True),
+    "small": ModelProfile("small", 8192, 1536, "auto", 4000, 3, 1, 0.0, True, 12, True),
+    "mid": ModelProfile("mid", 32768, 2048, "auto", 4000, 4, 1, 0.0, False, 20, False),
+    "large": ModelProfile("large", 128000, 4096, "auto", 8000, 6, 1, 0.0, False, 40, False),
     # A reasoning model spends part of its output on thinking, so it needs a large budget, and a
     # call is slow and costly, so it gets few of them and no automatic retry.
-    "reasoning": ModelProfile("reasoning", 128000, 8192, "auto", 8000, 6, 0, 0.0, False),
+    "reasoning": ModelProfile("reasoning", 128000, 8192, "auto", 8000, 6, 0, 0.0, False, 40, False),
 }
 DEFAULT_PROFILE = "small"
 
@@ -64,6 +84,20 @@ _REASONING = re.compile(
 # Parameter counts in billions: "8b", "70b", "1.5b", "e4b" (effective), "a3b" is active, not total.
 _SIZE = re.compile(r"(?<![a-z0-9])(?:e)?(\d+(?:\.\d+)?)\s*b(?![a-z0-9])", re.IGNORECASE)
 _ACTIVE = re.compile(r"-?a\d+(?:\.\d+)?b", re.IGNORECASE)
+# A mixture of experts named "8x7b" has 8 x 7 = 56B parameters in total (all must be loaded).
+_EXPERTS = re.compile(r"(?<![a-z0-9])(\d+)x(\d+(?:\.\d+)?)b(?![a-z0-9])", re.IGNORECASE)
+# Models whose name carries no count, with their size in billions.
+_NAMED_SIZES: tuple[tuple[re.Pattern[str], float], ...] = (
+    (re.compile(r"phi-?3(?:\.5)?[-:_]?mini", re.IGNORECASE), 3.8),
+    (re.compile(r"phi-?4[-:_]?mini", re.IGNORECASE), 3.8),
+    (re.compile(r"phi-?3[-:_]?small", re.IGNORECASE), 7.0),
+    (re.compile(r"phi-?3[-:_]?medium", re.IGNORECASE), 14.0),
+    (re.compile(r"phi-?4(?![-\w]*(?:mini|multimodal))", re.IGNORECASE), 14.0),
+    (re.compile(r"mistral-small", re.IGNORECASE), 24.0),
+    (re.compile(r"mistral-nemo", re.IGNORECASE), 12.0),
+    (re.compile(r"mistral-large", re.IGNORECASE), 123.0),
+    (re.compile(r"codestral(?!-mamba)", re.IGNORECASE), 22.0),
+)
 # Frontier hosted models with no size in their name.
 _LARGE_NAMES = re.compile(
     r"gpt-4(?!o-mini)|gpt-5|claude|gemini.*(?:pro|flash)(?!-lite)|command-r-plus|grok|mistral-large|llama-?4",
@@ -82,9 +116,19 @@ def parameter_billions(model_id: str) -> float | None:
     """
 
     cleaned = _ACTIVE.sub("", model_id)
+    experts = [
+        float(match.group(1)) * float(match.group(2)) for match in _EXPERTS.finditer(cleaned)
+    ]
+    if experts:
+        return max(experts)
     sizes = [float(match.group(1)) for match in _SIZE.finditer(cleaned)]
     sizes = [size for size in sizes if 0.1 <= size <= 2000]
-    return max(sizes) if sizes else None
+    if sizes:
+        return max(sizes)
+    for pattern, size in _NAMED_SIZES:
+        if pattern.search(cleaned):
+            return size
+    return None
 
 
 def classify(model_id: str) -> str:

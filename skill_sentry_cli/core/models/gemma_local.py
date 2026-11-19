@@ -21,6 +21,7 @@ from skill_sentry_cli.core.models.image_utils import (
     ImagePreparationError,
     load_image_for_model,
 )
+from skill_sentry_cli.core.models.profiles import ModelProfile
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "gemma4:e4b-it-qat"
@@ -55,6 +56,7 @@ class GemmaLocal:
         num_predict: int = 2048,
         keep_alive: str = "30m",
         client: httpx.Client | None = None,
+        profile: ModelProfile | None = None,
     ) -> None:
         if timeout_s <= 0:
             raise ValueError("timeout_s must be positive")
@@ -67,6 +69,8 @@ class GemmaLocal:
         self.num_ctx = num_ctx
         self.num_predict = num_predict
         self.keep_alive = keep_alive
+        # What this model can be asked for; the semantic stage shapes its requests from it.
+        self.profile = profile
         self._client = client or httpx.Client(timeout=timeout_s)
         self._owns_client = client is None
         # Until a preflight reads the digest, the version is the configured tag.
@@ -76,9 +80,10 @@ class GemmaLocal:
     def model_version(self) -> str:
         """Cache identity: the model digest plus every option that changes its output."""
 
+        identity = f"|{self.profile.identity}" if self.profile is not None else ""
         return (
             f"{self._model_version}|ctx={self.num_ctx}|predict={self.num_predict}"
-            "|temperature=0|seed=0"
+            f"|temperature=0|seed=0{identity}"
         )
 
     def close(self) -> None:

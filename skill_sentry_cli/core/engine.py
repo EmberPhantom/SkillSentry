@@ -88,6 +88,7 @@ from skill_sentry_cli.core.semantic.laya_analyzer import (
     degraded_semantic_stage,
     deterministic_only_stage,
 )
+from skill_sentry_cli.core.semantic.plan import prompt_fingerprint
 from skill_sentry_cli.core.verdict.fusion import FusionError, FusionResult, fuse
 from skill_sentry_cli.core.verdict.status import shown_status
 from skill_sentry_cli.core.version import engine_version
@@ -1503,6 +1504,8 @@ class ScanEngine:
             version = str(getattr(model, "model_version", "unknown"))
         # A rules edit changes findings, so it must never reuse a cached verdict.
         version = f"{version}|rules={RULES_FINGERPRINT}"
+        # The prompts and schemas a model is asked with are part of what its verdict means.
+        version = f"{version}|prompts={prompt_fingerprint()}"
         semantic = self._semantic_identity(model)
         if semantic:
             version = f"{version}|{semantic}"

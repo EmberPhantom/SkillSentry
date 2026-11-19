@@ -22,6 +22,7 @@ from skill_sentry_cli.core.models.image_utils import (
     ImagePreparationError,
     load_image_for_model,
 )
+from skill_sentry_cli.core.models.profiles import ModelProfile
 
 DEFAULT_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_GEMINI_MODEL = "gemma-4-e4b"
@@ -41,6 +42,7 @@ class GemmaCloud:
         timeout_s: float = 180.0,
         max_px: int = 1024,
         client: httpx.Client | None = None,
+        profile: ModelProfile | None = None,
     ) -> None:
         if timeout_s <= 0:
             raise ValueError("timeout_s must be positive")
@@ -53,6 +55,7 @@ class GemmaCloud:
         self.model = model
         self.timeout_s = timeout_s
         self.max_px = max_px
+        self.profile = profile
         self._client = client or httpx.Client(timeout=timeout_s)
         self._owns_client = client is None
 
@@ -62,7 +65,7 @@ class GemmaCloud:
 
     @property
     def model_version(self) -> str:
-        return self.model
+        return f"{self.model}|{self.profile.identity}" if self.profile is not None else self.model
 
     def close(self) -> None:
         if self._owns_client:

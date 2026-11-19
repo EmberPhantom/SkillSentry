@@ -33,10 +33,13 @@ from skill_sentry_cli.core.deadline import (
 )
 from skill_sentry_cli.core.models._json import validate_json
 from skill_sentry_cli.core.models.base import ModelClient
+from skill_sentry_cli.core.models.profiles import ModelProfile
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
-from skill_sentry_cli.core.semantic.prompts import SEMANTIC_SCHEMA, SYSTEM_PROMPT
+from skill_sentry_cli.core.semantic.plan import SemanticPlan, plan_from_profile
+from skill_sentry_cli.core.semantic.prompts import SEMANTIC_SCHEMA
 
-# Sized for a CPU-hosted model: roughly 1k tokens per chunk, a few calls per scan.
+# The shape used for a model with no profile (a mock, an injected client): roughly 1k tokens
+# per chunk and a few calls per scan. A model that has a profile gets a plan from it instead.
 CHUNK_CHARS = 4_000
 MAX_CHUNKS = 3
 MAX_ANCHORS_PER_CHUNK = 20
@@ -55,6 +58,28 @@ _SEVERITY_SCORE = {
     Severity.NOTE: 0,
 }
 _INSTRUCTION_TYPES = frozenset({"instruction-injection", "hidden-instruction"})
+
+
+def _legacy_plan() -> SemanticPlan:
+    """The fixed shape, read from the module constants when it is needed."""
+
+    return SemanticPlan(
+        chunk_chars=CHUNK_CHARS,
+        max_chunks=MAX_CHUNKS,
+        max_anchors=MAX_ANCHORS_PER_CHUNK,
+        retries=1,
+        few_shot=False,
+        compact_schema=False,
+    )
+
+
+def plan_for(model: ModelClient | None) -> SemanticPlan:
+    """The plan for ``model``: from its profile when it has one, else the fixed legacy shape."""
+
+    profile = getattr(model, "profile", None)
+    if isinstance(profile, ModelProfile):
+        return plan_from_profile(profile)
+    return _legacy_plan()
 
 
 @dataclass(frozen=True)
@@ -127,13 +152,16 @@ def _anchor_lines(anchors: StageResult) -> dict[str, set[int]]:
     return lines
 
 
-def _make_chunks(package: SkillPackage, anchors: StageResult) -> tuple[list[_Chunk], list[_Gap]]:
+def _make_chunks(
+    package: SkillPackage, anchors: StageResult, plan: SemanticPlan | None = None
+) -> tuple[list[_Chunk], list[_Gap]]:
     """Split every text file into line-aligned chunks and rank them by importance.
 
-    Lines longer than ``CHUNK_CHARS`` cannot be sent whole, so they become gaps
+    Lines longer than the plan's chunk size cannot be sent whole, so they become gaps
     rather than being silently cut.
     """
 
+    limit = (plan or _legacy_plan()).chunk_chars
     anchor_lines = _anchor_lines(anchors)
     chunks: list[_Chunk] = []
     gaps: list[_Gap] = []
@@ -144,10 +172,10 @@ def _make_chunks(package: SkillPackage, anchors: StageResult) -> tuple[list[_Chu
         start = 1
         size = 0
         for number, line in enumerate(text_file.text.splitlines(), start=1):
-            if len(line) > CHUNK_CHARS:
+            if len(line) > limit:
                 gaps.append(_Gap(relative, number, number, "line exceeds chunk size"))
                 continue
-            if buffer and size + len(line) + 1 > CHUNK_CHARS:
+            if buffer and size + len(line) + 1 > limit:
                 chunks.append(_make_chunk(relative, start, number - 1, buffer, marked))
                 buffer, start, size = [], number, 0
             buffer.append(line)
@@ -174,7 +202,28 @@ def _make_chunk(
     return _Chunk(relative, first, last, "\n".join(buffer), priority)
 
 
-def _chunk_prompt(package: SkillPackage, chunk: _Chunk, anchors: StageResult) -> str:
+def _anchor_rows(chunk: _Chunk, anchors: StageResult, limit: int) -> tuple[list[str], int]:
+    """The deterministic findings in a chunk as prompt rows, and how many did not fit."""
+
+    relative = chunk.file
+    rows = [
+        f"- [{finding.severity.value}] {finding.finding_type or 'anchor'} at "
+        f"{relative}:{finding.evidence.line}: {(finding.evidence.code or '')[:200]}"
+        for finding in anchors.findings
+        if finding.evidence.file
+        and finding.evidence.file.replace("\\", "/") == relative
+        and finding.evidence.line
+        and chunk.first_line <= finding.evidence.line <= chunk.last_line
+    ]
+    return rows[:limit], max(0, len(rows) - limit)
+
+
+def _chunk_prompt(
+    package: SkillPackage,
+    chunk: _Chunk,
+    anchors: StageResult,
+    plan: SemanticPlan | None = None,
+) -> str:
     """One call's user prompt.  All untrusted text sits inside a fence keyed to its content.
 
     The fence nonce is a hash of the excerpt itself, so the same excerpt always
@@ -187,15 +236,12 @@ def _chunk_prompt(package: SkillPackage, chunk: _Chunk, anchors: StageResult) ->
     begin = f"<<<UNTRUSTED-{nonce}>>>"
     end = f"<<<END-UNTRUSTED-{nonce}>>>"
     relative = chunk.file
-    anchor_rows = [
-        f"- [{finding.severity.value}] {finding.finding_type or 'anchor'} at "
-        f"{relative}:{finding.evidence.line}: {(finding.evidence.code or '')[:200]}"
-        for finding in anchors.findings
-        if finding.evidence.file
-        and finding.evidence.file.replace("\\", "/") == relative
-        and finding.evidence.line
-        and chunk.first_line <= finding.evidence.line <= chunk.last_line
-    ][:MAX_ANCHORS_PER_CHUNK]
+    anchor_rows, omitted = _anchor_rows(chunk, anchors, (plan or _legacy_plan()).max_anchors)
+    if omitted:
+        # Never drop findings silently: the model is told some are not listed.
+        anchor_rows.append(
+            f"- {omitted} more deterministic finding(s) in this excerpt are not listed"
+        )
     anchor_block = "\n".join(anchor_rows) if anchor_rows else "- none in this excerpt"
     intent = (package.description or "(missing)")[:2048]
     return "\n".join(
@@ -283,8 +329,8 @@ def _gap_text(gaps: list[_Gap]) -> str:
     return "; ".join(shown) + suffix
 
 
-def _generate(model: ModelClient, prompt: str) -> dict[str, Any]:
-    return model.generate_json(SYSTEM_PROMPT, prompt, SEMANTIC_SCHEMA, retries=1)
+def _generate(model: ModelClient, prompt: str, plan: SemanticPlan) -> dict[str, Any]:
+    return model.generate_json(plan.system, prompt, plan.schema, retries=plan.retries)
 
 
 def analyze_semantics(
@@ -317,8 +363,19 @@ def analyze_semantics(
             signals={"semantic": instruction_floor} if instruction_floor else {},
         )
 
+    plan = plan_for(model)
+    if plan.unusable_reason is not None:
+        # The window cannot hold a chunk. Nothing is cut to fit: the stage says why it did not run.
+        return StageResult(
+            stage=Stage.SEMANTIC,
+            degraded=True,
+            error=plan.unusable_reason,
+            signals={"semantic": instruction_floor} if instruction_floor else {},
+            telemetry={"plan": plan.describe()},
+        )
+
     try:
-        chunks, gaps = _make_chunks(package, anchors)
+        chunks, gaps = _make_chunks(package, anchors, plan)
     except Exception as exc:  # pragma: no cover - defensive only
         return StageResult(
             stage=Stage.SEMANTIC,
@@ -327,14 +384,15 @@ def analyze_semantics(
             signals={"semantic": instruction_floor} if instruction_floor else {},
         )
 
-    selected = chunks[:MAX_CHUNKS]
-    for chunk in chunks[MAX_CHUNKS:]:
+    selected = chunks[: plan.max_chunks]
+    for chunk in chunks[plan.max_chunks :]:
         gaps.append(_Gap(chunk.file, chunk.first_line, chunk.last_line, "call budget reached"))
 
     files = _file_lookup(package)
     responses: list[tuple[_Chunk, dict[str, Any]]] = []
     failed: list[_Gap] = []
     prompt_chars = 0
+    anchors_omitted = 0
     last_error: str | None = None
     timed_out = False
     for index, chunk in enumerate(selected):
@@ -345,10 +403,11 @@ def analyze_semantics(
                 failed.append(_Gap(skipped.file, skipped.first_line, skipped.last_line, reason))
             last_error = last_error or reason
             break
-        prompt = _chunk_prompt(package, chunk, anchors)
+        prompt = _chunk_prompt(package, chunk, anchors, plan)
         prompt_chars += len(prompt)
+        anchors_omitted += _anchor_rows(chunk, anchors, plan.max_anchors)[1]
         try:
-            response = call_within(budget, partial(_generate, model, prompt))
+            response = call_within(budget, partial(_generate, model, prompt, plan))
             validate_json(response, SEMANTIC_SCHEMA)
         except TimeLimitExceeded as exc:
             timed_out = True
@@ -470,6 +529,8 @@ def analyze_semantics(
             "model_version": getattr(model, "model_version", "unknown"),
             "instruction_floor": instruction_floor,
             "prompt_chars": prompt_chars,
+            "plan": plan.describe(),
+            "anchors_omitted": anchors_omitted,
             "chunks_total": len(chunks),
             "chunks_analysed": len(responses),
             "chunks_failed": len(failed),
