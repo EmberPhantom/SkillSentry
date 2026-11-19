@@ -20,6 +20,7 @@ from skill_sentry_cli.core.anchors.confusables import (
 )
 from skill_sentry_cli.core.anchors.credential_flow import RULES_VERSION
 from skill_sentry_cli.core.anchors.cross_file import analyze_cross_file
+from skill_sentry_cli.core.anchors.hidden_text import LONG_RUN, inspect_line
 from skill_sentry_cli.core.contracts import (
     Finding,
     FindingEvidence,
@@ -252,9 +253,10 @@ def _scan_file(
 ) -> None:
     is_markdown = text_file.relative.lower().endswith((".md", ".markdown", ".txt"))
     in_fence = False
-    for line_number, line in enumerate(text_file.text.splitlines(), start=1):
-        if len(line) > 4000:
-            line = line[:4000]
+    for line_number, raw_line in enumerate(text_file.text.splitlines(), start=1):
+        # Rules look at the first 4000 characters; the check for hidden characters reads the
+        # whole line, because a payload can sit after them.
+        line = raw_line[:4000]
         if is_markdown and line.lstrip().startswith(("```", "~~~")):
             in_fence = not in_fence
         # Every rule is tried on the line as written and on its normalised form (lookalike
@@ -288,13 +290,99 @@ def _scan_file(
             )
             if len(findings) >= MAX_FINDINGS:
                 return
+        code_context = not is_markdown or in_fence or _looks_like_command(line)
         _flag_mixed_script(
             line,
             line_number,
             text_file.relative,
-            code_context=not is_markdown or in_fence or _looks_like_command(line),
+            code_context=code_context,
             seen=seen,
             findings=findings,
+        )
+        _flag_hidden_text(
+            raw_line,
+            line_number,
+            text_file.relative,
+            code_context=code_context,
+            seen=seen,
+            findings=findings,
+        )
+
+
+def _flag_hidden_text(
+    line: str,
+    line_number: int,
+    relative: str,
+    *,
+    code_context: bool,
+    seen: set[tuple[str, str, int]],
+    findings: list[Finding],
+) -> None:
+    """Runs of invisible characters, and a message decoded from them.
+
+    A run of 8 or more is MEDIUM in code and LOW in prose, and HIGH from 64 up, long enough to
+    carry a message. Readable text decoded from the invisible characters is HIGH, and is run
+    through the same rules as visible text, with this file and line as the evidence.
+    """
+
+    hidden = inspect_line(line)
+    if hidden is None:
+        return
+    key = ("hidden-characters", relative, line_number)
+    if key in seen:
+        return
+    seen.add(key)
+    if hidden.longest_run >= LONG_RUN:
+        severity = Severity.HIGH
+    elif code_context:
+        severity = Severity.MEDIUM
+    else:
+        severity = Severity.LOW
+    if hidden.decoded is not None:
+        severity = Severity.HIGH
+    summary = (
+        f"{hidden.total} invisible character(s) on one line, in a run of {hidden.longest_run}"
+        if hidden.longest_run
+        else f"{hidden.total} invisible character(s) on one line"
+    )
+    findings.append(
+        Finding(
+            stage=Stage.DETERMINISTIC_ANCHOR,
+            severity=severity,
+            message=f"Invisible characters hide content: {summary}",
+            finding_type="hidden-characters",
+            evidence=FindingEvidence(file=relative, line=line_number),
+        )
+    )
+    if hidden.decoded is None:
+        return
+    decoded = hidden.decoded
+    shown = decoded if len(decoded) <= 200 else decoded[:200] + "..."
+    findings.append(
+        Finding(
+            stage=Stage.DETERMINISTIC_ANCHOR,
+            severity=Severity.HIGH,
+            message=f"Hidden text decoded from {hidden.encoding}: {shown!r}",
+            finding_type="hidden-text",
+            evidence=FindingEvidence(file=relative, line=line_number, code=shown[:500]),
+        )
+    )
+    normalised = normalise_line(decoded)
+    for rule in _RULES + _SHELL_AND_PERSISTENCE_RULES + _INSTRUCTION_RULES:
+        if not (rule.pattern.search(decoded) or rule.pattern.search(normalised)):
+            continue
+        rule_key = (rule.type, relative, line_number)
+        if rule_key in seen:
+            continue
+        seen.add(rule_key)
+        findings.append(
+            Finding(
+                stage=Stage.DETERMINISTIC_ANCHOR,
+                severity=rule.severity,
+                message=f"{rule.message} (in text hidden with invisible characters)",
+                finding_type=rule.type,
+                evidence=FindingEvidence(file=relative, line=line_number, code=shown[:500]),
+            )
         )
 
 

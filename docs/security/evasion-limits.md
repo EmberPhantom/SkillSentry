@@ -28,7 +28,8 @@ The cases live in `tests/fixtures/evasion/`, with the expectation for each in `t
 | `fullwidth-forms` | `ｃｕｒｌ ... \| bash` in full-width letters. | Caught: NFKC folds them. |
 | `invisible-chars` | Zero-width characters inside `curl` and `bash`. | Caught: invisible characters are dropped before matching. |
 | `greek-in-script` | A Greek `α` in `bash` in a shell script. | Caught. |
-| `bit-encoded-text` | An instruction encoded as a run of zero-width characters. | **Not caught.** See "Hidden characters that carry a message". |
+| `bit-encoded-text`, `tag-characters`, `variation-selectors` | The same instruction encoded as zero-width bits, tag characters, or variation selectors. | Caught: decoded, and the decoded text is matched by the instruction and credential rules. |
+| `invisible-run` | 90 invisible characters in a row that decode to nothing. | Caught: a run of 64 or more is HIGH by itself. |
 | `split-download-exec`, `-shell`, `-node` | One file downloads a script to `/tmp`, another runs it (Python, shell with a variable, and Node). | Caught by the cross-file check, which names both places. |
 
 "Caught" means the verdict is at least `SUSPICIOUS`, which fails the default gate. These cases are examples, not a measure of coverage: each was written to be found or to evade, by the person who wrote the patterns. Expect real skills to be messier in both directions.
@@ -47,15 +48,20 @@ What it reads: `curl` and `wget` with their options in any common spelling (`-o 
 
 Limits: a path built any other way (read from the command line, from the environment, or computed at run time) is not seen; the check does not follow a copy or a rename; a file that downloads and runs its own download is left to the single-file patterns (the piped forms); and only script files (by suffix or `#!` line) are read, not commands written in prose.
 
+## Hidden characters that carry a message
+
+A message can be written with characters that draw nothing: one of two zero-width characters for each bit (eight bits to a byte), Unicode tag characters (ASCII shifted into an invisible block), or variation selectors used as bytes. A person sees nothing; an agent that reads the raw characters can read it. The real-model verification run found a skill carrying such a payload that scanned `SAFE` (`docs/operations/verification-2.1.x.md`). Two checks close it, per line:
+
+- **A run.** Eight or more invisible characters in a row is a finding (`hidden-characters`): LOW in prose, MEDIUM in code, a code block or a command line, and HIGH from 64 characters up, which is long enough to carry a message. Real text has no such run: an emoji sequence has one joiner between emoji, Persian and Indic text have one joiner or non-joiner at a time, and a direction mark is one character.
+- **A message.** The invisible characters of a line are decoded as tag characters, as variation selectors, or, when there are two distinct ones (at least 16), as bits, either way round. Readable ASCII is reported as `hidden-text` (HIGH) and is run through the same instruction, credential and shell rules as visible text, with the original file and line as the evidence. A payload split between visible letters is decoded too, because the whole line is read, not only the run.
+
+What stays quiet: emoji sequences (family, flags, skin tones, keycaps), Persian, Hindi and Bengali text with joiners and non-joiners, Arabic direction marks, a byte order mark, and soft hyphens. Tests use real examples of each, and a scan of this repository's own 354 Markdown, Python and TypeScript files (547 invisible characters between them) flagged nothing but the test fixtures.
+
+What is not decoded: an encoding with three or more symbols, a different bit order or width, or a payload split over several lines. A run of eight or more is still reported, but its content is not read.
+
 ## Known gaps
 
-A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Nothing here was hidden by loosening a pattern or an expectation.
-
-### Hidden characters that carry a message
-
-A message can be encoded in a run of zero-width characters, one invisible character for each bit (for example `U+200B` for 0 and `U+200C` for 1). The checks drop invisible characters before matching, which defeats `cu<zero-width>rl`, but a payload that is made only of those characters leaves no text to match, and nothing flags the run itself. The real-model verification run found it: a skill carrying such a payload was `SAFE` (see `docs/operations/verification-2.1.x.md`). A reasonable fix is a finding for any run of more than a few invisible characters, and decoding the common bit encodings; neither exists yet. Until then, a model that reads the page as text will not see the payload either, so treat a skill that carries long runs of invisible characters as suspect and look for them yourself (for example `grep -P '[\x{200B}-\x{200D}\x{2060}\x{FEFF}]'`).
-
-Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, and content the sandbox does not reach.
+None of the cases above is a known gap today. A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, an invisible-character encoding other than the ones above, and content the sandbox does not reach.
 
 ## What this means in practice
 
