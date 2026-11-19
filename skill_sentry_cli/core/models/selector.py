@@ -16,6 +16,7 @@ from skill_sentry_cli.core.models.gemma_cloud import GemmaCloud
 from skill_sentry_cli.core.models.gemma_local import GemmaLocal
 from skill_sentry_cli.core.models.mock import MockGemma
 from skill_sentry_cli.core.models.openai_compat import OpenAICompat
+from skill_sentry_cli.core.models.profiles import resolve_profile
 from skill_sentry_cli.core.models.providers import PROVIDER_BACKENDS, resolve_provider
 
 
@@ -122,13 +123,23 @@ def _local_client(settings: ModelSettings) -> ModelClient:
 
 def _provider_client(settings: ModelSettings, choice: str) -> ModelClient:
     provider = resolve_provider(settings, choice)
+    profile = profile_for(settings, provider.model)
+    mode = settings.provider.structured_output
     return OpenAICompat(
         provider,
         timeout_s=settings.request_timeout_s,
         max_px=settings.image_max_px,
-        max_tokens=settings.provider.max_tokens,
-        structured_output=settings.provider.structured_output,
+        max_tokens=settings.provider.max_tokens or profile.max_output_tokens,
+        structured_output=mode if mode != "auto" else profile.structured_output,
+        profile=profile,
     )
+
+
+def profile_for(settings: ModelSettings, model_id: str):  # type: ignore[no-untyped-def]
+    """The profile for ``model_id``: the configured class and overrides, else the id's class."""
+
+    overrides = settings.profile.model_dump(exclude={"name"})
+    return resolve_profile(model_id, name=settings.profile.name, overrides=overrides)
 
 
 def _cloud_client(settings: ModelSettings) -> ModelClient:

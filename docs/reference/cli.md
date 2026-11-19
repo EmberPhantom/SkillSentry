@@ -227,7 +227,7 @@ The dashboard is served at `/`, and the API endpoints (for example `/scans`) are
 
 ## `doctor`
 
-Checks what a full scan needs on this machine.
+Checks what a full scan needs on this machine. `--backend NAME` checks that backend instead of the configured one (for example `doctor --backend groq`).
 
 ```text
 PASS  model: <configured model> is pulled
@@ -240,7 +240,11 @@ ready for a full scan
 
 | Check | Required | What it means |
 |:---|:---|:---|
-| `model` | yes | The local model server is reachable and the configured model is pulled. |
+| `model` | yes | The local model server is reachable and the configured model is pulled. Not shown when an OpenAI-compatible backend is configured; the next four replace it. |
+| `provider` | yes | The configured OpenAI-compatible backend: its address, whether it is this machine or a remote server, the model id and the profile `doctor` resolved. |
+| `privacy` | no | Shown for a remote provider: skill content is sent to it. |
+| `api key` | yes (remote) | The key's environment variable is set. Only whether it is set is shown, never the key. Not needed for a server on this machine. With no key, no request is sent to the provider. |
+| `provider model` | yes | The provider answers `/models` and lists the configured model. |
 | `dashboard` | yes | The dashboard has been built. |
 | `database` | yes | The scan history can be written. |
 | `docker` | no | The Docker engine is reachable. |
@@ -320,7 +324,9 @@ The keys below use the defaults in the code. `init` writes a commented file with
 | `[model.provider]` | `api_key_env` | the preset's | The **name** of the environment variable that holds the key. A value that looks like a key is refused. |
 | `[model.provider]` | `headers` | the preset's | Extra non-secret headers (OpenRouter's referer and title). `Authorization`, `X-API-Key` and similar are refused. |
 | `[model.provider]` | `structured_output` | `auto` | `auto`, `json_schema`, `json_object` or `prompt`: where the ladder starts (see below). |
-| `[model.provider]` | `max_tokens` | `2048` | Output limit of one reply, from 16 to 65536. A reasoning model needs more. |
+| `[model.provider]` | `max_tokens` | the profile's | Output limit of one reply, from 16 to 65536. Unset takes the model profile's value (below). |
+| `[model.profile]` | `name` | `auto` | `auto` picks a class from the model id; or `tiny`, `small`, `mid`, `large`, `reasoning`. |
+| `[model.profile]` | `context_tokens`, `max_output_tokens`, `chunk_chars`, `max_chunks`, `retries`, `structured_output`, `few_shot` | the class's | Override one value of the class. Unset keeps the class's value. |
 | `[model]` | `image_max_px` | `768` | Longest side of images sent to the model, from 256 to 4096. |
 | `[model]` | `request_timeout_s` | `180` | Time limit for one model request. |
 | `[scan]` | `max_time_s` | `300` | Wall-clock cap for scanning one skill, from 5 to 86400. `--max-time` overrides it. |
@@ -365,6 +371,20 @@ skill-sentry-cli scan my-skill --backend groq
 - **Reasoning models.** `<think>` blocks (and a `reasoning` field) are removed before the JSON is read. If a model spends its whole `max_tokens` thinking, the error says to raise it.
 - **Limits.** HTTP 429 is honoured once, using `Retry-After` (up to 30 s); a request that times out, and a reply cut at `max_tokens`, fail at once and are not retried. 401 and 403 name the variable to check; 404 names the model id.
 - The older `ollama_*` and `gemini_model` keys, and the `local` and `cloud` backends, are unchanged.
+
+### Model profiles
+
+A profile says what a model of a given size and kind can be asked to do. It is chosen from the model id by pattern, so a new model usually needs no setting; an unknown id gets `small`, the conservative class, with short requests and a modest reply budget.
+
+| Class | Chosen for | Context | Reply limit | Characters per call | Calls per skill | Retries | Examples in the prompt |
+|:---|:---|--:|--:|--:|--:|--:|:---|
+| `tiny` | under 5B parameters | 4,096 | 1,024 | 2,000 | 3 | 1 | yes |
+| `small` | 5B to 13B, and the default for an unknown model | 8,192 | 1,536 | 3,000 | 3 | 1 | yes |
+| `mid` | 14B to 40B | 32,768 | 2,048 | 4,000 | 4 | 1 | no |
+| `large` | 41B and up, and hosted frontier models | 128,000 | 4,096 | 8,000 | 6 | 1 | no |
+| `reasoning` | models that think before answering (`gpt-oss`, `deepseek-r1`, `qwen3`, `o1`/`o3`, `gemini-2.5`, `nemotron` super and ultra) | 128,000 | 8,192 | 8,000 | 6 | 0 | no |
+
+These are starting values, set from the size class; the benchmark tunes them. Today the OpenAI-compatible client takes its reply limit and structured-output start from the profile; the context, the chunking, the retries and the examples are read from it by the semantic stage in a later change, so they are listed here and not yet used for other backends. The profile name is part of the cache identity, so a verdict cached for one profile is not reused for another. `doctor` shows the profile it resolved.
 
 Two sections deserve a warning:
 

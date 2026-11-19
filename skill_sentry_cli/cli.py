@@ -1197,6 +1197,88 @@ def export_report(
         typer.echo(f"wrote {output}")
 
 
+def uses_provider(cfg: SkillsEntryConfig) -> bool:
+    """True when ``[model] backend`` names an OpenAI-compatible provider."""
+
+    from skill_sentry_cli.core.models.providers import PROVIDER_BACKENDS
+
+    return cfg.model.backend.strip().lower() in PROVIDER_BACKENDS | {"nvidia", "openai-compatible"}
+
+
+def _provider_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
+    """The configured provider: which one, whether the key variable is set, and whether the
+    model is listed. The key itself is never read into the output, only whether it exists.
+    """
+
+    from skill_sentry_cli.core.models.profiles import classify
+    from skill_sentry_cli.core.models.providers import resolve_provider
+    from skill_sentry_cli.core.models.selector import _backend_value, _provider_client
+
+    choice = _backend_value(cfg.model.backend)
+    try:
+        resolved = resolve_provider(cfg.model, choice)
+    except ValueError as exc:
+        return [ReadinessCheck("provider", False, True, str(exc))]
+    profile = cfg.model.profile.name
+    profile = classify(resolved.model) if profile == "auto" else profile
+    where = "this machine" if resolved.local else f"{resolved.label}, a remote server"
+    checks = [
+        ReadinessCheck(
+            "provider",
+            True,
+            True,
+            f"{choice} -> {resolved.base_url} on {where}; model {resolved.model} "
+            f"(profile: {profile})",
+        )
+    ]
+    if resolved.local:
+        checks.append(
+            ReadinessCheck("api key", True, False, "not needed for a server on this machine")
+        )
+    else:
+        checks.append(
+            ReadinessCheck(
+                "privacy",
+                True,
+                False,
+                f"skill content is sent to {resolved.label}; use it only on skills you are willing to share",
+            )
+        )
+        key_set = bool(resolved.api_key)
+        checks.append(
+            ReadinessCheck(
+                "api key",
+                key_set,
+                True,
+                f"{resolved.api_key_env} is set"
+                if key_set
+                else f"{resolved.api_key_env} is not set",
+            )
+        )
+        if not key_set:
+            return checks  # no request is made without a key
+    try:
+        client = _provider_client(cfg.model, choice)
+        try:
+            ready = bool(client.health())
+            reason = getattr(client, "last_health_error", None)
+        finally:
+            client.close()  # type: ignore[attr-defined]
+    except Exception as exc:
+        ready, reason = False, f"{type(exc).__name__}"
+    checks.append(
+        ReadinessCheck(
+            "provider model",
+            ready,
+            True,
+            f"{resolved.model} is listed by {resolved.label}"
+            if ready
+            else (reason or "not reachable"),
+        )
+    )
+    return checks
+
+
 @dataclass(frozen=True)
 class ReadinessCheck:
     name: str
@@ -1217,26 +1299,30 @@ def readiness_checks(cfg: SkillsEntryConfig) -> list[ReadinessCheck]:
     from skill_sentry_cli.server.app import _default_ui_dist
 
     checks: list[ReadinessCheck] = []
-    probe_error: str | None = None
-    try:
-        model = GemmaLocal(base_url=cfg.model.ollama_url, model=cfg.model.ollama_model)
-        try:
-            probe = model.probe()
-        finally:
-            model.close()
-    except Exception as exc:  # any probe failure is a finding, not a crash
-        probe = ProbeResult.UNREACHABLE
-        probe_error = type(exc).__name__
-    if probe == ProbeResult.READY:
-        model_detail = f"{cfg.model.ollama_model} is pulled"
-    elif probe == ProbeResult.NO_MODEL:
-        model_detail = (
-            f"{cfg.model.ollama_model} is not pulled; run: ollama pull {cfg.model.ollama_model}"
-        )
+    if uses_provider(cfg):
+        # An OpenAI-compatible server is configured: check it, not Ollama.
+        checks.extend(_provider_checks(cfg))
     else:
-        cause = f" ({probe_error})" if probe_error else ""
-        model_detail = f"cannot reach the model server at {cfg.model.ollama_url}{cause}"
-    checks.append(ReadinessCheck("model", probe == ProbeResult.READY, True, model_detail))
+        probe_error: str | None = None
+        try:
+            model = GemmaLocal(base_url=cfg.model.ollama_url, model=cfg.model.ollama_model)
+            try:
+                probe = model.probe()
+            finally:
+                model.close()
+        except Exception as exc:  # any probe failure is a finding, not a crash
+            probe = ProbeResult.UNREACHABLE
+            probe_error = type(exc).__name__
+        if probe == ProbeResult.READY:
+            model_detail = f"{cfg.model.ollama_model} is pulled"
+        elif probe == ProbeResult.NO_MODEL:
+            model_detail = (
+                f"{cfg.model.ollama_model} is not pulled; run: ollama pull {cfg.model.ollama_model}"
+            )
+        else:
+            cause = f" ({probe_error})" if probe_error else ""
+            model_detail = f"cannot reach the model server at {cfg.model.ollama_url}{cause}"
+        checks.append(ReadinessCheck("model", probe == ProbeResult.READY, True, model_detail))
 
     ui_index = _default_ui_dist() / "index.html"
     checks.append(
@@ -1406,15 +1492,25 @@ def _stale_image_check(client: Any, cfg: SkillsEntryConfig) -> ReadinessCheck | 
 
 
 @app.command("doctor")
-def doctor() -> None:
+def doctor(
+    backend: str = typer.Option(
+        "", "--backend", help="Check this backend instead of the configured one."
+    ),
+) -> None:
     """Check what a scan needs on this machine, and say what is missing.
 
     Required checks must pass for a full scan.  Docker and the sandbox image are
     optional: without them, scans run with --no-sandbox and the sandbox stage
-    reports itself as degraded.
+    reports itself as degraded.  With an OpenAI-compatible backend configured, it
+    checks that provider (the key variable is set, the server answers, the model is
+    listed) and never prints the key.
     """
 
-    checks = readiness_checks(_load_config_or_exit())
+    if backend and backend not in _BACKENDS:
+        typer.echo(f"error: unsupported --backend {backend!r}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
+    config = _config_for_backend(backend) if backend else _load_config_or_exit()
+    checks = readiness_checks(config)
     for check in checks:
         status = "PASS" if check.ok else ("FAIL" if check.required else "WARN")
         typer.echo(f"{status}  {check.name}: {check.detail}")
@@ -2012,7 +2108,12 @@ def setup(
         ):
             build_sandbox_image(cfg)
 
-    if not skip_model:
+    if not skip_model and uses_provider(cfg):
+        typer.echo(
+            f"The model backend is {cfg.model.backend}: no Ollama download is needed. "
+            "`doctor` checks the provider."
+        )
+    elif not skip_model:
         model_name = cfg.model.ollama_model
         probe = GemmaLocal(base_url=cfg.model.ollama_url, model=model_name)
         try:
