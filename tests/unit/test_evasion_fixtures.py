@@ -70,7 +70,7 @@ def _slug_exists(text: str, anchor: str) -> bool:
 def test_the_harness_reports_known_gaps_separately_from_failures():
     results = {item.skill: item.status for item in harness.check_evasion()}
 
-    assert results["homoglyph"] == "KNOWN-GAP"
+    assert results["homoglyph"] == "PASS"
     assert results["split-download-exec"] == "KNOWN-GAP"
     assert results["control-plain"] == "PASS"
     assert "FAIL" not in results.values()
@@ -81,5 +81,5 @@ def test_a_known_gap_that_gets_caught_is_a_failure_not_a_quiet_pass(monkeypatch)
 
     statuses = {item.skill: item.status for item in harness.check_evasion()}
 
-    assert statuses["homoglyph"] == "FAIL"
+    assert statuses["split-download-exec"] == "FAIL"
     assert statuses["control-plain"] == "PASS"

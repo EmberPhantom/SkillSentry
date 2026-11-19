@@ -89,10 +89,7 @@
     "homoglyph": {
       "min_verdict": "SUSPICIOUS",
       "min_risk": 70,
-      "known_gap": {
-        "reason": "A Cyrillic letter in 'curl' defeats the pattern for a download piped into a shell. The text is no longer the ASCII word, though a person or an agent reads it as the command.",
-        "tracking": "docs/security/evasion-limits.md#homoglyph-lookalike-letters"
-      }
+      "note": "A Cyrillic letter in 'curl'. Caught since the checks also match a normalised form of each line (lookalike letters mapped to Latin)."
     },
     "split-download-exec": {
       "min_verdict": "SUSPICIOUS",
@@ -101,6 +98,21 @@
         "reason": "One file downloads a script to /tmp and another runs it. Each file alone looks ordinary and no anchor ties them together; only the sandbox sees the pair run.",
         "tracking": "docs/security/evasion-limits.md#download-in-one-file-run-in-another"
       }
+    },
+    "fullwidth-forms": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "Full-width letters in a curl|bash line; folded by NFKC."
+    },
+    "invisible-chars": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "Zero-width characters inside curl and bash; dropped before matching."
+    },
+    "greek-in-script": {
+      "min_verdict": "SUSPICIOUS",
+      "min_risk": 70,
+      "note": "A Greek alpha in 'bash' in a shell script."
     }
   }
 }

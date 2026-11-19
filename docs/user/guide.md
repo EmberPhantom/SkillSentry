@@ -224,7 +224,7 @@ The `(scripts/sync.sh:4)` is the file and line of the evidence. The `SKS-…` ma
 
 - `SAFE` means these checks found nothing. It is not a guarantee that the skill is safe, and it is not a substitute for reading a skill that asks for credentials, network access or a shell.
 - A verdict mostly comes from deterministic patterns (the anchors), which are auditable and run on every file. The model adds intent that no pattern names, but a claim only the model makes cannot raise a verdict above `SUSPICIOUS`, and on its own it does not raise it at all. The sandbox shows what the entrypoint does when it runs, and only the declared entrypoint is run.
-- Patterns can be written around. Obfuscation that builds a command at run time, lookalike letters, and a download in one file with the run in another are examples; some are caught and two are known gaps. The list, with the reasons, is in [Evasion limits](../security/evasion-limits.md).
+- Patterns can be written around. Obfuscation that builds a command at run time, lookalike letters, and a download in one file with the run in another are examples; most are caught and one is a known gap. The list, with the reasons, is in [Evasion limits](../security/evasion-limits.md).
 - `coverage` and `confidence` say how much weight a result deserves: a `SAFE` with full coverage and a sandbox run is the strongest result; one with the sandbox or the model off is weaker.
 
 **Risk, confidence, coverage and tiers**
