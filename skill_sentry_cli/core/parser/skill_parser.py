@@ -12,6 +12,7 @@ from typing import Any
 import yaml
 
 from skill_sentry_cli.core.cache.hash_utils import MAX_TOTAL_BYTES, HashError, hash_skill_dir
+from skill_sentry_cli.core.contracts import COVERAGE_GAP
 from skill_sentry_cli.core.parser.opaque import (
     MAX_BENIGN_MEDIA_BYTES,
     NEAR_CAP_BYTES,
@@ -330,7 +331,7 @@ def _opaque_issue(path: Path, relative: str, *, text_reason: str | None) -> Pack
             "MiB package limit, and was not analysed",
             file=relative,
             coverage=True,
-            kind="opaque-content",
+            kind=COVERAGE_GAP,
         )
     if text_reason is not None:
         return PackageIssue(
@@ -338,7 +339,7 @@ def _opaque_issue(path: Path, relative: str, *, text_reason: str | None) -> Pack
             f"text file not analysed: {relative} ({text_reason}; {info.label}, {size_text})",
             file=relative,
             coverage=True,
-            kind="opaque-content",
+            kind=COVERAGE_GAP,
         )
     if info.kind == "media" and size <= MAX_BENIGN_MEDIA_BYTES:
         return PackageIssue(
@@ -702,6 +703,7 @@ def parse_skill(path: str | Path) -> SkillPackage:
                     "medium",
                     f"unsupported file type: {candidate.relative_to(root).as_posix()}",
                     coverage=True,
+                    kind=COVERAGE_GAP,
                 )
             )
             continue
@@ -733,6 +735,7 @@ def parse_skill(path: str | Path) -> SkillPackage:
                             "(skill text budget exhausted)",
                             file=relative,
                             coverage=True,
+                            kind=COVERAGE_GAP,
                         )
                     )
             else:

@@ -21,25 +21,125 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from typing import NamedTuple
 
 from skill_sentry_cli.core.contracts import Finding, Severity
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
 
 _MARKDOWN = (".md", ".markdown", ".txt")
 
-# A destination nobody would call a vendor API: a bare address, a tunnel, a paste or webhook
-# site, a request-capture service, or a TLD that is mostly used for throwaway hosts.
-SUSPECT_DESTINATION = re.compile(
-    r"https?://(?:"
-    r"\d{1,3}(?:\.\d{1,3}){3}"
-    r"|[^/\s]*(?:ngrok|webhook\.site|pastebin|transfer\.sh|oast|interact\.sh|requestbin|pipedream"
-    r"|burpcollaborator|canarytokens)[^/\s]*"
-    r"|discord(?:app)?\.com/api/webhooks"
-    r"|[^/\s]+\.(?:tk|ml|ga|cf|top|xyz|ru|su|zip|click)(?:[/:\s'\"]|$)"
-    r")",
+# A destination nobody would call a vendor API: a tunnel, a paste or webhook site, a
+# request-capture service, or a TLD that is mostly used for throwaway hosts. (A bare address and an
+# oddly written address are caught by parse_destination.)
+_SUSPECT_HOST_WORDS = re.compile(
+    r"ngrok|webhook\.site|pastebin|transfer\.sh|oast|interact\.sh|requestbin|pipedream|"
+    r"burpcollaborator|canarytokens",
     re.IGNORECASE,
 )
-_URL_HOST = re.compile(r"https?://([A-Za-z0-9.-]+)", re.IGNORECASE)
+_CHEAP_TLDS = frozenset({"tk", "ml", "ga", "cf", "top", "xyz", "ru", "su", "zip", "click"})
+_URL_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"`<>|]*")
+# A template variable in an authority: $TARGET, ${HOST}, {{host}}, {name}, <host> or %s.
+_PLACEHOLDER_PIECE = re.compile(r"\$\{\w+\}|\$\w+|\{\{\s*\w+\s*\}\}|\{\w+\}|<[\w -]+>|%s")
+_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+
+
+class Destination(NamedTuple):
+    """Where a URL really goes, read the way a client reads it."""
+
+    host: str  # lower-case, no userinfo, no port, no trailing dot; "" when it cannot be read
+    odd: bool  # written in a way a plain URL never is: not to be trusted as a name
+    placeholder: bool = False  # a template such as https://$TARGET/: the host is not written
+
+
+def parse_destination(url: str) -> Destination:
+    """The host a URL reaches.
+
+    The authority ends at the first ``/``, ``?`` or ``#``. Anything up to the last ``@`` is
+    userinfo and is dropped: ``https://brew.sh@203.0.113.9/`` goes to 203.0.113.9. A backslash,
+    a percent sign, a space or a non-ASCII character in the authority, a dotted userinfo, a
+    punycode label, a bad port or an empty host all make the destination ``odd``, which is never
+    trusted as a vendor and counts as suspect. A single trailing dot is a genuine form and is
+    dropped.
+    """
+
+    rest = url.split("://", 1)[1] if "://" in url else url
+    end = len(rest)
+    for mark in "/?#":
+        position = rest.find(mark)
+        if position != -1:
+            end = min(end, position)
+    authority = rest[:end]
+    if "@" not in authority and _PLACEHOLDER_PIECE.search(authority):
+        # A template in documentation, not an address. With every variable replaced the rest must
+        # still read as a host with an optional port; anything else is odd, as below.
+        plain = _PLACEHOLDER_PIECE.sub("x", authority)
+        name, _, port = plain.partition(":")
+        if (not port or port.isdigit()) and all(_LABEL.fullmatch(part) for part in name.split(".")):
+            return Destination("", False, True)
+    odd = (
+        not authority
+        or not authority.isascii()
+        or any(ch in authority for ch in "\\% \t")
+        or any(ord(ch) < 0x21 for ch in authority)
+    )
+    userinfo, at, hostport = authority.rpartition("@")
+    if at and ("." in userinfo or (":" in userinfo and "." in userinfo.split(":", 1)[0])):
+        odd = True  # a host-like name before the @ is how a vendor name is faked
+    if hostport.startswith("["):
+        return Destination(hostport.lower(), True)  # an IPv6 literal is not a vendor name
+    host, colon, port = hostport.partition(":")
+    if colon and not port.isdigit():
+        odd = True
+    host = host.lower()
+    if host.endswith(".") and not host.endswith(".."):
+        host = host[:-1]
+    labels = host.split(".")
+    if not host or not all(_LABEL.fullmatch(label) for label in labels):
+        odd = True
+    if any(label.startswith("xn--") for label in labels):
+        odd = True
+    return Destination(host, odd)
+
+
+def _bare_address(host: str) -> bool:
+    if re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}", host):
+        return True
+    return bool(re.fullmatch(r"(?:0x[0-9a-f]+|\d+)", host))  # 0x7f000001, 3232235777
+
+
+def suspect_url(url: str) -> bool:
+    """A URL whose destination nobody would call a vendor: odd, a bare address, a tunnel,
+    a paste or webhook site, a throwaway TLD, or a Discord webhook."""
+
+    where = parse_destination(url)
+    if where.placeholder:
+        return False  # not written; the file as a whole is checked for a bare address instead
+    if where.odd or _bare_address(where.host):
+        return True
+    if _SUSPECT_HOST_WORDS.search(where.host):
+        return True
+    if where.host.rsplit(".", 1)[-1] in _CHEAP_TLDS:
+        return True
+    return bool(re.search(r"discord(?:app)?\.com/api/webhooks", url, re.IGNORECASE))
+
+
+def suspect_destination(text: str) -> bool:
+    """Any URL in ``text`` is suspect."""
+
+    return any(suspect_url(match.group(0)) for match in _URL_TOKEN.finditer(text))
+
+
+def first_host(text: str) -> str | None:
+    """The real host of the first http(s) URL in ``text``, or None when there is none or its
+    destination is odd."""
+
+    for match in _URL_TOKEN.finditer(text):
+        if match.group(0).lower().startswith(("http://", "https://")):
+            where = parse_destination(match.group(0))
+            return None if where.odd else where.host
+    return None
+
+
 # A credential read that is not just a mention of a setting: key files, cloud credential files,
 # keychains, browser logins, wallets, and a dump of the whole environment.
 STRONG_CREDENTIAL = re.compile(
@@ -55,11 +155,10 @@ SEND = re.compile(
     r"\bfetch\s*\(|\bnc\s|\bsocat\b|--upload-file|\bsendmail\b|smtplib|webhook",
     re.IGNORECASE,
 )
+_BARE_ADDRESS_ANYWHERE = re.compile(r"(?<![\d.])(?!127\.|0\.)\d{1,3}(?:\.\d{1,3}){3}(?![\d.])")
 _HIDDEN_CHARS = re.compile("[​-‏‪-‮⁠-⁤﻿\U000e0000-\U000e007f]")
 _PIPE_TO_SHELL = re.compile(
-    r"(?:curl|wget)\s[^\n|]*?(https?://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+)[^\n|]*\|\s*(?:sudo\s+)?"
-    r"(?:sh|bash|zsh)\b",
-    re.IGNORECASE,
+    r"(?:curl|wget)\s(?P<fetch>[^\n|]*)\|\s*(?:sudo\s+)?(?:sh|bash|zsh)\b", re.IGNORECASE
 )
 # Install scripts that a tool's own site publishes. A match on one of these is documentation of
 # an install, not a download from a stranger. raw.githubusercontent.com and gist hosts are NOT here:
@@ -116,8 +215,9 @@ class _FileContext:
                     self.fenced.add(number)
         self.strong_credential = bool(STRONG_CREDENTIAL.search(self.text))
         self.can_send = bool(SEND.search(self.text))
-        self.suspect_destination = bool(SUSPECT_DESTINATION.search(self.text))
+        self.suspect_destination = suspect_destination(self.text)
         self.hidden_characters = bool(_HIDDEN_CHARS.search(self.text))
+        self.bare_address = bool(_BARE_ADDRESS_ANYWHERE.search(self.text))
 
 
 _NEARBY_ACTION = re.compile(
@@ -241,29 +341,36 @@ def _reason(
     if kind == "shell-exec":
         piped = _PIPE_TO_SHELL.search(line)
         if piped:
-            found = _URL_HOST.search(piped.group(1))
-            host = found.group(1).lower() if found else ""
+            # Every address fetched must be a genuine vendor install host, compared by exact
+            # equality after the authority is read properly. One other URL on the line is enough
+            # to keep the finding.
+            urls = [m.group(0) for m in _URL_TOKEN.finditer(piped.group("fetch"))]
+            hosts = [parse_destination(url) for url in urls]
             if (
-                host in _VENDOR_INSTALL_HOSTS
-                and not SUSPECT_DESTINATION.search(line)
-                and file.is_markdown
+                file.is_markdown
+                and hosts
+                and all(not h.odd and h.host in _VENDOR_INSTALL_HOSTS for h in hosts)
+                and not suspect_destination(line)
             ):
-                return f"a documented install script from {host}"
+                return f"a documented install script from {hosts[0].host}"
         elif _LITERAL_SHELL_CALL.search(line) and not _RISKY_LITERAL.search(line):
             return "a fixed command string with nothing built from input"
     if kind == "exfil-http-post":
-        if SUSPECT_DESTINATION.search(line) or file.strong_credential or file.suspect_destination:
+        if suspect_destination(line) or file.strong_credential or file.suspect_destination:
             return None
         if file.is_markdown:
+            if (
+                any(parse_destination(m.group(0)).placeholder for m in _URL_TOKEN.finditer(line))
+                and file.bare_address
+            ):
+                return None  # the address behind a placeholder may be the bare one in this file
             return "an API call shown in documentation"
-        host_match = _URL_HOST.search(line)
-        if package_credential:
-            return None
-        if host_match is None:
+        host = first_host(line)
+        if package_credential or host is None:
             return None  # an address from settings or input says nothing about where data goes
-        if _documented(host_match.group(1), description, skill_md):
-            return f"a request to {host_match.group(1)}, which the skill's own description names"
+        if _documented(host, description, skill_md):
+            return f"a request to {host}, which the skill's own description names"
     return None
 
 
-__all__ = ["SUSPECT_DESTINATION", "relax_findings"]
+__all__ = ["parse_destination", "relax_findings", "suspect_destination", "suspect_url"]

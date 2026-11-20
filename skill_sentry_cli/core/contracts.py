@@ -224,6 +224,11 @@ class Finding(APIModel):
 
 # Finding types that report a check that passed. They are not findings: a verdict lists them
 # under ``checks`` so ``findings`` holds only what a person needs to look at.
+# The finding type of a file the scan could not read for a reason that is about the scan (the text
+# budget, the package size, an unsupported file type) and not about what the file holds. It makes
+# the result UNSCANNED. It is not evidence of a threat, so fusion does not count it as one.
+COVERAGE_GAP = "coverage-gap"
+
 PASSING_CHECK_TYPES = frozenset(
     {"spec-valid", "semantic-clean", "anchors-clean", "semantic-static-only"}
 )

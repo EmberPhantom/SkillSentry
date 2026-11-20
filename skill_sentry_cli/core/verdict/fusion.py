@@ -25,6 +25,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from skill_sentry_cli.core.contracts import (
+    COVERAGE_GAP,
     Finding,
     FindingEvidence,
     OverrideSignal,
@@ -140,8 +141,12 @@ def fuse(
     bonus = int(typosquat_bonus) if detected else 0
     score = _clamp_score(round(weighted) + bonus)
     findings = _collect_findings(results)
+    # A coverage gap (a file the scan could not read) is why a result is UNSCANNED. It says
+    # nothing about what the file holds, so it is never threat evidence: it sets no floor and
+    # supports no model claim.
+    threats = tuple(f for f in findings if f.finding_type != COVERAGE_GAP)
     evidence_floor = _evidence_floor(
-        [finding for finding in findings if finding.stage != Stage.SEMANTIC],
+        [finding for finding in threats if finding.stage != Stage.SEMANTIC],
         detected=detected,
         typosquat_floor=typosquat_floor,
     )
@@ -150,7 +155,7 @@ def fuse(
     # hit, or a non-zero non-model signal.  Alone, it stays on the weighted score, and a
     # note says so.  It never reaches MALICIOUS by itself.
     model_findings = [finding for finding in findings if finding.stage == Stage.SEMANTIC]
-    corroborated = _model_is_corroborated(findings, signals, detected=detected)
+    corroborated = _model_is_corroborated(threats, signals, detected=detected)
     model_floor = (
         min(
             _evidence_floor(model_findings, detected=False, typosquat_floor=0),
@@ -201,7 +206,7 @@ def fuse(
     if (
         tier == VerdictTier.MALICIOUS
         and override is None
-        and not _has_strong_non_semantic_evidence(findings, signals, detected=detected)
+        and not _has_strong_non_semantic_evidence(threats, signals, detected=detected)
     ):
         tier = VerdictTier.SUSPICIOUS
         score = min(score, malicious_min)
@@ -212,8 +217,8 @@ def fuse(
         tier=tier,
         override=override,
         completeness=completeness,
-        strong_evidence=_has_strong_non_semantic_evidence(findings, signals, detected=detected),
-        independent_evidence=_has_independent_evidence(findings, signals, detected=detected),
+        strong_evidence=_has_strong_non_semantic_evidence(threats, signals, detected=detected),
+        independent_evidence=_has_independent_evidence(threats, signals, detected=detected),
         model_flags=any(
             finding.stage == Stage.SEMANTIC and finding.severity.rank >= Severity.MEDIUM.rank
             for finding in findings

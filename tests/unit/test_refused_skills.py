@@ -146,7 +146,9 @@ def test_unreadable_content_is_refused_without_a_model_call_and_stays_unscanned(
 
     assert (model.calls, runner.calls) == (0, 0)
     assert outcome.verdict.status == "UNSCANNED"
-    assert any(f.finding_type == "opaque-content" for f in outcome.verdict.findings)
+    # A compiled program is opaque content; a file near the size cap is a coverage gap.
+    expected = "coverage-gap" if "assets/blob.bin" in files else "opaque-content"
+    assert any(f.finding_type == expected for f in outcome.verdict.findings)
 
 
 def test_static_findings_are_kept_for_a_refused_package(tmp_path: Path):

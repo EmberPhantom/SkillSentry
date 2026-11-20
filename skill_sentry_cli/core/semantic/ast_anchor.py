@@ -518,7 +518,9 @@ _SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
 # A package manager told to install from, or to use as its registry, a bare IP address. A real
 # registry has a name; a bare address is how a payload is served from a machine nobody vouches for.
 _NOT_LOOPBACK = r"(?!127\.|0\.0\.0\.0)"
+_USERINFO = r"(?:[^\s/@]*@)?"
 _BARE_IP = _NOT_LOOPBACK + r"\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?"
+_ENDS_HOST = r"(?=[/\s'\"`;)?#\\]|$)"
 _PACKAGE_MANAGER = r"\b(?:npm|npx|yarn|pnpm|bun|pip3?|pipx|uv|poetry|conda|cargo|go|gem|composer)\b"
 _REGISTRY_FLAG = (
     r"(?:--(?:extra-)?index-url|--registry|--find-links|--trusted-host|--git|--proxy)(?:=|\s+)"
@@ -526,7 +528,7 @@ _REGISTRY_FLAG = (
 _STANDARD_HOSTS = (
     r"(?:pypi\.org|files\.pythonhosted\.org|registry\.npmjs\.org|registry\.yarnpkg\.com|"
     r"crates\.io|index\.crates\.io|proxy\.golang\.org|rubygems\.org|download\.pytorch\.org|"
-    r"github\.com|gitlab\.com|localhost|127\.0\.0\.1)\b"
+    r"github\.com|gitlab\.com|localhost|127\.0\.0\.1)(?=[:/?#\s'\"`;)]|$)"
 )
 _INSTALL_RULES: tuple[AnchorRule, ...] = (
     AnchorRule(
@@ -534,9 +536,7 @@ _INSTALL_RULES: tuple[AnchorRule, ...] = (
         Severity.HIGH,
         re.compile(
             _PACKAGE_MANAGER + r"[^\n]*\b(?:install|add|get|i)\b[^\n]*"
-            r"(?:(?:https?|git\+https?|ssh)://|@|=|\s)(?:[^\s/@]*@)?"
-            + _BARE_IP
-            + r"(?=[/\s'\"`;)]|$)",
+            r"(?:(?:https?|git\+https?|ssh)://|@|=|\s)" + _USERINFO + _BARE_IP + _ENDS_HOST,
             re.IGNORECASE,
         ),
         "package install from a bare IP address",
@@ -549,10 +549,12 @@ _INSTALL_RULES: tuple[AnchorRule, ...] = (
             + r"[^\n]*"
             + _REGISTRY_FLAG
             + r"(?:https?://)?"
+            + _USERINFO
             + _BARE_IP
-            + r"(?=[/\s'\"`;)]|$)|"
-            r"\bregistry\b[^\n]*https?://" + _BARE_IP + r"(?=[/\s'\"`;)]|$)|"
-            r"\bpip3?\b[^\n]*\s-i\s+(?:https?://)?" + _BARE_IP + r"(?=[/\s'\"`;)]|$)",
+            + _ENDS_HOST
+            + r"|"
+            r"\bregistry\b[^\n]*https?://" + _USERINFO + _BARE_IP + _ENDS_HOST + r"|"
+            r"\bpip3?\b[^\n]*\s-i\s+(?:https?://)?" + _USERINFO + _BARE_IP + _ENDS_HOST,
             re.IGNORECASE,
         ),
         "package manager pointed at a registry that is a bare IP address",
@@ -560,13 +562,17 @@ _INSTALL_RULES: tuple[AnchorRule, ...] = (
     AnchorRule(
         "untrusted-install",
         Severity.MEDIUM,
+        # The standard host must be the whole host: pypi.org.evil.example is not pypi.org, and
+        # a userinfo before the @ is skipped, so https://pypi.org@evil.example is read as evil.example.
         re.compile(
             _PACKAGE_MANAGER
             + r"[^\n]*"
             + _REGISTRY_FLAG
-            + r"https?://(?!"
+            + r"https?://"
+            + _USERINFO
+            + r"(?!"
             + _STANDARD_HOSTS
-            + r")[\w.-]+",
+            + r")[^\s/?#'\"`;)]+",
             re.IGNORECASE,
         ),
         "package manager pointed at a registry that is not a standard one",
