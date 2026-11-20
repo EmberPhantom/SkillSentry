@@ -210,7 +210,7 @@ def _refusal_reason(package: SkillPackage, static_findings: Sequence[Finding]) -
     for issue in package.issues:
         if issue.severity not in {"high", "critical"}:
             continue
-        if issue.kind == "opaque-content" or (
+        if issue.kind in {"opaque-content", "coverage-gap"} or (
             issue.kind in _INVALID_ISSUE_KINDS and not issue.coverage
         ):
             return issue.message

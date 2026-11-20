@@ -63,6 +63,30 @@ What is not decoded: an encoding with three or more symbols, a different bit ord
 
 None of the cases above is a known gap today. A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, an invisible-character encoding other than the ones above, and content the sandbox does not reach.
 
+## Where a pattern is, not only what it is
+
+Many patterns are ordinary in the right place: a guide that tells the reader to edit a shell profile, a script that posts to the API its description names, a fixed command string, a security guide that quotes an attack. `skill_sentry_cli/core/anchors/context.py` lowers a finding to LOW, with the reason in its message, only when the place makes the ordinary reading likely and nothing corroborates the threat reading. It never raises a severity and never removes a finding. A pattern in an executable context keeps its severity, and so does any match with a destination that is a bare IP, a tunnel, a paste or webhook site or a cheap TLD; a strong credential read in the same file; hidden characters in the same file; text written with lookalike or invisible characters; or a download piped into a shell from a host that is not a known vendor installer (anyone can publish on `raw.githubusercontent.com`, so it is not one).
+
+What is lowered, and what is still HIGH:
+
+| Pattern | Lowered to LOW when | Still flagged |
+|:---|:---|:---|
+| Persistence (`.zshrc`, `crontab`) | In a document, with no download on the line | In a script; with a download on the line |
+| DNS lookup | A sentence, or a lookup of a fixed name | A name built from a command or variable |
+| Phrase about hidden text | No hidden characters in the file | Hidden characters in the file |
+| Credential setting (`AWS_ACCESS_KEY_ID`, `.npmrc`) | Named in a document, with no send on the line | A private key, keychain or browser store; a send on the line |
+| Pipe to shell | A known vendor install host, in a document | A script; any other host; a bare IP |
+| `os.system("fixed string")` | The string is fixed and has no download | An f-string, a variable, or a download |
+| HTTP POST | In a document, or to a host the description names | A bare IP or tunnel; a credential read anywhere in the skill; an address from settings |
+| `base64 -d`, `eval(`, `rm -rf` | In a document and not run as code | Piped into a shell; in a script |
+| "Never tell the user ..." | No action, address or secret within two lines | An action nearby |
+
+A destination is read the way a client reads it: the authority ends at the first `/`, `?` or `#`, anything before the last `@` is userinfo and is dropped (`https://brew.sh@203.0.113.9/` goes to `203.0.113.9`), and the host is compared to the vendor list by exact equality. A backslash, a percent escape, a space or a non-ASCII character in the authority, a host-like name before the `@`, a punycode label, a bad port, or a bare address in any form (dotted, decimal or hex) makes the destination suspect, never a vendor. A trailing dot is genuine. A template such as `https://$TARGET/` in a document is a placeholder, and is lowered only when the file holds no bare address. Every address a download-to-shell line fetches must be a vendor host for the line to be lowered.
+
+Two things the context cannot tell apart, and so does not lower: a security guide that quotes an attack string, and a skill that posts to an address read from a settings file.
+
+Package installs are checked too: `npm`, `pip`, `yarn`, `pnpm`, `cargo`, `go` and similar told to install from, or to use as a registry, a bare IP address is HIGH, in a script or a fenced block. A named registry that is not a standard one is MEDIUM, because company mirrors are real.
+
 ## Long reference text beyond the model's budget
 
 The model reads a bounded amount of a skill: a fixed number of chunks per scan, set by its profile. Real skills are often far bigger (dozens of files, hundreds of kilobytes). The model reads in this order: `SKILL.md`, then scripts and config files, then instruction text, then reference, asset and example text, and a range the static checks flagged is read early wherever it sits.

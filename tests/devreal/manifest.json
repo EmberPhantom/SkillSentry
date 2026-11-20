@@ -1,0 +1,4203 @@
+{
+  "version": 1,
+  "description": "A tuning set of real skills, separate from tests/heldout. Checks MAY be tuned on this set. No skill content is stored here, only where to get it and how it was labelled. The skills here are disjoint from the held-out set by repository, by skill and by tree hash.",
+  "sources": {
+    "maliciousskillbench": {
+      "url": "https://github.com/protectskills/MaliciousSkillBench.git",
+      "commit": "893afd609be22a2dfac5a2b94bbebb4eeb99515e",
+      "licence": "metadata CC-BY-4.0; code Apache-2.0; skill artefacts keep their upstream terms (not relicensed)",
+      "archives": {
+        "SRC001_packages.tar.gz": "878498b42d9c67d0b084ef416153d69742ef75e57c938d7a38614f9bb914c3db",
+        "SRC002_packages.tar.gz": "bf2532cb0e7fd3a76a2cf1bbb53cff1cd77fe67b3f152f802c084ef196860ed5",
+        "SRC004_packages.tar.gz": "206ab5bde4177475ba1d9da3f711197c38e082329b77aee969f99ecbbc385701",
+        "SRC005_artifacts.tar.gz": "2ad5fcdacd2f68d73727d4a93e346d081a5bb1ec13a801afbd4d35a2d6d8b473",
+        "SRC006_packages.tar.gz": "b2a8d1f54918bbd9f9b69e869e4914dd7416cf166b3d351a75a55c87f355bc56",
+        "SRC008_packages.tar.gz": "286026390acdd4cc01f6821c559bbb725893f665393aa43a365598c010608a36",
+        "SRC009_packages.tar.gz": "10bf2de3d35b50a3c8888356831d43b4963f61f726cab931aeab33ecd60c882f",
+        "SRC010_packages.tar.gz": "db9e7b65327659ade4c2a6bb0c69c7037a50f9e8ab7509b6441d486bcf7121af",
+        "SRC011_artifacts.tar.gz": "db2da0e76041c73826e604453544bc0c3d3c7ce3c90c6db62e3dddcc23f9468a",
+        "SRC012_artifacts.tar.gz": "b57c3663d9d943802bdb341659ba8e0cd0ffa4befcac407e268f4a8ad9a6398d",
+        "SRC013_packages.tar.gz": "6e6f769319d5f6d0d0add1588690e2fcd12ca9e3d2364d2acf580225cff98230"
+      },
+      "note": "Aggregated benchmark of 13 public sources; packages/ holds the source-level skill archives."
+    },
+    "UiPath--coder_eval": {
+      "url": "https://github.com/UiPath/coder_eval.git",
+      "commit": "05bab863e87f579c15441742a39ceeb055d34117",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 160
+    },
+    "arvindrk--extract-design-system": {
+      "url": "https://github.com/arvindrk/extract-design-system.git",
+      "commit": "1873741ba8dea755e35e6e15134f7918cd58e036",
+      "licence": "MIT",
+      "stars_at_pick": 292
+    },
+    "firecrawl--skills": {
+      "url": "https://github.com/firecrawl/skills.git",
+      "commit": "1d4b0728d0f448cafef2eb8370c907fde7cb6f42",
+      "licence": "ISC",
+      "stars_at_pick": 160
+    },
+    "gooseworks-ai--goose-skills": {
+      "url": "https://github.com/gooseworks-ai/goose-skills.git",
+      "commit": "885edb542d6e4e526d4a9ad2844a3771be248810",
+      "licence": "MIT",
+      "stars_at_pick": 1329
+    },
+    "browser-act--skills": {
+      "url": "https://github.com/browser-act/skills.git",
+      "commit": "593316aa0f8ccd88bdf745c92b24a50641701973",
+      "licence": "MIT",
+      "stars_at_pick": 6376
+    },
+    "spencermarx--open-code-review": {
+      "url": "https://github.com/spencermarx/open-code-review.git",
+      "commit": "373a6c340312c86a6b42ded368f86f12570c34c5",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 390
+    },
+    "haiderfarooq3--paper-reel": {
+      "url": "https://github.com/haiderfarooq3/paper-reel.git",
+      "commit": "9c5bc57b5e10a0cf07d3935c91c2ac30971c69b2",
+      "licence": "MIT",
+      "stars_at_pick": 147
+    },
+    "pedrohcgs--claude-code-my-workflow": {
+      "url": "https://github.com/pedrohcgs/claude-code-my-workflow.git",
+      "commit": "fe7077463c06e6d1572bb6c13d1b00525a4ff28e",
+      "licence": "MIT",
+      "stars_at_pick": 1725
+    },
+    "alchaincyf--huashu-skills": {
+      "url": "https://github.com/alchaincyf/huashu-skills.git",
+      "commit": "3721979b524fb4ebd1adab1e4ed1aa3d512ad21e",
+      "licence": "MIT",
+      "stars_at_pick": 2309
+    },
+    "feimacode--open-design-agent-kit": {
+      "url": "https://github.com/feimacode/open-design-agent-kit.git",
+      "commit": "8def63a489b2a113f6aa5b034b23755499909d32",
+      "licence": "MIT",
+      "stars_at_pick": 1162
+    },
+    "plugin87--ux-ui-agent-skills": {
+      "url": "https://github.com/plugin87/ux-ui-agent-skills.git",
+      "commit": "d0ee2fa38edea5eba0b3d3a4a43f6b7e9ab923a6",
+      "licence": "MIT",
+      "stars_at_pick": 3208
+    },
+    "seranking--seo-skills": {
+      "url": "https://github.com/seranking/seo-skills.git",
+      "commit": "75a886d747fb43689e316811a1e2ff2e7f859451",
+      "licence": "MIT",
+      "stars_at_pick": 211
+    },
+    "jezweb--claude-skills": {
+      "url": "https://github.com/jezweb/claude-skills.git",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "licence": "MIT",
+      "stars_at_pick": 1121
+    },
+    "nexscope-ai--Amazon-Skills": {
+      "url": "https://github.com/nexscope-ai/Amazon-Skills.git",
+      "commit": "2bcb8cb019cfac6a1e420b11f86209df5ea47686",
+      "licence": "MIT",
+      "stars_at_pick": 882
+    },
+    "w95--awesome-claude-corporate-skills": {
+      "url": "https://github.com/w95/awesome-claude-corporate-skills.git",
+      "commit": "78dbc7c719920610d5b1c60bd13d9bb52d711c7a",
+      "licence": "MIT",
+      "stars_at_pick": 327
+    },
+    "agentii-ai--agentii-investment-intelligence": {
+      "url": "https://github.com/agentii-ai/agentii-investment-intelligence.git",
+      "commit": "9b58878b79866528153dc108902aef58b571eb78",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 211
+    },
+    "backtrue--thinkwithblack-skill": {
+      "url": "https://github.com/backtrue/thinkwithblack-skill.git",
+      "commit": "6a43460e60b3cd3171f3deb6f9d8ef0d170ba184",
+      "licence": "MIT",
+      "stars_at_pick": 275
+    },
+    "testdouble--han": {
+      "url": "https://github.com/testdouble/han.git",
+      "commit": "abba73a773528905a8f3d15956029394746e5c7f",
+      "licence": "MIT",
+      "stars_at_pick": 353
+    },
+    "DataWithBaraa--claude-code-data-engineering-skills": {
+      "url": "https://github.com/DataWithBaraa/claude-code-data-engineering-skills.git",
+      "commit": "c44e0bdedb4527177d17add188a3b9dcead1844f",
+      "licence": "MIT",
+      "stars_at_pick": 106
+    },
+    "NVIDIA--skills": {
+      "url": "https://github.com/NVIDIA/skills.git",
+      "commit": "6b75e9e3c9737a4985ab87462d2ecb02d5b2ada7",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 4091
+    },
+    "first-fluke--oh-my-agent": {
+      "url": "https://github.com/first-fluke/oh-my-agent.git",
+      "commit": "18254c363771937274683e8854a6b86f3e302114",
+      "licence": "MIT",
+      "stars_at_pick": 1473
+    },
+    "artokun--comfyui-mcp": {
+      "url": "https://github.com/artokun/comfyui-mcp.git",
+      "commit": "f4c4077c257d55d8084d63b895bfc5644b1108d9",
+      "licence": "MIT",
+      "stars_at_pick": 940
+    },
+    "techygarg--lattice": {
+      "url": "https://github.com/techygarg/lattice.git",
+      "commit": "a772470df20aebdbfd9fa32c435901a876a750f0",
+      "licence": "MIT",
+      "stars_at_pick": 216
+    },
+    "OthmanAdi--planning-with-files": {
+      "url": "https://github.com/OthmanAdi/planning-with-files.git",
+      "commit": "51bf62def62d1cb317d37936929b4ef97cf862c3",
+      "licence": "MIT",
+      "stars_at_pick": 28150
+    },
+    "Mindrally--skills": {
+      "url": "https://github.com/Mindrally/skills.git",
+      "commit": "7682ca77710e0971eab4e0ae5dddfa281aea0ba5",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 311
+    },
+    "MoizIbnYousaf--ai-agent-skills": {
+      "url": "https://github.com/MoizIbnYousaf/ai-agent-skills.git",
+      "commit": "6d95c788aa22ce39a4807b9a4c31c758a2036dc6",
+      "licence": "MIT",
+      "stars_at_pick": 1162
+    },
+    "zebbern--claude-code-guide": {
+      "url": "https://github.com/zebbern/claude-code-guide.git",
+      "commit": "78053f4086989300bbc87b26ba9ecde5f3444f26",
+      "licence": "MIT",
+      "stars_at_pick": 4718
+    },
+    "threerocks--article2media": {
+      "url": "https://github.com/threerocks/article2media.git",
+      "commit": "772d3402655d5223002d48713d9b8af3bc7fda99",
+      "licence": "MIT",
+      "stars_at_pick": 448
+    },
+    "zenstory-ai--oh-story-dsh": {
+      "url": "https://github.com/zenstory-ai/oh-story-dsh.git",
+      "commit": "e6187b13d7620240b11b42283eac74b4f23460a8",
+      "licence": "MIT",
+      "stars_at_pick": 801
+    },
+    "liustack--modlens": {
+      "url": "https://github.com/liustack/modlens.git",
+      "commit": "e42fc495c7366def4e3cb70040355d20c9c003c0",
+      "licence": "MIT",
+      "stars_at_pick": 5044
+    },
+    "momozi1996--awesome-ai-persona-skills": {
+      "url": "https://github.com/momozi1996/awesome-ai-persona-skills.git",
+      "commit": "729ff734f5edcbaed70e256d1031fd0a224f6527",
+      "licence": "MIT",
+      "stars_at_pick": 1128
+    },
+    "kimlawtech--korean-privacy-terms": {
+      "url": "https://github.com/kimlawtech/korean-privacy-terms.git",
+      "commit": "d8934d79a258e1427f1a6ad0247c100c01f3b3b8",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 595
+    },
+    "countbot-ai--CountBot": {
+      "url": "https://github.com/countbot-ai/CountBot.git",
+      "commit": "6da645255d754197733699698b635ac3327a2ca2",
+      "licence": "MIT",
+      "stars_at_pick": 785
+    },
+    "justxor--claude-code-pro-course": {
+      "url": "https://github.com/justxor/claude-code-pro-course.git",
+      "commit": "685e438e33bf64760448e796a5fe6bc8dcf465fd",
+      "licence": "MIT",
+      "stars_at_pick": 353
+    },
+    "tance-mang--chinese-webnovel-skills": {
+      "url": "https://github.com/tance-mang/chinese-webnovel-skills.git",
+      "commit": "7e797ec9d4fcdd240db1039da8bea77beb86b5df",
+      "licence": "MIT",
+      "stars_at_pick": 110
+    },
+    "Weizhena--Deep-Research-skills": {
+      "url": "https://github.com/Weizhena/Deep-Research-skills.git",
+      "commit": "6ce38f60e3f8b22502c29873f96503a4e0c5addb",
+      "licence": "MIT",
+      "stars_at_pick": 2580
+    },
+    "rorkai--app-store-connect-cli-skills": {
+      "url": "https://github.com/rorkai/app-store-connect-cli-skills.git",
+      "commit": "6d1c3c55fe4590fcbc3e3115de18c5721a73c23b",
+      "licence": "MIT",
+      "stars_at_pick": 1145
+    },
+    "social-media-skills--skills": {
+      "url": "https://github.com/social-media-skills/skills.git",
+      "commit": "f28cef2b7067ec64e79c9d85421c022c06659e03",
+      "licence": "MIT",
+      "stars_at_pick": 349
+    },
+    "techwolf-ai--ai-first-toolkit": {
+      "url": "https://github.com/techwolf-ai/ai-first-toolkit.git",
+      "commit": "2ee78415674eaaead2082a55691b68ffb1003e87",
+      "licence": "MIT",
+      "stars_at_pick": 144
+    },
+    "levnikolaevich--claude-code-skills": {
+      "url": "https://github.com/levnikolaevich/claude-code-skills.git",
+      "commit": "809845957a79a8e470d97a794ab7f19fa4f246b7",
+      "licence": "MIT",
+      "stars_at_pick": 597
+    },
+    "aaron-he-zhu--aaron-marketing-skills": {
+      "url": "https://github.com/aaron-he-zhu/aaron-marketing-skills.git",
+      "commit": "846e69175802e0a02a8e97f77ad73756cccff247",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 3173
+    },
+    "elvismdev--claude-wordpress-skills": {
+      "url": "https://github.com/elvismdev/claude-wordpress-skills.git",
+      "commit": "0ac0bbd5fd7c2a91f45af8ec3f5282537e52b075",
+      "licence": "MIT",
+      "stars_at_pick": 240
+    },
+    "staruhub--ClaudeSkills": {
+      "url": "https://github.com/staruhub/ClaudeSkills.git",
+      "commit": "66e02d23642f0c63ccb07b46a88104eade402d44",
+      "licence": "MIT",
+      "stars_at_pick": 741
+    },
+    "pashov--skills": {
+      "url": "https://github.com/pashov/skills.git",
+      "commit": "eacfc09b365d2697b83355909d0300607e596ffc",
+      "licence": "MIT",
+      "stars_at_pick": 1321
+    },
+    "oliver-kriska--claude-elixir-phoenix": {
+      "url": "https://github.com/oliver-kriska/claude-elixir-phoenix.git",
+      "commit": "4621ae486f3ef3270cc5871685c9b13735ad5e60",
+      "licence": "MIT",
+      "stars_at_pick": 576
+    },
+    "rampstackco--claude-skills": {
+      "url": "https://github.com/rampstackco/claude-skills.git",
+      "commit": "9d281db6e7a5c4a0084ba89c91633a07f5f7e42b",
+      "licence": "MIT",
+      "stars_at_pick": 1103
+    },
+    "Leonxlnx--cinetic": {
+      "url": "https://github.com/Leonxlnx/cinetic.git",
+      "commit": "f4bbfc844877891fe92279d47b7874fb44d485ae",
+      "licence": "MIT",
+      "stars_at_pick": 1306
+    },
+    "ancoleman--ai-design-components": {
+      "url": "https://github.com/ancoleman/ai-design-components.git",
+      "commit": "76551b7b19ebc667764ec75da14990d0aef8b6e5",
+      "licence": "MIT",
+      "stars_at_pick": 533
+    },
+    "boshu2--agentops": {
+      "url": "https://github.com/boshu2/agentops.git",
+      "commit": "596942dd0c979ce29ca3f175996f1b6d2d8a5312",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 457
+    },
+    "indranilbanerjee--digital-marketing-pro": {
+      "url": "https://github.com/indranilbanerjee/digital-marketing-pro.git",
+      "commit": "be4142b25bba6d424962a7788432dd813e6b768c",
+      "licence": "MIT",
+      "stars_at_pick": 976
+    },
+    "renezander030--capcut-cli": {
+      "url": "https://github.com/renezander030/capcut-cli.git",
+      "commit": "6e7ef130aa7aff191a1a32a68fe2ff727fec4864",
+      "licence": "MIT",
+      "stars_at_pick": 1238
+    },
+    "arla6ka--design.how": {
+      "url": "https://github.com/arla6ka/design.how.git",
+      "commit": "1ce5304466db2ba47a7a7524603e86df77c702bd",
+      "licence": "MIT",
+      "stars_at_pick": 595
+    },
+    "serpro69--claude-toolbox": {
+      "url": "https://github.com/serpro69/claude-toolbox.git",
+      "commit": "9880439951af3d6316016209256b862c2b6b2751",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 155
+    },
+    "AgriciDaniel--claude-blog": {
+      "url": "https://github.com/AgriciDaniel/claude-blog.git",
+      "commit": "4f9c2cb8fd17f594e868d6c2ce0e8fb2c971f987",
+      "licence": "MIT",
+      "stars_at_pick": 2822
+    },
+    "qufei1993--skills-hub": {
+      "url": "https://github.com/qufei1993/skills-hub.git",
+      "commit": "822da32c31ddecb9bde6d258b69c77f5b9f78ac2",
+      "licence": "MIT",
+      "stars_at_pick": 1880
+    },
+    "samber--cc-skills-golang": {
+      "url": "https://github.com/samber/cc-skills-golang.git",
+      "commit": "d68d80aec298e1b74b37c2a472c002b5217248b3",
+      "licence": "MIT",
+      "stars_at_pick": 3903
+    },
+    "alirezarezvani--claude-code-skill-factory": {
+      "url": "https://github.com/alirezarezvani/claude-code-skill-factory.git",
+      "commit": "ba18b31703542d9d7eda5f9ba94f0df65a59dddf",
+      "licence": "MIT",
+      "stars_at_pick": 907
+    },
+    "firecrawl--firecrawl-claude-plugin": {
+      "url": "https://github.com/firecrawl/firecrawl-claude-plugin.git",
+      "commit": "d6e42a497efafa32d5d199c2e0b58ac0a7245450",
+      "licence": "MIT",
+      "stars_at_pick": 263
+    },
+    "Ootto-AI--claude-content-skills": {
+      "url": "https://github.com/Ootto-AI/claude-content-skills.git",
+      "commit": "691875ac3eafaf84ec0bdb0283728c85d2cb3413",
+      "licence": "MIT",
+      "stars_at_pick": 525
+    },
+    "AgriciDaniel--chatgpt-seo": {
+      "url": "https://github.com/AgriciDaniel/chatgpt-seo.git",
+      "commit": "b9dd5c8fab722c7610184927a902ca689165d322",
+      "licence": "MIT",
+      "stars_at_pick": 937
+    },
+    "Affitor--affiliate-skills": {
+      "url": "https://github.com/Affitor/affiliate-skills.git",
+      "commit": "f4cb063a0ee83b1b9e5167e396ab46cc9123dadc",
+      "licence": "MIT",
+      "stars_at_pick": 796
+    },
+    "sanjay3290--ai-skills": {
+      "url": "https://github.com/sanjay3290/ai-skills.git",
+      "commit": "c84255839a1bfaa06d681aa528f9b50d70002afb",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 457
+    },
+    "getaero-io--gtm-eng-skills": {
+      "url": "https://github.com/getaero-io/gtm-eng-skills.git",
+      "commit": "e8d12d11036dfc899103387bccadf297108e9c1b",
+      "licence": "MIT",
+      "stars_at_pick": 83
+    },
+    "MicrosoftDocs--Agent-Skills": {
+      "url": "https://github.com/MicrosoftDocs/Agent-Skills.git",
+      "commit": "9b16b5c7c7716949c83fc4bbdc448e0ada7f93a3",
+      "licence": "CC-BY-4.0",
+      "stars_at_pick": 817
+    },
+    "OneWave-AI--claude-skills": {
+      "url": "https://github.com/OneWave-AI/claude-skills.git",
+      "commit": "b2267d9171af4f56848d82992381b20b89b44056",
+      "licence": "MIT",
+      "stars_at_pick": 437
+    },
+    "Aperivue--medsci-skills": {
+      "url": "https://github.com/Aperivue/medsci-skills.git",
+      "commit": "70c2aa5c35e5e8604ee5a5232479d4127b3a6e49",
+      "licence": "MIT",
+      "stars_at_pick": 390
+    },
+    "jamditis--claude-skills-journalism": {
+      "url": "https://github.com/jamditis/claude-skills-journalism.git",
+      "commit": "a6383bd0c4cb22cc04056875f4d50603489b003b",
+      "licence": "MIT",
+      "stars_at_pick": 458
+    },
+    "microsoft--SkillOpt": {
+      "url": "https://github.com/microsoft/SkillOpt.git",
+      "commit": "22c1ed85d20bf09476373c4a1b10965284873e3d",
+      "licence": "MIT",
+      "stars_at_pick": 19166
+    },
+    "giuseppe-trisciuoglio--developer-kit": {
+      "url": "https://github.com/giuseppe-trisciuoglio/developer-kit.git",
+      "commit": "fe73fb33a09ee6562eeec7415a3f9a3bcf795177",
+      "licence": "MIT",
+      "stars_at_pick": 372
+    },
+    "avibebuilder--claude-prime": {
+      "url": "https://github.com/avibebuilder/claude-prime.git",
+      "commit": "80bcfa48ccd599df9316954a24f9249be4c703fc",
+      "licence": "MIT",
+      "stars_at_pick": 128
+    },
+    "secondsky--claude-skills": {
+      "url": "https://github.com/secondsky/claude-skills.git",
+      "commit": "88378361314f558fb719aec0af9fd898ab36f0b2",
+      "licence": "MIT",
+      "stars_at_pick": 250
+    },
+    "microsoft--power-platform-skills": {
+      "url": "https://github.com/microsoft/power-platform-skills.git",
+      "commit": "cbbeec63dc117835e37fa7dad0aa6faa5dd84377",
+      "licence": "MIT",
+      "stars_at_pick": 1163
+    },
+    "nWave-ai--nWave": {
+      "url": "https://github.com/nWave-ai/nWave.git",
+      "commit": "7b3b42bedfaf53c0c47058a3924dfd39068b0bca",
+      "licence": "MIT",
+      "stars_at_pick": 636
+    },
+    "decebals--claude-code-java": {
+      "url": "https://github.com/decebals/claude-code-java.git",
+      "commit": "049043449da59b04dc8fa9967466b171be5e49a7",
+      "licence": "MIT",
+      "stars_at_pick": 777
+    },
+    "docker--skills": {
+      "url": "https://github.com/docker/skills.git",
+      "commit": "caeee2024f7527d890a29dd1732b62a112f56d0e",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 644
+    },
+    "elementalsouls--Claude-BugHunter": {
+      "url": "https://github.com/elementalsouls/Claude-BugHunter.git",
+      "commit": "0e70a021e59d6875004e7a563f8511aca2ba3bc1",
+      "licence": "MIT",
+      "stars_at_pick": 13003
+    },
+    "haiderfarooq3--khan-explainer": {
+      "url": "https://github.com/haiderfarooq3/khan-explainer.git",
+      "commit": "326bf9b5332bb30a09e9d11f0ba81e30e7a0e81f",
+      "licence": "MIT",
+      "stars_at_pick": 164
+    },
+    "AgriciDaniel--claude-obsidian": {
+      "url": "https://github.com/AgriciDaniel/claude-obsidian.git",
+      "commit": "2e545563172f97f02ecaaaab376ceea1246a0583",
+      "licence": "MIT",
+      "stars_at_pick": 16633
+    },
+    "dembrandt--dembrandt-skills": {
+      "url": "https://github.com/dembrandt/dembrandt-skills.git",
+      "commit": "9d2f652d43f7c8ab7fd3a8d37141e0d77549bd23",
+      "licence": "MIT",
+      "stars_at_pick": 197
+    },
+    "Anil-matcha--awesome-muse-connectors": {
+      "url": "https://github.com/Anil-matcha/awesome-muse-connectors.git",
+      "commit": "85fa8303b195ef4d25a309bc4bfcff88e5e61610",
+      "licence": "MIT",
+      "stars_at_pick": 1478
+    },
+    "seb1n--awesome-ai-agent-skills": {
+      "url": "https://github.com/seb1n/awesome-ai-agent-skills.git",
+      "commit": "75865a5d037a4cdaa7f409a4ec14ab9b0292920b",
+      "licence": "MIT",
+      "stars_at_pick": 259
+    },
+    "nanocoai--nanoclaw": {
+      "url": "https://github.com/nanocoai/nanoclaw.git",
+      "commit": "1a02784cedd3a63df1b2e3963ac839d5f5427fbd",
+      "licence": "MIT",
+      "stars_at_pick": 31128
+    },
+    "inhouseseo--superseo-skills": {
+      "url": "https://github.com/inhouseseo/superseo-skills.git",
+      "commit": "9cf22cc065a294bf0077ea6af6b4ea0eb7f89cdc",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 415
+    },
+    "jtrackingai--analytics-tracking-automation": {
+      "url": "https://github.com/jtrackingai/analytics-tracking-automation.git",
+      "commit": "68378e000ef24123ddd031d42e95587ef137bd87",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 145
+    },
+    "tjboudreaux--cc-thinking-skills": {
+      "url": "https://github.com/tjboudreaux/cc-thinking-skills.git",
+      "commit": "7b8fece345dfaa11773be7152ccd194589cb5437",
+      "licence": "MIT",
+      "stars_at_pick": 1756
+    },
+    "feiskyer--claude-code-settings": {
+      "url": "https://github.com/feiskyer/claude-code-settings.git",
+      "commit": "0443b11c669076c92a89687e15d4d74be8171f34",
+      "licence": "MIT",
+      "stars_at_pick": 1683
+    },
+    "kostja94--marketing-skills": {
+      "url": "https://github.com/kostja94/marketing-skills.git",
+      "commit": "ac823a127782355339f21aef6c87f1ccff751c84",
+      "licence": "MIT",
+      "stars_at_pick": 1121
+    },
+    "majiayu000--spellbook": {
+      "url": "https://github.com/majiayu000/spellbook.git",
+      "commit": "2cddb3d6b66e277981e40b5c5f4d984f436fb4cd",
+      "licence": "MIT",
+      "stars_at_pick": 299
+    },
+    "arpitg1304--robotics-agent-skills": {
+      "url": "https://github.com/arpitg1304/robotics-agent-skills.git",
+      "commit": "8a39029a450a99a10b14a7c9bfabd6e0bc49e965",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 404
+    },
+    "SnailSploit--Claude-Red": {
+      "url": "https://github.com/SnailSploit/Claude-Red.git",
+      "commit": "6196ba7464662de34e8744d359f175d1a7bca530",
+      "licence": "MIT",
+      "stars_at_pick": 11279
+    },
+    "LilMGenius--paperthin": {
+      "url": "https://github.com/LilMGenius/paperthin.git",
+      "commit": "ed0df4b45f1e88b57ed9141504f3cb3e32c9715d",
+      "licence": "MIT",
+      "stars_at_pick": 1465
+    },
+    "huytieu--COG-second-brain": {
+      "url": "https://github.com/huytieu/COG-second-brain.git",
+      "commit": "144c7a3a959cc99538b7dfee9c22c4b065a0e156",
+      "licence": "MIT",
+      "stars_at_pick": 1506
+    },
+    "minhnv0807--ai-business-skills": {
+      "url": "https://github.com/minhnv0807/ai-business-skills.git",
+      "commit": "4ef06ff9aa8bf5b6d065da9547e486991acab54d",
+      "licence": "MIT",
+      "stars_at_pick": 700
+    },
+    "tonone-ai--tonone": {
+      "url": "https://github.com/tonone-ai/tonone.git",
+      "commit": "117b48ffd82ffc8429954da42f2bf062e84e1b26",
+      "licence": "MIT",
+      "stars_at_pick": 82
+    },
+    "product-on-purpose--pm-skills": {
+      "url": "https://github.com/product-on-purpose/pm-skills.git",
+      "commit": "3456e5e309f38ac2a66943f20d4aaf8031268dfb",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 829
+    },
+    "LemonFace0309--charles-skills": {
+      "url": "https://github.com/LemonFace0309/charles-skills.git",
+      "commit": "a564a02ed2722dbe082988416d9f8def912cf729",
+      "licence": "MIT",
+      "stars_at_pick": 207
+    },
+    "AlpacaLabsLLC--skills-for-architects": {
+      "url": "https://github.com/AlpacaLabsLLC/skills-for-architects.git",
+      "commit": "f11144680c93a1fdf52f3f96fe94875b7d0103f3",
+      "licence": "MIT",
+      "stars_at_pick": 423
+    },
+    "jaredchu--context-docs": {
+      "url": "https://github.com/jaredchu/context-docs.git",
+      "commit": "253f2713dfbeb340841e4dad14bf845e3250175c",
+      "licence": "MIT",
+      "stars_at_pick": 174
+    },
+    "Gitruck--cli": {
+      "url": "https://github.com/Gitruck/cli.git",
+      "commit": "6d888abd6f5b7e01046e54b8572dd3342c366c39",
+      "licence": "MIT",
+      "stars_at_pick": 975
+    },
+    "longsizhuo--openInvest": {
+      "url": "https://github.com/longsizhuo/openInvest.git",
+      "commit": "4f01d4fe762274aceba510b629b26c80ffab638e",
+      "licence": "MIT",
+      "stars_at_pick": 142
+    },
+    "wanshuiyin--Auto-claude-code-research-in-sleep": {
+      "url": "https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep.git",
+      "commit": "4ba94ae2a1c1fbbb14858750dd8764cabf6c28bd",
+      "licence": "MIT",
+      "stars_at_pick": 19495
+    },
+    "glebis--claude-skills": {
+      "url": "https://github.com/glebis/claude-skills.git",
+      "commit": "4d37d3b0af1f98cb4ac820d9abbce95e38e909fb",
+      "licence": "MIT",
+      "stars_at_pick": 414
+    },
+    "notivn--AIEVv2": {
+      "url": "https://github.com/notivn/AIEVv2.git",
+      "commit": "b11efbdf9ce007100701eca69ae7127e7da51e56",
+      "licence": "MIT",
+      "stars_at_pick": 146
+    },
+    "nexscope-ai--eCommerce-Skills": {
+      "url": "https://github.com/nexscope-ai/eCommerce-Skills.git",
+      "commit": "c5ba892a1cc3178626577aed1dbde5e62a82f1ac",
+      "licence": "MIT",
+      "stars_at_pick": 1467
+    },
+    "ahacker-1--cre-agent-skills": {
+      "url": "https://github.com/ahacker-1/cre-agent-skills.git",
+      "commit": "a9a4e2936a5d55f548544c2677c4876fd7cb6b36",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 142
+    },
+    "Varnan-Tech--opendirectory": {
+      "url": "https://github.com/Varnan-Tech/opendirectory.git",
+      "commit": "caac7cda5621e289591e4e74b400e66ac72ad25b",
+      "licence": "MIT",
+      "stars_at_pick": 712
+    },
+    "zenstory-ai--drama-skills": {
+      "url": "https://github.com/zenstory-ai/drama-skills.git",
+      "commit": "71078642cc86e64505f0a09e8d3db60f36b75a0a",
+      "licence": "MIT",
+      "stars_at_pick": 4544
+    },
+    "EL4CTEO--blender-skills": {
+      "url": "https://github.com/EL4CTEO/blender-skills.git",
+      "commit": "9e7e04a603c125a0d17447ab97112fa70a865067",
+      "licence": "MIT",
+      "stars_at_pick": 2474
+    },
+    "claude-world--director-mode-lite": {
+      "url": "https://github.com/claude-world/director-mode-lite.git",
+      "commit": "8facda86fe36c675a53dc53941e24223c31facaa",
+      "licence": "MIT",
+      "stars_at_pick": 80
+    },
+    "existential-birds--beagle": {
+      "url": "https://github.com/existential-birds/beagle.git",
+      "commit": "d1a74899fbfec74974d1818e4cac7c3d54d44b65",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 88
+    },
+    "michael-denyer--pstack-claude": {
+      "url": "https://github.com/michael-denyer/pstack-claude.git",
+      "commit": "412990b837ddb5e41ee589d770ba1bff24144654",
+      "licence": "MIT",
+      "stars_at_pick": 4601
+    },
+    "Ovid--paad": {
+      "url": "https://github.com/Ovid/paad.git",
+      "commit": "bb7addf6b1876addc2bc494b92e9bd2d3a8b8afa",
+      "licence": "MIT",
+      "stars_at_pick": 155
+    },
+    "wshobson--agents": {
+      "url": "https://github.com/wshobson/agents.git",
+      "commit": "42203085cfc5736204bf0f6d436dff7e1da0bf3f",
+      "licence": "MIT",
+      "stars_at_pick": 42717
+    },
+    "softaworks--agent-toolkit": {
+      "url": "https://github.com/softaworks/agent-toolkit.git",
+      "commit": "3027f20f3181758385a1bb8c022d4041dfb4de84",
+      "licence": "MIT",
+      "stars_at_pick": 2704
+    },
+    "bitwize-music-studio--claude-ai-music-skills": {
+      "url": "https://github.com/bitwize-music-studio/claude-ai-music-skills.git",
+      "commit": "01463d350e9ff1534bdd30ce266183b6059ff075",
+      "licence": "CC0-1.0",
+      "stars_at_pick": 682
+    },
+    "chubbyguan--chubbyskills": {
+      "url": "https://github.com/chubbyguan/chubbyskills.git",
+      "commit": "d066d7694d23045a39f8c3efc1b51ebb9ca7f867",
+      "licence": "MIT",
+      "stars_at_pick": 1341
+    },
+    "phuryn--pm-skills": {
+      "url": "https://github.com/phuryn/pm-skills.git",
+      "commit": "9af7bfd0bc47fdad43c2eaa7a43cd13918e7aaef",
+      "licence": "MIT",
+      "stars_at_pick": 28190
+    },
+    "zhuyansen--new-term-radar": {
+      "url": "https://github.com/zhuyansen/new-term-radar.git",
+      "commit": "d1e9b87b1b2b11c54e425007d2a34a3985ba79c9",
+      "licence": "MIT",
+      "stars_at_pick": 2198
+    },
+    "DevelopersGlobal--ai-agent-skills": {
+      "url": "https://github.com/DevelopersGlobal/ai-agent-skills.git",
+      "commit": "5df2780ec720051d9aaf0a225f964932c9c5508d",
+      "licence": "MIT",
+      "stars_at_pick": 217
+    },
+    "Jeffallan--claude-skills": {
+      "url": "https://github.com/Jeffallan/claude-skills.git",
+      "commit": "67c1961b180dc92cf08983344627109e983e8f51",
+      "licence": "MIT",
+      "stars_at_pick": 12466
+    },
+    "galleonlabs--hypergrok-trading-desk": {
+      "url": "https://github.com/galleonlabs/hypergrok-trading-desk.git",
+      "commit": "ab7d9cc13e0010ed0421fa1e85e78601ae9b5c46",
+      "licence": "MIT",
+      "stars_at_pick": 571
+    },
+    "ArabelaTso--Skills-4-SE": {
+      "url": "https://github.com/ArabelaTso/Skills-4-SE.git",
+      "commit": "4f38503747e0617504bce5329283ef837d375c09",
+      "licence": "Apache-2.0",
+      "stars_at_pick": 261
+    },
+    "danjdewhurst--story-skills": {
+      "url": "https://github.com/danjdewhurst/story-skills.git",
+      "commit": "33085ccc3ceb94a6ff9362cf499091123cdfb30d",
+      "licence": "MIT",
+      "stars_at_pick": 437
+    },
+    "rrezartprebreza--spring-boot-skills": {
+      "url": "https://github.com/rrezartprebreza/spring-boot-skills.git",
+      "commit": "b90c3dbd9699c0d0bfb81660c857ef58262168e6",
+      "licence": "MIT",
+      "stars_at_pick": 362
+    },
+    "tzachbon--smart-ralph": {
+      "url": "https://github.com/tzachbon/smart-ralph.git",
+      "commit": "ac7251a0a056b51435192443775f3cbbc4675cba",
+      "licence": "MIT",
+      "stars_at_pick": 566
+    },
+    "daveebbelaar--bama": {
+      "url": "https://github.com/daveebbelaar/bama.git",
+      "commit": "22dc792ea040a35270c219c669f626594267aa1f",
+      "licence": "MIT",
+      "stars_at_pick": 1913
+    },
+    "AltimateAI--data-engineering-skills": {
+      "url": "https://github.com/AltimateAI/data-engineering-skills.git",
+      "commit": "d6a2faa14b32da613366856b44811138b8e26127",
+      "licence": "MIT",
+      "stars_at_pick": 135
+    }
+  },
+  "entries": [
+    {
+      "id": "b-coder_eval-analyze",
+      "source": "UiPath--coder_eval",
+      "path": "plugins/coder-eval/skills/analyze",
+      "tree_sha256": "c3b31f7b58a64e8a7325ed2d42f35c2896b1390b09cdae38bcc65c622f22ad16",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository UiPath/coder_eval, 160 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-extract-design-system-extract-design-system",
+      "source": "arvindrk--extract-design-system",
+      "path": "skills/extract-design-system",
+      "tree_sha256": "193bf8c42df4f5b9fb0ca6e26035c6b0ea2622d72c20e6a32de548b47e3c742d",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository arvindrk/extract-design-system, 292 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-firecrawl-search",
+      "source": "firecrawl--skills",
+      "path": "skills/core/firecrawl-search",
+      "tree_sha256": "12e63948da95fec4e47e341ffef230be4fc5c98b244b12a43d62ef21831d2529",
+      "licence": "ISC",
+      "label": "benign",
+      "label_sources": [
+        "public repository firecrawl/skills, 160 stars at pick time, licence ISC"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-goose-skills-goose-video",
+      "source": "gooseworks-ai--goose-skills",
+      "path": "skills/entry/goose-video",
+      "tree_sha256": "910253b588fae614977939185049cab265b6a4020f8aac9185475508ed776a85",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository gooseworks-ai/goose-skills, 1329 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-ecommerce-product-detail",
+      "source": "browser-act--skills",
+      "path": "solutions/ecommerce/ecommerce-product-detail",
+      "tree_sha256": "d4712bedea1d1ff185e54bd8b2d412eb7d0ecfb5b167ccc933732a4452374fbe",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository browser-act/skills, 6376 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-open-code-review-browser",
+      "source": "spencermarx--open-code-review",
+      "path": ".claude/skills/browser",
+      "tree_sha256": "98466ffb20cc549e2073b8173f5f79655925fd7e46d1288637966c43a87507ef",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository spencermarx/open-code-review, 390 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-goose-skills-make-content",
+      "source": "gooseworks-ai--goose-skills",
+      "path": "skills/marketing/make-content",
+      "tree_sha256": "f0edc5d62a79a04fee6fc6b702fc918e7fe751ebc0922306f5a663d51af8e1c9",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository gooseworks-ai/goose-skills, 1329 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-etsy-shop-catalog",
+      "source": "browser-act--skills",
+      "path": "solutions/ecommerce/etsy-shop-catalog",
+      "tree_sha256": "1c8c6fe5abf0650761551bc643198fd29c0eb63c761ed908014bff4eff510158",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository browser-act/skills, 6376 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-paper-reel-paper-reel",
+      "source": "haiderfarooq3--paper-reel",
+      "path": "skills/paper-reel",
+      "tree_sha256": "e04b6858ed174469a22fa4b3a190c88aa0aabddd78672846bb6bad327138d7ee",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository haiderfarooq3/paper-reel, 147 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-goose-skills-research-audience-account-sourcing",
+      "source": "gooseworks-ai--goose-skills",
+      "path": "skills/marketing/research-audience-account-sourcing",
+      "tree_sha256": "6f056a78afdf89a0b6b4d3eda373a7e1ff8f1f3d8ca590d0247530169484095c",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository gooseworks-ai/goose-skills, 1329 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-firecrawl-agent",
+      "source": "firecrawl--skills",
+      "path": "skills/core/firecrawl-agent",
+      "tree_sha256": "0a1b537b7c498bb68ff628bf84a28ea56ae2e4f770736acbd13205d26475a013",
+      "licence": "ISC",
+      "label": "benign",
+      "label_sources": [
+        "public repository firecrawl/skills, 160 stars at pick time, licence ISC"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "browser_automation",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-my-workflow-respond-to-referees",
+      "source": "pedrohcgs--claude-code-my-workflow",
+      "path": ".agents/skills/respond-to-referees",
+      "tree_sha256": "79bb7af70272f26eadbba300645a61b2f0e9fd2674fb3dde17c1db0de5be874a",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository pedrohcgs/claude-code-my-workflow, 1725 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-huashu-skills-huashu-slides",
+      "source": "alchaincyf--huashu-skills",
+      "path": "huashu-slides",
+      "tree_sha256": "ea83f276ce9bd2a480d63c47738e1f76a3598e559f86601701be478d110b1ab8",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository alchaincyf/huashu-skills, 2309 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-open-design-agent-kit-card-xiaohongshu",
+      "source": "feimacode--open-design-agent-kit",
+      "path": ".agents/skills/card-xiaohongshu",
+      "tree_sha256": "f2746d94a7a6903e482492137bcf288232f7e0058bca4e8953005185041a83ce",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository feimacode/open-design-agent-kit, 1162 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-open-design-agent-kit-od-deck-deck-swiss-international",
+      "source": "feimacode--open-design-agent-kit",
+      "path": "packages/claude-plugin-local/skills/od-deck-deck-swiss-international",
+      "tree_sha256": "41f9b3bc46b4f2ee1352b9f57ea961e4a7e7bb6c0b8a37d0c058c11a2e172c26",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository feimacode/open-design-agent-kit, 1162 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-huashu-skills-huashu-md-to-pdf",
+      "source": "alchaincyf--huashu-skills",
+      "path": "huashu-md-to-pdf",
+      "tree_sha256": "e29b9cacfcfc82695111961bead79042c3af2c83360afde32757fb5a49ce544e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository alchaincyf/huashu-skills, 2309 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ux-ui-agent-skills-redesign",
+      "source": "plugin87--ux-ui-agent-skills",
+      "path": ".claude/skills/redesign",
+      "tree_sha256": "b8772f88563253ab4daff9d1fa82fcbc9154a39f2bb306b5c213e69825796137",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository plugin87/ux-ui-agent-skills, 3208 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-my-workflow-blast-radius",
+      "source": "pedrohcgs--claude-code-my-workflow",
+      "path": ".agents/skills/blast-radius",
+      "tree_sha256": "d04860081393cff33eb534f4efba0ac0505eaeab3f9523267579f8633e4ce728",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository pedrohcgs/claude-code-my-workflow, 1725 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-seo-skills-seo-competitor-pages",
+      "source": "seranking--seo-skills",
+      "path": "skills/seo-competitor-pages",
+      "tree_sha256": "31dc3e9a6092f13adf23a6c802605451bc8f1154ac3ebad049cbd20603dc0f20",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository seranking/seo-skills, 211 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-wordpress-content",
+      "source": "jezweb--claude-skills",
+      "path": "plugins/wordpress/skills/wordpress-content",
+      "tree_sha256": "b393fa6099b1701ea672b7a9e285f7f5b2eef36e143d7ee3e7504ffe024654bb",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository jezweb/claude-skills, 1121 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Amazon-Skills-amazon-backend-keywords",
+      "source": "nexscope-ai--Amazon-Skills",
+      "path": "amazon-backend-keywords",
+      "tree_sha256": "acfaf5070f78b12ed948b47c85baabcd6d524f5217a42206e529be28626ee878",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository nexscope-ai/Amazon-Skills, 882 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-open-design-agent-kit-resume-modern",
+      "source": "feimacode--open-design-agent-kit",
+      "path": ".agents/skills/resume-modern",
+      "tree_sha256": "9dd73572179c90bb0772b3f80a83578a50ace3abc972ac1921896c3720aaba5d",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository feimacode/open-design-agent-kit, 1162 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "document_office",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-awesome-claude-corporate-skills-process-letter",
+      "source": "w95--awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/process-letter",
+      "tree_sha256": "db754df392cb4644630cb64a2d9ef8b04c76e576db1e70410e02609e7e134072",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository w95/awesome-claude-corporate-skills, 327 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-awesome-claude-corporate-skills-catalyst-calendar",
+      "source": "w95--awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/catalyst-calendar",
+      "tree_sha256": "4981e38448b11f1eeb09377bcbc779994e996c5ead0868f0a5628ced0bdbff67",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository w95/awesome-claude-corporate-skills, 327 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-agentii-investment-intelligence-risk",
+      "source": "agentii-ai--agentii-investment-intelligence",
+      "path": "plugins/vertical-plugins/equity-research-core/skills/agentii/risk",
+      "tree_sha256": "b34793ffcb9abdfcd6912ba30c0178633172acfa2fb4e3f58afc055765c1de59",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository agentii-ai/agentii-investment-intelligence, 211 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-agentii-investment-intelligence-business-model",
+      "source": "agentii-ai--agentii-investment-intelligence",
+      "path": "plugins/agent-plugins/agentii-equity-agent/skills/agentii/business-model",
+      "tree_sha256": "4b7bebb9218c04926683e92af3dd076b54714c672f58a539a749d24a63c5fc99",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository agentii-ai/agentii-investment-intelligence, 211 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-thinkwithblack-skill-mk-041",
+      "source": "backtrue--thinkwithblack-skill",
+      "path": "en/skills/mk-041",
+      "tree_sha256": "f76c9294ded7dbfa9fb36b22a78b0006614c64adad7d5c29deaca1db54f1d295",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository backtrue/thinkwithblack-skill, 275 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-agentii-investment-intelligence-earnings-preview-med",
+      "source": "agentii-ai--agentii-investment-intelligence",
+      "path": "marketplace-beachhead/plugins/bio-pharm/skills/agentii/earnings-preview-med",
+      "tree_sha256": "89cd8b2ec9dc6aecb97390913c0377049e889d949e5e22a535a5702841a8289c",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository agentii-ai/agentii-investment-intelligence, 211 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-han-skill-builder",
+      "source": "testdouble--han",
+      "path": "han-plugin-builder/skills/skill-builder",
+      "tree_sha256": "dfdc944c72716e91711a16013577181f1849e40ccf9b4b97eea23912d563283c",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository testdouble/han, 353 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-data-engineering-skills-big-review",
+      "source": "DataWithBaraa--claude-code-data-engineering-skills",
+      "path": "skills/big-review",
+      "tree_sha256": "9d1586e0448169e3117c33aadb5f56b89b8fd36b943d97cd0a3740b12bbfb46c",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository DataWithBaraa/claude-code-data-engineering-skills, 106 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "finance",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-bionemo-cuequivariance-jax",
+      "source": "NVIDIA--skills",
+      "path": "skills/bionemo-cuequivariance-jax",
+      "tree_sha256": "7ba861e2668b3d9b699c4a45ab1f81ce541ced92ad5de1e43ca6fa587b785db9",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository NVIDIA/skills, 4091 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-oh-my-agent-oma-mobile",
+      "source": "first-fluke--oh-my-agent",
+      "path": ".claude-plugin/directory/skills/oma-mobile",
+      "tree_sha256": "64c3fc55ca134870f4a4f67918f42210d7ee301732cacf6f4b8be789a847b04e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository first-fluke/oh-my-agent, 1473 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-comfyui-mcp-ernie-image",
+      "source": "artokun--comfyui-mcp",
+      "path": "plugin/skills/ernie-image",
+      "tree_sha256": "3ff0580e1bb00cfbfdb2fe96f51b921b9451235b15f21b3ea3bd887b7e31d1f0",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository artokun/comfyui-mcp, 940 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-lattice-architecture-compass",
+      "source": "techygarg--lattice",
+      "path": "skills/architecture-compass",
+      "tree_sha256": "06a98657f244787f50ba6bc75fc0f1a492109e96c21725b1e7aed68b13f642bd",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository techygarg/lattice, 216 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-oh-my-agent-oma-scholar",
+      "source": "first-fluke--oh-my-agent",
+      "path": ".agents/skills/oma-scholar",
+      "tree_sha256": "dd71605bb9062a7d3d4ba25d03c8466467a03badce0a3a168806765d4a16315e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository first-fluke/oh-my-agent, 1473 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-planning-with-files-planning-with-files-zht",
+      "source": "OthmanAdi--planning-with-files",
+      "path": "skills/i18n/planning-with-files-zht",
+      "tree_sha256": "449c341d8f7c625c328a847d71dac519660a0df0cb0699543ca2b0d03aa4b4e9",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository OthmanAdi/planning-with-files, 28150 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-angular-development",
+      "source": "Mindrally--skills",
+      "path": "angular-development",
+      "tree_sha256": "8baaea5f5c91e5ba167dfff156b8e7145b98957d1439cd610507f1e147a9bfea",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository Mindrally/skills, 311 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-bionemo-kermt-monitor",
+      "source": "NVIDIA--skills",
+      "path": "skills/bionemo-kermt-monitor",
+      "tree_sha256": "438d8aa9098faf43c8c3d554b375ca943bfe8d22bdbcf9c2638dc7e2cab82950",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository NVIDIA/skills, 4091 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ai-agent-skills-build-workspace-docs",
+      "source": "MoizIbnYousaf--ai-agent-skills",
+      "path": "skills/build-workspace-docs",
+      "tree_sha256": "7ab41267bd731a1b510396890ce176d8bc639a24e341107470e4e7896cfca697",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository MoizIbnYousaf/ai-agent-skills, 1162 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-guide-cv-tailor",
+      "source": "zebbern--claude-code-guide",
+      "path": "skills/cv-tailor",
+      "tree_sha256": "7f4a11692a7ca3c75148cb2ec0fe7c5a6f26e170d15bd8c2e9c7555bdfbdf6d1",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zebbern/claude-code-guide, 4718 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-guide-code-documenter",
+      "source": "zebbern--claude-code-guide",
+      "path": "skills/code-documenter",
+      "tree_sha256": "d11ae74a5b45f5c532449fca7432e4d7785a5fb9630cd2c7fc129a1f1aa6e63e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zebbern/claude-code-guide, 4718 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "shell_installer",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-article2media-article-rewrite",
+      "source": "threerocks--article2media",
+      "path": "skills/article-rewrite",
+      "tree_sha256": "5b00106714543dc8d03d00982772e43965a42829ec7cce9d1ce08aa6fe974784",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository threerocks/article2media, 448 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-oh-story-dsh-short-drama-write",
+      "source": "zenstory-ai--oh-story-dsh",
+      "path": "packages/knowledge/drama/skills/short-drama-write",
+      "tree_sha256": "d1f595d26fd68566fe6e2c6f67ec59021bf0d2c93be3ef6dfd622dbd9b2cc4d0",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zenstory-ai/oh-story-dsh, 801 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-modlens-modlens",
+      "source": "liustack--modlens",
+      "path": "skills/modlens",
+      "tree_sha256": "0c7ca651ac7525551ae9800171d1ec1cbe3861d5bfc6b1aef51a7fa0d2e44df7",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository liustack/modlens, 5044 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-oh-story-dsh-video-recap",
+      "source": "zenstory-ai--oh-story-dsh",
+      "path": "packages/knowledge/video-recap/skills/video-recap",
+      "tree_sha256": "3b3c6d67f8eb61af83d825a0dea3f2f0c44e7767e5578e2b61488c01b9337127",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zenstory-ai/oh-story-dsh, 801 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-awesome-ai-persona-skills-liucixin-skill",
+      "source": "momozi1996--awesome-ai-persona-skills",
+      "path": "Novelists/liucixin-skill",
+      "tree_sha256": "1aafaab97330fa7b6b15e466ce38c5c654398969979a7de2d97fa4d22f4e7c5b",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository momozi1996/awesome-ai-persona-skills, 1128 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-korean-privacy-terms-privacy-jp",
+      "source": "kimlawtech--korean-privacy-terms",
+      "path": "skills/privacy-jp",
+      "tree_sha256": "8f4f44f3e1775384c8ae912b9d09fcac36788bcaef153b2a3773318fee6d16fa",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository kimlawtech/korean-privacy-terms, 595 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-oh-story-dsh-story-publish",
+      "source": "zenstory-ai--oh-story-dsh",
+      "path": "packages/knowledge/oh-story/skills/story-publish",
+      "tree_sha256": "1f1f173126a1216a1b5d59160b3c55938d61679070ebfdbf5843c78699106d63",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zenstory-ai/oh-story-dsh, 801 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-CountBot-skill-creator",
+      "source": "countbot-ai--CountBot",
+      "path": "workspace/skills/skill-creator",
+      "tree_sha256": "94c81b60b40f3242d1cec93f5c83d9d5fcd92761605fcfa61dc3b35671dbf0ca",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository countbot-ai/CountBot, 785 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-pro-course-refactor",
+      "source": "justxor--claude-code-pro-course",
+      "path": "starter-kit/.claude/skills/refactor",
+      "tree_sha256": "78b99a2394a62aa318bde3c55879297713631f57f1348e503427d91c60b1d06a",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository justxor/claude-code-pro-course, 353 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-chinese-webnovel-skills-cowrite",
+      "source": "tance-mang--chinese-webnovel-skills",
+      "path": "skills/cowrite",
+      "tree_sha256": "4d1e2100676a87129ef6bfedf06cb9c18a4f5ba6f92885d8a92c6de689535502",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository tance-mang/chinese-webnovel-skills, 110 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Deep-Research-skills-research-add-fields",
+      "source": "Weizhena--Deep-Research-skills",
+      "path": "skills/research-zh/research-add-fields",
+      "tree_sha256": "a533a2f95e36d1ecf9424168aa804e5fb58f91590df833e4178e7691500f2789",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Weizhena/Deep-Research-skills, 2580 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "multilingual",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-app-store-connect-cli-skills-asc-aso-audit",
+      "source": "rorkai--app-store-connect-cli-skills",
+      "path": "skills/asc-aso-audit",
+      "tree_sha256": "ccaeed1a55a09383014e59793ab02b0fd86d87acf77b27b4b46738609e1e6275",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository rorkai/app-store-connect-cli-skills, 1145 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-content-audit",
+      "source": "social-media-skills--skills",
+      "path": "skills/content-audit",
+      "tree_sha256": "b67b9e0b7a37e459254c368b74d40338db869a436aeb6a210ec8cd54dd87c3da",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository social-media-skills/skills, 349 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ai-first-toolkit-content-studio",
+      "source": "techwolf-ai--ai-first-toolkit",
+      "path": "plugins/content-studio/skills/content-studio",
+      "tree_sha256": "a899b118d18f45563a0c1533b5cf5691381ba4e9c82607aecd05ccac0cb6d097",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository techwolf-ai/ai-first-toolkit, 144 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-skills-ln-61-repository-publisher",
+      "source": "levnikolaevich--claude-code-skills",
+      "path": "plugins/delivery-suite/skills/ln-61-repository-publisher",
+      "tree_sha256": "e1fc81fc2d90f2c81c9c713c94fab8f2e888c5db23feb9ae887282deaee237a9",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository levnikolaevich/claude-code-skills, 597 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-aaron-marketing-skills-launch-monitor",
+      "source": "aaron-he-zhu--aaron-marketing-skills",
+      "path": "launch/prove/launch-monitor",
+      "tree_sha256": "19fd1aa599b59e15817f6ceba9cb17bda117a03d32b826ff8987df38d0fefaba",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository aaron-he-zhu/aaron-marketing-skills, 3173 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-wordpress-skills-wp-performance-review",
+      "source": "elvismdev--claude-wordpress-skills",
+      "path": "skills/wp-performance-review",
+      "tree_sha256": "9c848781e18de34263f0c9330bbe0526d655dacdd34d03f0727fa16e1b127be3",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository elvismdev/claude-wordpress-skills, 240 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ClaudeSkills-Geek-skills-mineru-pdf-parser",
+      "source": "staruhub--ClaudeSkills",
+      "path": "skills/Geek-skills-mineru-pdf-parser",
+      "tree_sha256": "4e4445fe46beffaff4d5b42e95965d39fc38c60a953dd608855d65fe643d9265",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository staruhub/ClaudeSkills, 741 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-fizz-sync",
+      "source": "pashov--skills",
+      "path": "fizz/skills/fizz-sync",
+      "tree_sha256": "03950d6fcd8abdda7aa3dceb6009985362d0ae6631b576578993f6cbc15644c2",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository pashov/skills, 1321 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-elixir-phoenix-docs-check",
+      "source": "oliver-kriska--claude-elixir-phoenix",
+      "path": ".claude/skills/docs-check",
+      "tree_sha256": "e1a875ee410da73570c13a15c60e6b322bb62a06f1e2574f6b3bd1e7b01ee63a",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository oliver-kriska/claude-elixir-phoenix, 576 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-elixir-phoenix-testing",
+      "source": "oliver-kriska--claude-elixir-phoenix",
+      "path": "plugins/elixir-phoenix/skills/testing",
+      "tree_sha256": "90d0093c9ea15cb8a168f8fc22f6144067caaa879aa638cc1de678b319c1d31e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository oliver-kriska/claude-elixir-phoenix, 576 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-content-migration",
+      "source": "rampstackco--claude-skills",
+      "path": "dist/codex/.agents/skills/content-migration",
+      "tree_sha256": "3922f029065dfe9e780c355375df388dbad3bbc54ae02addaa88e11de07d0ab1",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository rampstackco/claude-skills, 1103 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "security_education",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-cinetic-cinetic",
+      "source": "Leonxlnx--cinetic",
+      "path": "skills/cinetic",
+      "tree_sha256": "63a3bfb5e7be1ebd9460257d4cda943f887c5cc25cf7a5c1b60a909e8e4aa65b",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Leonxlnx/cinetic, 1306 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ai-design-components-implementing-api-patterns",
+      "source": "ancoleman--ai-design-components",
+      "path": "skills/implementing-api-patterns",
+      "tree_sha256": "c199817579290f9104772db134a6c409d882e380e84679b0368771f1f37684e8",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository ancoleman/ai-design-components, 533 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-agentops-doc",
+      "source": "boshu2--agentops",
+      "path": "plugin/skills/doc",
+      "tree_sha256": "3087937d968325f2da84bde35c9697d1f83635f41095094ac80fc9259ba3ae16",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository boshu2/agentops, 457 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-digital-marketing-pro-context-engine",
+      "source": "indranilbanerjee--digital-marketing-pro",
+      "path": "skills/context-engine",
+      "tree_sha256": "d75ffd42a56efa5ff7717b27d7bc2b52332e410816d081d8e181cd0dfd0c4c37",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository indranilbanerjee/digital-marketing-pro, 976 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-capcut-cli-capcut-edit",
+      "source": "renezander030--capcut-cli",
+      "path": "skills/capcut-edit",
+      "tree_sha256": "224f39becd369edbda4fab57bdc69bfc5a7b4f241c84a42436e4c4d36c2a4406",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository renezander030/capcut-cli, 1238 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-design.how-glaze",
+      "source": "arla6ka--design.how",
+      "path": "systems/glaze",
+      "tree_sha256": "741a935e678488d481213580cbbb3bba9596a3957a5c6d1afbc86dfe257814e0",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository arla6ka/design.how, 595 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-toolbox-review-architecture",
+      "source": "serpro69--claude-toolbox",
+      "path": "klaude-plugin/skills/review-architecture",
+      "tree_sha256": "5d67164d9ef0cb3e1cc7248e44e854d747c162b143ff46d3e2152ad0b173a24e",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository serpro69/claude-toolbox, 155 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-blog-blog",
+      "source": "AgriciDaniel--claude-blog",
+      "path": "skills/blog",
+      "tree_sha256": "b9c691296aeb763fc87c6562f8969d0c0b91a9954e1fdf7e7fca0f2249574bf6",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository AgriciDaniel/claude-blog, 2822 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-hub-dsh-engineering",
+      "source": "qufei1993--skills-hub",
+      "path": "skills/dsh-engineering",
+      "tree_sha256": "628dfba55cc215e8c7a928ad2f029bb5a8b34ad90352e0bed94f43601eac2c5a",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository qufei1993/skills-hub, 1880 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-cc-skills-golang-golang-troubleshooting",
+      "source": "samber--cc-skills-golang",
+      "path": "skills/golang-troubleshooting",
+      "tree_sha256": "68867198b51cc6f77b6875942b2259bd69a2f248ad2d100d469d4796f26dd942",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository samber/cc-skills-golang, 3903 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-skill-factory-claude-md-enhancer",
+      "source": "alirezarezvani--claude-code-skill-factory",
+      "path": "generated-skills/claude-md-enhancer",
+      "tree_sha256": "10e4825f029735527f187616da4f62fd366e8f7170f5d77e94d3764458a64d3d",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository alirezarezvani/claude-code-skill-factory, 907 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "large_reference",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-firecrawl-claude-plugin-business-contact-research",
+      "source": "firecrawl--firecrawl-claude-plugin",
+      "path": "skills/business-contact-research",
+      "tree_sha256": "61b44b0a58adf8d645b5a1afeeab994cf085e854a9750c5d6d1456a0e717d685",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository firecrawl/firecrawl-claude-plugin, 263 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-content-skills-linkedin-thought-leadership",
+      "source": "Ootto-AI--claude-content-skills",
+      "path": "skills/linkedin-thought-leadership",
+      "tree_sha256": "fe7fd0f774918aead7432562f6032de6009c1dac1e5a071edfd80cdc866953c8",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Ootto-AI/claude-content-skills, 525 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-content-skills-viral-carousel",
+      "source": "Ootto-AI--claude-content-skills",
+      "path": "skills/viral-carousel",
+      "tree_sha256": "ecbd2193d728c1a93f4a6709faf6ec70eafd1032184e5778ebb64fec5b2dee87",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Ootto-AI/claude-content-skills, 525 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-chatgpt-seo-seo-plan",
+      "source": "AgriciDaniel--chatgpt-seo",
+      "path": "plugins/ai-marketing-hub-seo/skills/seo-plan",
+      "tree_sha256": "153732c77615b1f578186901b143486f93d2e2807a6999591b90f0b514738136",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository AgriciDaniel/chatgpt-seo, 937 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-affiliate-skills-competitor-spy",
+      "source": "Affitor--affiliate-skills",
+      "path": "skills/research/competitor-spy",
+      "tree_sha256": "b0254229ac0678e100a67d2629159a06d79d74f617e07fc5599053c1da13ac73",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Affitor/affiliate-skills, 796 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ai-skills-notebooklm",
+      "source": "sanjay3290--ai-skills",
+      "path": "skills/notebooklm",
+      "tree_sha256": "42cfd0aeea244daee01545d5c66754582cf3ec31c05097a253cb5fc5a4a6fb56",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository sanjay3290/ai-skills, 457 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-gtm-eng-skills-build-tam",
+      "source": "getaero-io--gtm-eng-skills",
+      "path": "skills/build-tam",
+      "tree_sha256": "a6453731f56ba6694943eae1aff447d0b944cfe9aaaba692458e292bb93efb05",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository getaero-io/gtm-eng-skills, 83 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Agent-Skills-azure-confidential-computing",
+      "source": "MicrosoftDocs--Agent-Skills",
+      "path": "skills/azure-confidential-computing",
+      "tree_sha256": "14422225a235debab1808275eb89ae1f8ea861ed6cc81e68a4b0234e16ec6d84",
+      "licence": "CC-BY-4.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository MicrosoftDocs/Agent-Skills, 817 stars at pick time, licence CC-BY-4.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-cowork-data-room-builder",
+      "source": "OneWave-AI--claude-skills",
+      "path": "cowork-data-room-builder",
+      "tree_sha256": "607476d2b1794a6f81ce1ea62b4ba82341728530396e9df33f77750bbea7bbb8",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository OneWave-AI/claude-skills, 437 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-medsci-skills-profile-imaging",
+      "source": "Aperivue--medsci-skills",
+      "path": "skills/profile-imaging",
+      "tree_sha256": "5627978c4e14d6e4cd6e089474d727ac87663ef971439af7f46d4d908046e063",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Aperivue/medsci-skills, 390 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-journalism-email-request-intake",
+      "source": "jamditis--claude-skills-journalism",
+      "path": "newsroom-agent-ops/skills/email-request-intake",
+      "tree_sha256": "9a8f6ec410e230039a7891d8394352b75d04d6b05a76bf238ebdafec41416ccb",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository jamditis/claude-skills-journalism, 458 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "data_science",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-SkillOpt-skillopt-sleep",
+      "source": "microsoft--SkillOpt",
+      "path": "plugins/codex/skills/skillopt-sleep",
+      "tree_sha256": "0befc5a73854ec467db21568f898d974b70c46ac07432e9ca462e0f066aed603",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository microsoft/SkillOpt, 19166 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-developer-kit-aws-sdk-java-v2-core",
+      "source": "giuseppe-trisciuoglio--developer-kit",
+      "path": "plugins/developer-kit-java/skills/aws-sdk-java-v2-core",
+      "tree_sha256": "dc3bf34e12508df8735cbdc290d774b4fecea33589e41e4047fd74d6fd56e8ee",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository giuseppe-trisciuoglio/developer-kit, 372 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-prime-docker",
+      "source": "avibebuilder--claude-prime",
+      "path": ".claude/starter-skills/docker",
+      "tree_sha256": "e3a1a7ed816dc2cd97fe33c79977214dc14cbbbd5d92c4e3c6fd5014edadd794",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository avibebuilder/claude-prime, 128 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-api-gateway-configuration",
+      "source": "secondsky--claude-skills",
+      "path": "plugins/api-gateway-configuration/skills/api-gateway-configuration",
+      "tree_sha256": "37df8385ebdb7e035448e28e77daa13f2334669d7f4b73ceb64567868387a613",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository secondsky/claude-skills, 250 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-power-platform-skills-add-pdf-report",
+      "source": "microsoft--power-platform-skills",
+      "path": "plugins/mobile-apps/skills/add-native/add-pdf-report",
+      "tree_sha256": "29275d49c89a822431241fcf4f80b1f13e8133cd1e7f41706dd61c109344a989",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository microsoft/power-platform-skills, 1163 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-nWave-nw-buddy-ssot-knowledge",
+      "source": "nWave-ai--nWave",
+      "path": "nWave/skills/nw-buddy-ssot-knowledge",
+      "tree_sha256": "33e278a091c4783c688b0e0bdefc9fe92f9cccfd8e520adf2d5e85fedc5c27e8",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository nWave-ai/nWave, 636 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-nWave-nw-bdd-requirements",
+      "source": "nWave-ai--nWave",
+      "path": "nWave/skills/nw-bdd-requirements",
+      "tree_sha256": "f7c6c2a05593e5749a5b0fb62958a1be96aef216db48e8c9b19156f6dc8ba393",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository nWave-ai/nWave, 636 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-java-spring-boot-patterns",
+      "source": "decebals--claude-code-java",
+      "path": "skills/spring-boot-patterns",
+      "tree_sha256": "cc19e3b4bfb373ca950459855e9448d8f241ed6951c419d842550b564d94a732",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository decebals/claude-code-java, 777 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-docker-project-foundations",
+      "source": "docker--skills",
+      "path": "skills/docker-project-foundations",
+      "tree_sha256": "363d9613d42f590525ba99de89aa17d7ce4b79445dde4024979ccfcf8d3988fb",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository docker/skills, 644 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-developer-kit-aws-sdk-java-v2-s3",
+      "source": "giuseppe-trisciuoglio--developer-kit",
+      "path": "plugins/developer-kit-java/skills/aws-sdk-java-v2-s3",
+      "tree_sha256": "2efbb2b3bf625b2f290f3bcd0a8ac0df01629275a27e2b912176d101ea21a4b9",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository giuseppe-trisciuoglio/developer-kit, 372 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Claude-BugHunter-hunt-laravel",
+      "source": "elementalsouls--Claude-BugHunter",
+      "path": "skills/hunt-laravel",
+      "tree_sha256": "976801a26b339ff9f62a9c7c6ef09080931db582b277f65ace9f1618582d1c02",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository elementalsouls/Claude-BugHunter, 13003 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "cloud_devops",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-khan-explainer-khan-explainer",
+      "source": "haiderfarooq3--khan-explainer",
+      "path": "skills/khan-explainer",
+      "tree_sha256": "8704613d571adccb8277f35305f1f2b74bfc71db57f23c8001166fa6f786e893",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository haiderfarooq3/khan-explainer, 164 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-obsidian-wiki-lint",
+      "source": "AgriciDaniel--claude-obsidian",
+      "path": "skills/wiki-lint",
+      "tree_sha256": "9954b3e88cd56a166d74eeef30d8f52d5697bbb4ed548d036f16995eaf1c3821",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository AgriciDaniel/claude-obsidian, 16633 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-dembrandt-skills-clone-website",
+      "source": "dembrandt--dembrandt-skills",
+      "path": "skills/clone-website",
+      "tree_sha256": "b3f8e618b6e73c90f59f460abce848c9f923e5f1076589feddb08214d354d64c",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository dembrandt/dembrandt-skills, 197 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-awesome-muse-connectors-equibles",
+      "source": "Anil-matcha--awesome-muse-connectors",
+      "path": "connectors/equibles",
+      "tree_sha256": "c67c9236bcc1fedc0940deec33cad543263a1319119d4ec6abe77c8705a615a1",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Anil-matcha/awesome-muse-connectors, 1478 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-awesome-ai-agent-skills-agent-evaluation",
+      "source": "seb1n--awesome-ai-agent-skills",
+      "path": "agent-engineering/agent-evaluation",
+      "tree_sha256": "98333fb904936541977a8d12966218c13ed019525f859d70498b4b92e7535348",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository seb1n/awesome-ai-agent-skills, 259 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-nanoclaw-migrate-slack-agents",
+      "source": "nanocoai--nanoclaw",
+      "path": ".claude/skills/migrate-slack-agents",
+      "tree_sha256": "cf56da2617a593d2362752b01e7559869e485516047008efe77c60e82f43851e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository nanocoai/nanoclaw, 31128 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-dembrandt-skills-sizing-units",
+      "source": "dembrandt--dembrandt-skills",
+      "path": "directory/skills/sizing-units",
+      "tree_sha256": "048bf0744296c66eb62ec2299828555d9bcd92fa72170af3aacdfe8bcb7db9e3",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository dembrandt/dembrandt-skills, 197 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-superseo-skills-write-content",
+      "source": "inhouseseo--superseo-skills",
+      "path": "skills/write-content",
+      "tree_sha256": "65e086ceed07797cc3ded33d8e5002ec3073c2b79c75efce473b749d40f42f21",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository inhouseseo/superseo-skills, 415 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-analytics-tracking-automation-tracking-schema",
+      "source": "jtrackingai--analytics-tracking-automation",
+      "path": "skills/tracking-schema",
+      "tree_sha256": "37587dd4b53a3b936f60269f8f37ca3c96c3a918665f7b4d126aa5e404d06c46",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository jtrackingai/analytics-tracking-automation, 145 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-cc-thinking-skills-thinking-kepner-tregoe",
+      "source": "tjboudreaux--cc-thinking-skills",
+      "path": "skills/thinking-kepner-tregoe",
+      "tree_sha256": "1ff5b5dcb3ceaada6d80fb78ae92f4ea94d7220a1655c32752df001ef621e49e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository tjboudreaux/cc-thinking-skills, 1756 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-code-settings-github-fix-issue",
+      "source": "feiskyer--claude-code-settings",
+      "path": "skills/github-fix-issue",
+      "tree_sha256": "c69942c33ec15dd9fe5f698a33b51456f2fd1a1997c0604f0da31aa35a2f5af4",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository feiskyer/claude-code-settings, 1683 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "api_integration",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-marketing-skills-brand-visual",
+      "source": "kostja94--marketing-skills",
+      "path": "skills/components/branding/brand-visual",
+      "tree_sha256": "825cc23cb85a8b5134b708fcdc69548139ab8696aa70f642f4b725c7ee2c2206",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository kostja94/marketing-skills, 1121 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-spellbook-figma-to-react",
+      "source": "majiayu000--spellbook",
+      "path": "skills/figma-to-react",
+      "tree_sha256": "8e2d4973c32d89b66c70b28ebf10e567741ee80f6ad62df4c39a7c4dd5e8f510",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository majiayu000/spellbook, 299 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-robotics-agent-skills-robotics-testing",
+      "source": "arpitg1304--robotics-agent-skills",
+      "path": "skills/robotics-testing",
+      "tree_sha256": "836e345b3d6c9d1ebdd198ac88ccd678f105cff038d78d0e35f3ad4ec7b8e374",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository arpitg1304/robotics-agent-skills, 404 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Claude-Red-offensive-deserialization",
+      "source": "SnailSploit--Claude-Red",
+      "path": "Skills/web/offensive-deserialization",
+      "tree_sha256": "b74faba316f0b3bc3c1821a666c6aeb21971dd040f7b2aa9913303a5cd531b10",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository SnailSploit/Claude-Red, 11279 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-paperthin-readback",
+      "source": "LilMGenius--paperthin",
+      "path": "skills/depth/readback",
+      "tree_sha256": "2b076929382b501e32be574888be4197862db03413c6c64b9a8916d5f5b8a455",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository LilMGenius/paperthin, 1465 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-COG-second-brain-update-cog",
+      "source": "huytieu--COG-second-brain",
+      "path": ".agents/skills/update-cog",
+      "tree_sha256": "17dbfccfb1404509efd21179106f9aeb9cc8e947c11f20b2f08df33e49fc9f01",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository huytieu/COG-second-brain, 1506 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ai-business-skills-31-offer-design-global",
+      "source": "minhnv0807--ai-business-skills",
+      "path": "skills/en/31-offer-design-global",
+      "tree_sha256": "d96f44c14b45ec088afaecc1dcc38b6584127a1f15be0b1776d6af296c7f6214",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository minhnv0807/ai-business-skills, 700 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-tonone-prism-redesign",
+      "source": "tonone-ai--tonone",
+      "path": "bundle/engineering-team/skills/prism-redesign",
+      "tree_sha256": "b6d7371f67da39f08f489b5f4de4d291c17e47a6fe9e188102e875d97da26a49",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository tonone-ai/tonone, 82 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-pm-skills-discover-stakeholder-summary",
+      "source": "product-on-purpose--pm-skills",
+      "path": "skills/discover-stakeholder-summary",
+      "tree_sha256": "c319410e40e5244a07b90fd933c4722b3f63b6af8c8084b83189bd6edf7ed0e6",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository product-on-purpose/pm-skills, 829 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-charles-skills-charles-hero-mockups",
+      "source": "LemonFace0309--charles-skills",
+      "path": "skills/drops/charles-hero-mockups",
+      "tree_sha256": "b1c89fab71df75bf982da96cf74ff789028c1b935894b81749fda0fa6d911534",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository LemonFace0309/charles-skills, 207 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-skills-for-architects-occupancy-calculator",
+      "source": "AlpacaLabsLLC--skills-for-architects",
+      "path": "skills/occupancy-calculator",
+      "tree_sha256": "5f12a0f7e5a91ac3e1e41fa38f81a9d150cd7db291a7ed2f8860cbaa0c34be69",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository AlpacaLabsLLC/skills-for-architects, 423 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "creative_design",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-context-docs-adopt-context-docs",
+      "source": "jaredchu--context-docs",
+      "path": "evals/results/2026-09-28-journal-integration/claude-repeat/.claude/skills/adopt-context-docs",
+      "tree_sha256": "4ffa67a85c11f3ec432c5c408aded8cf489f64ab9276b0308376a878c206f4e4",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository jaredchu/context-docs, 174 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-cli-gtrk-composite",
+      "source": "Gitruck--cli",
+      "path": "skills/gtrk-composite",
+      "tree_sha256": "da0706e1f2cb451c3ad226c43a536bad2e60c3585213826d1021371a6a7eabd6",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Gitruck/cli, 975 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-openInvest-invest",
+      "source": "longsizhuo--openInvest",
+      "path": "plugin/skills/invest",
+      "tree_sha256": "b1ee767fc6bf99fcd4656ede7b963b05935c513afd26b2fd31a375f59d6f13f6",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository longsizhuo/openInvest, 142 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Auto-claude-code-research-in-sleep-monitor-experiment",
+      "source": "wanshuiyin--Auto-claude-code-research-in-sleep",
+      "path": "skills/monitor-experiment",
+      "tree_sha256": "e6d0eb84d09a3d382edb7acb78093caec0830b4edf9da66621c35b8ffb68f49f",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository wanshuiyin/Auto-claude-code-research-in-sleep, 19495 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-deep-research",
+      "source": "glebis--claude-skills",
+      "path": "deep-research",
+      "tree_sha256": "b55e14ce3a14bf62611a7588a5b0c056383c839bfd9c7ced0250852abacdf030",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository glebis/claude-skills, 414 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-AIEVv2-key-layout",
+      "source": "notivn--AIEVv2",
+      "path": ".claude/skills/key-layout",
+      "tree_sha256": "409e75151c207262430fc05f37b608abcebba93a2ca223db98464de13ea00842",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository notivn/AIEVv2, 146 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-eCommerce-Skills-brand-protection-ebay",
+      "source": "nexscope-ai--eCommerce-Skills",
+      "path": "brand-protection/brand-protection-ebay",
+      "tree_sha256": "1a10a0ee51bc54c0c2faddad32eee6fb9f399a09da004922b6d57a72c2b260c7",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository nexscope-ai/eCommerce-Skills, 1467 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-cre-agent-skills-cre-industrial",
+      "source": "ahacker-1--cre-agent-skills",
+      "path": "claude-code-plugins/cre-industrial",
+      "tree_sha256": "0bb75b650b687435c74a7509cfb79ecb512280a7d7c7905f8f302236b635a321",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository ahacker-1/cre-agent-skills, 142 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Auto-claude-code-research-in-sleep-paper-illustration",
+      "source": "wanshuiyin--Auto-claude-code-research-in-sleep",
+      "path": "skills/paper-illustration",
+      "tree_sha256": "3f9752055925f571673349a455ef0434068d1b0640798f32faf57b68c05f54ba",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository wanshuiyin/Auto-claude-code-research-in-sleep, 19495 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-opendirectory-competitor-pr-finder",
+      "source": "Varnan-Tech--opendirectory",
+      "path": "skills/competitor-pr-finder",
+      "tree_sha256": "1b1f1a20cc4c97c58bc2120a44cfbf949f6f500cde29eda847aa05066c76c2dd",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Varnan-Tech/opendirectory, 712 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-drama-skills-short-drama-image-prompts",
+      "source": "zenstory-ai--drama-skills",
+      "path": "skills/short-drama-image-prompts",
+      "tree_sha256": "db71f272da4096b6645e810cb9bb2c5ab5f59dc2d133d983e9fee4d3a7b62666",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zenstory-ai/drama-skills, 4544 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "writing_research",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-blender-skills-blender-texture-baking",
+      "source": "EL4CTEO--blender-skills",
+      "path": "skills/blender-texture-baking",
+      "tree_sha256": "bad3b3e8f1299be91ecd6fa54f81dadcd3ac727d7383f52e8f2a4d226f4dda17",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository EL4CTEO/blender-skills, 2474 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-director-mode-lite-auto-loop",
+      "source": "claude-world--director-mode-lite",
+      "path": "skills/auto-loop",
+      "tree_sha256": "db0f917f4d422f9d29fe94fd56a56b96a2c454088d26af8eccd2cdf9ee0a3094",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository claude-world/director-mode-lite, 80 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-beagle-fix-llm-artifacts",
+      "source": "existential-birds--beagle",
+      "path": "plugins/beagle-core/skills/fix-llm-artifacts",
+      "tree_sha256": "21903109c9b9c473d05c9a6ea5281359d7847c191788b2b18c44a60f61435bc4",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository existential-birds/beagle, 88 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-pstack-claude-principle-guard-the-context-window",
+      "source": "michael-denyer--pstack-claude",
+      "path": "plugins/pstack/skills/principle-guard-the-context-window",
+      "tree_sha256": "f91427fa0c9653ef1dc6d351f15811720b4057510955c4a75c71c0c6f37a2e94",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository michael-denyer/pstack-claude, 4601 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-paad-agentic-dedup",
+      "source": "Ovid--paad",
+      "path": "kiro_and_antigravity/skills/.agent/skills/agentic-dedup",
+      "tree_sha256": "db7f89fd81017008b540e03ce5b492aaf7c0ab39be20656315ecd011df857be5",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Ovid/paad, 155 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-agents-temporal-python-testing",
+      "source": "wshobson--agents",
+      "path": "plugins/backend-development/skills/temporal-python-testing",
+      "tree_sha256": "bbe2ad81e26b9d41aef9000bdf67360df01bc098a766bb1b448d3f0ee00cb161",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository wshobson/agents, 42717 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-agent-toolkit-codex",
+      "source": "softaworks--agent-toolkit",
+      "path": "dist/plugins/codex/skills/codex",
+      "tree_sha256": "7907f52e030a42c21dd2450acb615c84e4edf11ab3b81f8afa340ec5e58fdb11",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository softaworks/agent-toolkit, 2704 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-ai-music-skills-promo-writer",
+      "source": "bitwize-music-studio--claude-ai-music-skills",
+      "path": "skills/promo-writer",
+      "tree_sha256": "3cfc9487e86a73b830e1380f2718411be70a6b283ef097910662ac1fd521ce05",
+      "licence": "CC0-1.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository bitwize-music-studio/claude-ai-music-skills, 682 stars at pick time, licence CC0-1.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-chubbyskills-knowledge-base-management",
+      "source": "chubbyguan--chubbyskills",
+      "path": "knowledge-base-management",
+      "tree_sha256": "a988f80c6cccd1172554dfd65e1efc0498130f47286623e998955ed4d7ce4299",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository chubbyguan/chubbyskills, 1341 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-pm-skills-wwas",
+      "source": "phuryn--pm-skills",
+      "path": "pm-execution/skills/wwas",
+      "tree_sha256": "cd2a8346202df23d3c0905cca758db19d4c0f679a80581f1e34f698b8f512f70",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository phuryn/pm-skills, 28190 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-new-term-radar-seo-new-keywords-research",
+      "source": "zhuyansen--new-term-radar",
+      "path": "skills/seo-new-keywords-research",
+      "tree_sha256": "33de9599594ccb2eb9c24b000e2559e1540718df547d15a4dd195140c7bdcf33",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository zhuyansen/new-term-radar, 2198 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "mcp_builders",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-ai-agent-skills-meeting-notes-to-tasks",
+      "source": "DevelopersGlobal--ai-agent-skills",
+      "path": "skills/meeting-notes-to-tasks",
+      "tree_sha256": "6b9cffc81fad6124827dff1bb8460df40c18e60594ff1ce47cf653c542466e9f",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository DevelopersGlobal/ai-agent-skills, 217 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-devops-engineer",
+      "source": "Jeffallan--claude-skills",
+      "path": "skills/devops-engineer",
+      "tree_sha256": "d8550d38d6d66f8357685657342691596a55b9c410755fdc1358d931836022b2",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Jeffallan/claude-skills, 12466 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-hypergrok-trading-desk-hyperliquid-api-reference",
+      "source": "galleonlabs--hypergrok-trading-desk",
+      "path": "skills/hyperliquid-api-reference",
+      "tree_sha256": "aeabab593830586896acc45c521600d8823c72ea90c623a3643b7a171680fb57",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository galleonlabs/hypergrok-trading-desk, 571 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Skills-4-SE-ci-pipeline-synthesizer",
+      "source": "ArabelaTso--Skills-4-SE",
+      "path": "skills/ci-pipeline-synthesizer",
+      "tree_sha256": "3340cfe71858e16645c192ffee29821103e43b945daa8445f199f9c55beabd50",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository ArabelaTso/Skills-4-SE, 261 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-story-skills-revision-continuity",
+      "source": "danjdewhurst--story-skills",
+      "path": "skills/revision-continuity",
+      "tree_sha256": "64cb7b2563e95fccf4a32a745ddc3c8043688e3315499e64af994b244a3951fc",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository danjdewhurst/story-skills, 437 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-spring-boot-skills-layered-architecture",
+      "source": "rrezartprebreza--spring-boot-skills",
+      "path": "skills/spring-boot-3/layered-architecture",
+      "tree_sha256": "94a1e8c5e6a10955664d09ff7441ca9108e98fa0d9b608a8898b373c3705b28e",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository rrezartprebreza/spring-boot-skills, 362 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-claude-skills-kubernetes-specialist",
+      "source": "Jeffallan--claude-skills",
+      "path": "skills/kubernetes-specialist",
+      "tree_sha256": "21bb00bc72b137562e3fb03d96758e77fb9f2c668696c1344d961cd6e656f267",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository Jeffallan/claude-skills, 12466 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-smart-ralph-Command-Development",
+      "source": "tzachbon--smart-ralph",
+      "path": ".agents/skills/Command Development",
+      "tree_sha256": "405521dbf945c2c460e97312897de0d5cce36e6959f2419608126e8725121dd0",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository tzachbon/smart-ralph, 566 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-bama-design-system",
+      "source": "daveebbelaar--bama",
+      "path": "skills/design/design-system",
+      "tree_sha256": "3858c4d109806ae3a84bc4d20ba1eae044e6c73466f9d07dbfe8a5350fd76a8f",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository daveebbelaar/bama, 1913 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-Skills-4-SE-code-search-assistant",
+      "source": "ArabelaTso--Skills-4-SE",
+      "path": "skills/code-search-assistant",
+      "tree_sha256": "01248995a83858eea62da237b2c2be18be05dae37c97d113aa7bac72e50bdbde",
+      "licence": "Apache-2.0",
+      "label": "benign",
+      "label_sources": [
+        "public repository ArabelaTso/Skills-4-SE, 261 stars at pick time, licence Apache-2.0"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "b-data-engineering-skills-refactoring-dbt-models",
+      "source": "AltimateAI--data-engineering-skills",
+      "path": "skills/dbt/refactoring-dbt-models",
+      "tree_sha256": "ce0e2c32756765a1239d020041356ac3d6d620da7e8fc3190b0d8eb93d75cef2",
+      "licence": "MIT",
+      "label": "benign",
+      "label_sources": [
+        "public repository AltimateAI/data-engineering-skills, 135 stars at pick time, licence MIT"
+      ],
+      "label_basis": "reputable public repository; pattern-screened (see docs/operations/devreal-set.md)",
+      "category": "developer_workflow",
+      "label_quality": "reputable_repo"
+    },
+    {
+      "id": "m-ASB04_004407",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01595_ASB04_004407",
+      "tree_sha256": "7cc97c81b75b1a8deb2b2890033de50770d29fc42d6fe24cd181aab37aa5464b",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: do_not_tell_user_with_action, hidden_text_with_instructions",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "do_not_tell_user_with_action",
+        "hidden_text_with_instructions"
+      ],
+      "payload_files": {
+        "hidden_text_with_instructions": "SKILL.md",
+        "do_not_tell_user_with_action": "SKILL.md"
+      },
+      "template": "silent_script_trigger",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "social_engineering",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "instruction_goal_memory_manipulation"
+      ],
+      "structural_family": "FAMILY_4074",
+      "category": "malicious/social_engineering",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003438",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01227_ASB04_003438",
+      "tree_sha256": "2615a877cc8c4e76e2ae4fcd7f59b2a03a5216852fecd94cdcedb6659bfde61c",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: do_not_tell_user_with_action",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "do_not_tell_user_with_action"
+      ],
+      "payload_files": {
+        "do_not_tell_user_with_action": "SKILL.md"
+      },
+      "template": "silent_script_trigger",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "social_engineering",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "instruction_goal_memory_manipulation"
+      ],
+      "structural_family": "FAMILY_3768",
+      "category": "malicious/social_engineering",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003817",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01378_ASB04_003817",
+      "tree_sha256": "81afedc82833960a862c617db2701ba71ca2cc7c89252214609e1d53f5546f4f",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: do_not_tell_user_with_action",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "do_not_tell_user_with_action"
+      ],
+      "payload_files": {
+        "do_not_tell_user_with_action": "references/support_guide.md"
+      },
+      "template": "",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "social_engineering",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "instruction_goal_memory_manipulation",
+        "privilege_tool_authority_abuse"
+      ],
+      "structural_family": "FAMILY_4029",
+      "category": "malicious/social_engineering",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_004973",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01800_ASB04_004973",
+      "tree_sha256": "285a661784a377342b95b1a47c59f1d2952546b162ac4b190f95ee1333c11fe0",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: do_not_tell_user_with_action, hidden_comment_instruction, hidden_text_with_instructions, instruction_override",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "do_not_tell_user_with_action",
+        "hidden_comment_instruction",
+        "hidden_text_with_instructions",
+        "instruction_override"
+      ],
+      "payload_files": {
+        "hidden_text_with_instructions": "SKILL.md",
+        "hidden_comment_instruction": "SKILL.md",
+        "do_not_tell_user_with_action": "SKILL.md",
+        "instruction_override": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "social_engineering",
+      "dataset_attack_categories": [
+        "instruction_goal_memory_manipulation"
+      ],
+      "structural_family": "FAMILY_3371",
+      "category": "malicious/social_engineering",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003545",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01274_ASB04_003545",
+      "tree_sha256": "7eaf48cc17e31fb2253e4c433fa021811f7dbe9de82d2b59d892e836d8350440",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: hidden_text_with_instructions",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "hidden_text_with_instructions"
+      ],
+      "payload_files": {
+        "hidden_text_with_instructions": "SKILL.md"
+      },
+      "template": "invisible_marker",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "hidden_text",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "instruction_goal_memory_manipulation"
+      ],
+      "structural_family": "FAMILY_3692",
+      "category": "malicious/hidden_text",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003574",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01624_ASB04_003574",
+      "tree_sha256": "6ab23d572a673e44d5edf98e7e9b54a2537ecfda1d11c0fdcc9fad78357b478c",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: hidden_text_with_instructions",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "hidden_text_with_instructions"
+      ],
+      "payload_files": {
+        "hidden_text_with_instructions": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "hidden_text",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_2638",
+      "category": "malicious/hidden_text",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_004852",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01758_ASB04_004852",
+      "tree_sha256": "6bdf7fdb4ca99eee2f344e6aa9bb4e2b92ff970a67f23395321af4fbbf9ae2da",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: hidden_comment_instruction",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "hidden_comment_instruction"
+      ],
+      "payload_files": {
+        "hidden_comment_instruction": "SKILL.md"
+      },
+      "template": "hidden_loader",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "hidden_text",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "instruction_goal_memory_manipulation"
+      ],
+      "structural_family": "FAMILY_3338",
+      "category": "malicious/hidden_text",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003945",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01791_ASB04_003945",
+      "tree_sha256": "5eeaccfc9ba53c686d34f82e67718dc51f9ef82c3e559bc81c46ef1612da38e3",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: encoded_exec, hidden_comment_instruction",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec",
+        "hidden_comment_instruction"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md",
+        "hidden_comment_instruction": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "hidden_text",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_0255",
+      "category": "malicious/hidden_text",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_007005",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/03192_ASB04_007005",
+      "tree_sha256": "c7a9b4d5faab52dbf60ffd9560a04b9af0f81246063db3e79580307fb23bf536",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: reverse_shell",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "reverse_shell"
+      ],
+      "payload_files": {
+        "reverse_shell": "scripts/session_connector.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "reverse_shell",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_0864",
+      "category": "malicious/reverse_shell",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_006517",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02977_ASB04_006517",
+      "tree_sha256": "f03889734d79a902159fa418b7eaab90dbfda46ef7818f47d71b3e8dceb00b7d",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: reverse_shell",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "reverse_shell"
+      ],
+      "payload_files": {
+        "reverse_shell": "scripts/release_monitor.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "reverse_shell",
+      "dataset_attack_categories": [
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_2194",
+      "category": "malicious/reverse_shell",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_000661",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/00308_ASB04_000661",
+      "tree_sha256": "20493bed09d7f75066dd3c68658d99e3ea616149755d3c41ceb25cb038910f77",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: reverse_shell",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "reverse_shell"
+      ],
+      "payload_files": {
+        "reverse_shell": "scripts/chamber_utils.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "reverse_shell",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_0881",
+      "category": "malicious/reverse_shell",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_005681",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02610_ASB04_005681",
+      "tree_sha256": "98c68deac8af075af66923cf763ebe0c90602b9de2968b1a2ec2f1989be5f47e",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: reverse_shell",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "reverse_shell"
+      ],
+      "payload_files": {
+        "reverse_shell": "scripts/sonar-connect.mjs"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "reverse_shell",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_2504",
+      "category": "malicious/reverse_shell",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_004157",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01504_ASB04_004157",
+      "tree_sha256": "aaf1bccc2e2c4810ae016e81465856ff6e261a829f9bae736d36a9c76d1e1525",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: bare_ip_fetch",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "bare_ip_fetch"
+      ],
+      "payload_files": {
+        "bare_ip_fetch": "scripts/_install_deps.sh"
+      },
+      "template": "runtime_dependency_bootstrap",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "typosquat_supply_chain",
+      "dataset_attack_categories": [
+        "dependency_supply_chain",
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_3570",
+      "category": "malicious/typosquat_supply_chain",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002868",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01020_ASB04_002868",
+      "tree_sha256": "3f20d76e82f46a55cee2db4479a8b483a6877b00149c3f4b855c1e43c3d2f9a7",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: bare_ip_fetch",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "bare_ip_fetch"
+      ],
+      "payload_files": {
+        "bare_ip_fetch": "scripts/_install_deps.sh"
+      },
+      "template": "runtime_dependency_bootstrap",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "typosquat_supply_chain",
+      "dataset_attack_categories": [
+        "dependency_supply_chain",
+        "execution_code_delivery",
+        "instruction_goal_memory_manipulation"
+      ],
+      "structural_family": "FAMILY_3503",
+      "category": "malicious/typosquat_supply_chain",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_006816",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/02507_ASB04_006816",
+      "tree_sha256": "348b32d4f44a3bb84f51225646b3bee239a99f250fb3f97e6a5a527410c42296",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: persistence_write",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "persistence_write"
+      ],
+      "payload_files": {
+        "persistence_write": "scripts/_register_service.py"
+      },
+      "template": "",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "persistence",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "privilege_tool_authority_abuse"
+      ],
+      "structural_family": "FAMILY_4468",
+      "category": "malicious/persistence",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003364",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01201_ASB04_003364",
+      "tree_sha256": "950466103e35751f798eb5784112aa91f8def0aa38a78fb638f56a810884373a",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: persistence_write",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "persistence_write"
+      ],
+      "payload_files": {
+        "persistence_write": "scripts/_register_service.py"
+      },
+      "template": "",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "persistence",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "privilege_tool_authority_abuse"
+      ],
+      "structural_family": "FAMILY_4214",
+      "category": "malicious/persistence",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003241",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/01157_ASB04_003241",
+      "tree_sha256": "843d48809e2ab1744273eb26ea6392a3a96562fffd3cc952f204aeaa4bcb39da",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: persistence_write",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "persistence_write"
+      ],
+      "payload_files": {
+        "persistence_write": "scripts/_watchdog.py"
+      },
+      "template": "",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "persistence",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "privilege_tool_authority_abuse"
+      ],
+      "structural_family": "FAMILY_3655",
+      "category": "malicious/persistence",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002800",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC010_packages.tar.gz",
+      "path": "packages/00997_ASB04_002800",
+      "tree_sha256": "01b5683746b806efe8b7aefd324af2287c5f48a597df20ab0cada827e4350b95",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: persistence_write",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "persistence_write"
+      ],
+      "payload_files": {
+        "persistence_write": "scripts/_install_helper.py"
+      },
+      "template": "",
+      "evidence_type": "constructed",
+      "provenance": "injected",
+      "provenance_group": "injected",
+      "attack_class": "persistence",
+      "dataset_attack_categories": [
+        "execution_code_delivery",
+        "privilege_tool_authority_abuse"
+      ],
+      "structural_family": "FAMILY_4463",
+      "category": "malicious/persistence",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003033",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01389_ASB04_003033",
+      "tree_sha256": "1f6a0b0d8530197839208ac1fa8711bcffe3e50a6279ea0e855f63dbc871328c",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/main.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "credential_theft",
+      "dataset_attack_categories": [
+        "credential_access"
+      ],
+      "structural_family": "FAMILY_0876",
+      "category": "malicious/credential_theft",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_007456",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/03404_ASB04_007456",
+      "tree_sha256": "2fca1d984fc8072fb9385084b38f8a7d045aabfab5709b7afd96ceb17a0245d3",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/api_health_monitor.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "credential_theft",
+      "dataset_attack_categories": [
+        "credential_access"
+      ],
+      "structural_family": "FAMILY_1229",
+      "category": "malicious/credential_theft",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_005988",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02747_ASB04_005988",
+      "tree_sha256": "b801228ae18ec8cc700e92d8d735fd8c82e6c0ae8ea0b1266fb00e10cb469f3d",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/pdf_credential_handler.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "credential_theft",
+      "dataset_attack_categories": [
+        "credential_access"
+      ],
+      "structural_family": "FAMILY_3263",
+      "category": "malicious/credential_theft",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_006740",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/03068_ASB04_006740",
+      "tree_sha256": "18b55293c65a6af89cf4d3b57db2619250c3f538b0389f920ccbe94690b05ec0",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/backend_queries.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "credential_theft",
+      "dataset_attack_categories": [
+        "credential_access"
+      ],
+      "structural_family": "FAMILY_0532",
+      "category": "malicious/credential_theft",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_005491",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02521_ASB04_005491",
+      "tree_sha256": "b62c0ff104dfe935d45810850f7ceabb14f18c1808e47c28dbbf268e0e85c4ea",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/planning_helper.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "credential_theft",
+      "dataset_attack_categories": [
+        "credential_access"
+      ],
+      "structural_family": "FAMILY_1962",
+      "category": "malicious/credential_theft",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_004719",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02150_ASB04_004719",
+      "tree_sha256": "9cd4899c8d30f5ac8c9165374644eec52c842a9fdfdf1f44fa1372e64d7d54e7",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/project_architect.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "exfiltration",
+      "dataset_attack_categories": [
+        "data_exfiltration_disclosure"
+      ],
+      "structural_family": "FAMILY_0780",
+      "category": "malicious/exfiltration",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002801",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01296_ASB04_002801",
+      "tree_sha256": "9cde56d5255265bcb392ff15dbd26a290cd6f63d80a3be855ddaff25c47d5e18",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/evaluation_monitor.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "exfiltration",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_1199",
+      "category": "malicious/exfiltration",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_006459",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02952_ASB04_006459",
+      "tree_sha256": "f7e780eef3a40c8fcb7b6f2bf47257c92882df3ba01bc6cac31e5b29f7ce10e5",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/sql_health_monitor.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "exfiltration",
+      "dataset_attack_categories": [
+        "data_exfiltration_disclosure"
+      ],
+      "structural_family": "FAMILY_2528",
+      "category": "malicious/exfiltration",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002199",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01021_ASB04_002199",
+      "tree_sha256": "c7ebba4d65442b1c0056a46c5f6f8a1054adbdb4b42f3185616e551ed787bc8a",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/template_validator.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "exfiltration",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_1493",
+      "category": "malicious/exfiltration",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_007148",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/03255_ASB04_007148",
+      "tree_sha256": "65352b815eb938d5c3bb6592c9b14c0c82e60919ffbcaa0e6cae1d3d31bfa040",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: credential_read_and_send",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "credential_read_and_send"
+      ],
+      "payload_files": {
+        "credential_read_and_send": "scripts/review_exchanger.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "exfiltration",
+      "dataset_attack_categories": [
+        "data_exfiltration_disclosure"
+      ],
+      "structural_family": "FAMILY_0779",
+      "category": "malicious/exfiltration",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002260",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01045_ASB04_002260",
+      "tree_sha256": "b2067e5c91f72edf079ee845939472631744285fc019565c95a3ab7e68baf70b",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: instruction_override",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "instruction_override"
+      ],
+      "payload_files": {
+        "instruction_override": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "prompt_injection",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_1610",
+      "category": "malicious/prompt_injection",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003640",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01657_ASB04_003640",
+      "tree_sha256": "57f931d15d06e2b72ed0f975d349ab0384088cfe179a68b57c6dc94d1b551c23",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: instruction_override",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "instruction_override"
+      ],
+      "payload_files": {
+        "instruction_override": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "prompt_injection",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_0761",
+      "category": "malicious/prompt_injection",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_003294",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01505_ASB04_003294",
+      "tree_sha256": "394680680816b23f0e5b0b0921b5005f1c1e82f29e9ce9bb95911dbd3bb1e41f",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: instruction_override",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "instruction_override"
+      ],
+      "payload_files": {
+        "instruction_override": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "prompt_injection",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_2618",
+      "category": "malicious/prompt_injection",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002293",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01064_ASB04_002293",
+      "tree_sha256": "41d7578c7a6d8fabeaecfbaecef6b1299d963c15cb6634adc025f01742bd55cd",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench"
+      ],
+      "label_basis": "concrete payload located by independent patterns: instruction_override",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "instruction_override"
+      ],
+      "payload_files": {
+        "instruction_override": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "prompt_injection",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_1592",
+      "category": "malicious/prompt_injection",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_002956",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01359_ASB04_002956",
+      "tree_sha256": "2d08142ecde56fc587e90ef686d4b2c27ed2b9cac7bf463ea67fd14b4629eaa1",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC005 Agent Skill Malware",
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "listed as malicious by 3 datasets; concrete payload located by independent patterns: encoded_exec",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_1782",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_004260",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/01942_ASB04_004260",
+      "tree_sha256": "a2a94c863ecfb9bc3133dd0cbb84dfdd3e8b84631c4f26c7e41d3ab2de6da634",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC005 Agent Skill Malware",
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "listed as malicious by 3 datasets; concrete payload located by independent patterns: encoded_exec",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_0567",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_005898",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02708_ASB04_005898",
+      "tree_sha256": "62399521e1b8422855a754eed4e569b9f4b182980be9f0f3304849adf9b104b5",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC005 Agent Skill Malware"
+      ],
+      "label_basis": "listed as malicious by 2 datasets; concrete payload located by independent patterns: encoded_exec",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_0679",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_005637",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02590_ASB04_005637",
+      "tree_sha256": "da9ddd38de227a8709c7fdfc5f9dafd7ccb5b30db38a293237395c923ecb7e2f",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC005 Agent Skill Malware",
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "listed as malicious by 3 datasets; concrete payload located by independent patterns: encoded_exec",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_2565",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_004722",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02151_ASB04_004722",
+      "tree_sha256": "6fabf1d71377bd8dd1b815846bfb789fbb4ab207e84a2343455a5c7af3d2460d",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC004 SkillLeakBench"
+      ],
+      "label_basis": "listed as malicious by 2 datasets; concrete payload located by independent patterns: bare_ip_fetch, remote_pipe_shell",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "bare_ip_fetch",
+        "remote_pipe_shell"
+      ],
+      "payload_files": {
+        "bare_ip_fetch": "scripts/polymarket.py",
+        "remote_pipe_shell": "scripts/polymarket.py"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_0170",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_006425",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/02940_ASB04_006425",
+      "tree_sha256": "b5b5927d538855e609045276dd15d8e44b252598becc695b849f66b770a9e4f8",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC005 Agent Skill Malware"
+      ],
+      "label_basis": "listed as malicious by 2 datasets; concrete payload located by independent patterns: encoded_exec",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [],
+      "structural_family": "FAMILY_1209",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    },
+    {
+      "id": "m-ASB04_006865",
+      "source": "maliciousskillbench",
+      "archive": "packages/SRC001_packages.tar.gz",
+      "path": "packages/03130_ASB04_006865",
+      "tree_sha256": "a21f0daf60ce70f3e978997cc0da24beec55314a9db54d0998ed57c94066af4c",
+      "licence": "upstream terms (not relicensed)",
+      "label": "malicious",
+      "label_sources": [
+        "SRC001 MalSkillBench",
+        "SRC004 SkillLeakBench",
+        "SRC005 Agent Skill Malware",
+        "SRC010 SkillTrustBench"
+      ],
+      "label_basis": "listed as malicious by 4 datasets; concrete payload located by independent patterns: encoded_exec",
+      "confirmation": [
+        "concrete_payload"
+      ],
+      "payload_kinds": [
+        "encoded_exec"
+      ],
+      "payload_files": {
+        "encoded_exec": "SKILL.md"
+      },
+      "template": "",
+      "evidence_type": "human+runtime",
+      "provenance": "mixed_unresolved",
+      "provenance_group": "mixed_unresolved",
+      "attack_class": "download_and_run",
+      "dataset_attack_categories": [
+        "defense_evasion_obfuscation",
+        "execution_code_delivery"
+      ],
+      "structural_family": "FAMILY_0174",
+      "category": "malicious/download_and_run",
+      "label_quality": "payload"
+    }
+  ],
+  "reserve": []
+}
