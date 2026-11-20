@@ -41,8 +41,10 @@ from skill_sentry_cli.core.contracts import (
 SCHEMA_VERSION = 1
 # Bump when what a cached verdict means changes, even if the package hash is the
 # same: a verdict stored before the change must not be reused.  Version 2 covers
-# the parser's read coverage (newly read script suffixes, unread-file issues).
-CACHE_KEY_VERSION = 2
+# the parser's read coverage (newly read script suffixes, unread-file issues). Version 3
+# covers the semantic stage's static-only state: a skill is no longer UNSCANNED for reference
+# text beyond the model's budget.
+CACHE_KEY_VERSION = 3
 
 
 def cache_engine_tag(engine_version: str) -> str:

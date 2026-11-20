@@ -224,7 +224,9 @@ class Finding(APIModel):
 
 # Finding types that report a check that passed. They are not findings: a verdict lists them
 # under ``checks`` so ``findings`` holds only what a person needs to look at.
-PASSING_CHECK_TYPES = frozenset({"spec-valid", "semantic-clean", "anchors-clean"})
+PASSING_CHECK_TYPES = frozenset(
+    {"spec-valid", "semantic-clean", "anchors-clean", "semantic-static-only"}
+)
 
 VerdictStatus = Literal["SAFE", "SUSPICIOUS", "MALICIOUS", "UNSCANNED", "INVALID SKILL"]
 

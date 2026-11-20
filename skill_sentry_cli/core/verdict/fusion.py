@@ -266,7 +266,8 @@ def _completeness(results: tuple[StageResult, ...], weights: Mapping[str, float]
     A stage that does not apply (vision with no images, the sandbox for a skill with nothing
     to run) is left out of both sides. A stage that failed, was switched off, or never ran
     counts as not run. So a fully analysed text-only skill scores 1.0, and a scan with the
-    sandbox off scores lower.
+    sandbox off scores lower. A semantic stage that read only part of the text (the rest was
+    read by the static checks only) counts for the share it read.
     """
 
     ran = 0.0
@@ -288,7 +289,10 @@ def _completeness(results: tuple[StageResult, ...], weights: Mapping[str, float]
             and not (result.degraded or result.error)
             and not telemetry.get("skipped")
         ):
-            ran += weight
+            # Text that only the static checks read counts for the static share of the weight,
+            # not the model's: coverage falls by the share the model did not read.
+            share = telemetry.get("model_read_share") if stage == Stage.SEMANTIC else None
+            ran += weight * (float(share) if isinstance(share, int | float) else 1.0)
     return round(ran / applicable, 3) if applicable else 0.0
 
 

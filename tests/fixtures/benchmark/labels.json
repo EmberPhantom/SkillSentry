@@ -766,6 +766,56 @@
    "decided_by": "anchors",
    "expected_status": "INVALID SKILL",
    "note": "a packaging problem, not a verdict: excluded from precision and recall"
+  },
+  {
+   "id": "big-benign-docs",
+   "set": "big",
+   "source": "big",
+   "name": "big-benign-docs",
+   "label": "benign",
+   "category": "big-multi-file",
+   "decided_by": "anchors",
+   "note": "44 reference files (440 KB) and two harmless scripts: SAFE, with the reference text marked static-only"
+  },
+  {
+   "id": "big-script-payload",
+   "set": "big",
+   "source": "big",
+   "name": "big-script-payload",
+   "label": "malicious",
+   "category": "big-multi-file",
+   "decided_by": "anchors",
+   "note": "a download-and-run line in a script of a big skill: flagged whatever the model budget"
+  },
+  {
+   "id": "big-late-reference-payload",
+   "set": "big",
+   "source": "big",
+   "name": "big-late-reference-payload",
+   "label": "malicious",
+   "category": "big-multi-file",
+   "decided_by": "anchors",
+   "note": "a download-and-run line in the last reference file: flagged by the static checks, which read every file"
+  },
+  {
+   "id": "big-late-instruction-only",
+   "set": "big",
+   "source": "big",
+   "name": "big-late-instruction-only",
+   "label": "malicious",
+   "category": "big-multi-file",
+   "decided_by": "model",
+   "known_miss": true,
+   "note": "KNOWN LIMIT: an instruction-only attack in a late reference file, beyond the model's budget. The static checks have no pattern for it, so only a model that read that file could catch it"
+  },
+  {
+   "id": "b-entrypoint-command",
+   "set": "parser",
+   "path": "tests/fixtures/benchmark/benign/b-entrypoint-command",
+   "label": "benign",
+   "category": "entrypoint-command",
+   "decided_by": "anchors",
+   "note": "entry_point names an installed command, not a file in the package. This shape came from a real skill that was rejected as INVALID SKILL; the fixture is synthetic."
   }
  ]
 }

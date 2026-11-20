@@ -958,6 +958,11 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
                 location += f":{finding.evidence.line}"
             location += ")"
         lines.append(f"   {finding.message}{location}")
+    static_only = next(
+        (item for item in verdict.checks if item.finding_type == "semantic-static-only"), None
+    )
+    if static_only is not None and not invalid:
+        lines.append(f"   {static_only.message}")
     active = verdict.active_defense
     if active is not None and active.triggered:
         channel = active.exfil_channel.value if active.exfil_channel else "egress"

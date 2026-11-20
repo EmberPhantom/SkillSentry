@@ -96,7 +96,7 @@ class SkillParseError(RuntimeError):
 
 @dataclass(frozen=True)
 class PackageIssue:
-    severity: str  # low | medium | high | critical
+    severity: str  # note | low | medium | high | critical
     message: str
     file: str = "SKILL.md"
     line: int = 1
@@ -439,6 +439,16 @@ def _walk_entries(root: Path) -> list[Path]:
     return found
 
 
+def _names_installed_command(candidate: str, candidate_index: int) -> bool:
+    """True for a bare command name: no directory, no suffix, and not an interpreter's script."""
+
+    return (
+        candidate_index == 0
+        and re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,63}", candidate) is not None
+        and not Path(candidate).suffix
+    )
+
+
 def _resolve_entrypoint(
     manifest: dict[str, Any], root: Path
 ) -> tuple[list[str] | None, bool, PackageIssue | None]:
@@ -553,6 +563,24 @@ def _resolve_entrypoint(
             True,
             PackageIssue(
                 "high", "manifest entrypoint escapes the skill root", kind="manifest-entrypoint"
+            ),
+        )
+    if not target.is_file() and _names_installed_command(candidate, candidate_index):
+        # ``entry_point: some-cli`` names a program installed elsewhere, as a Python or npm
+        # package does. It is not a file in this package and nothing here can run it, so it is
+        # recorded and not run. A path, a file name with a suffix, or a script for an
+        # interpreter that does not exist is still an error.
+        return (
+            None,
+            False,
+            PackageIssue(
+                # A note, not a finding: a finding of any severity would count as independent
+                # evidence for a model's claim, and this one says nothing is wrong.
+                "note",
+                f"entrypoint {candidate!r} names an installed command, not a file in the "
+                "package; it was not run",
+                code=candidate,
+                kind="manifest-entrypoint-command",
             ),
         )
     if not target.is_file():

@@ -467,3 +467,47 @@ def test_unsupported_file_message_names_the_suffix_and_the_next_step(tmp_path: P
     assert "Review the file by hand, or remove it" in message
     # It stays a coverage gap, so the verdict is UNSCANNED and never SAFE.
     assert issues[0].coverage is True
+
+
+# -- an entry point that names an installed command ------------------------------------------------------
+def _with_entry(tmp_path: Path, line: str, files: dict[str, str] | None = None) -> Path:
+    root = tmp_path / "s"
+    root.mkdir()
+    (root / "SKILL.md").write_bytes(
+        f"---\nname: demo\ndescription: Demo skill\n{line}\n---\n\nBody\n".encode()
+    )
+    for relative, text in (files or {}).items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(text.encode())
+    return root
+
+
+def test_an_entry_point_that_names_an_installed_command_is_a_note_not_a_malformed_skill(tmp_path):
+    package = parse_skill(_with_entry(tmp_path, "entry_point: score-viewer"))
+    issue = next(i for i in package.issues if i.kind == "manifest-entrypoint-command")
+    assert issue.severity == "note" and "not run" in issue.message
+    assert package.entrypoint is None and package.entrypoint_declared is False
+    assert not any(i.severity in {"high", "critical"} for i in package.issues)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "entrypoint: scripts/missing.py",  # a path that is not there
+        "entrypoint: missing.sh",  # a file name with a suffix
+        "entrypoint: python missing",  # an interpreter's script that is not there
+        "entrypoint: /usr/bin/tool",  # absolute
+        "entrypoint: ../tool",  # escapes the root
+        "entrypoint: a",  # too short to be a command name
+    ],
+)
+def test_other_missing_entrypoints_are_still_rejected(tmp_path, line):
+    package = parse_skill(_with_entry(tmp_path, line))
+    assert any(i.severity == "high" and i.kind == "manifest-entrypoint" for i in package.issues)
+
+
+def test_a_file_that_exists_still_wins_over_a_command_name(tmp_path):
+    root = _with_entry(tmp_path, "entrypoint: run", {"run": "echo hi\n"})
+    package = parse_skill(root)
+    assert package.entrypoint == ["run"] and package.entrypoint_declared is True

@@ -4358,14 +4358,14 @@
       "label_quality": "ambiguous"
     },
     {
-      "id": "b-CLI-Anything-cli-anything-musescore",
-      "source": "HKUDS--CLI-Anything",
-      "path": "skills/cli-anything-musescore",
-      "tree_sha256": "5b6932a2888ef3d91b8110e01bfb04a82264d30b2d29406405d46b578597a0aa",
+      "id": "b-skills-presentation-creator",
+      "source": "getsentry--skills",
+      "path": "skills/presentation-creator",
+      "tree_sha256": "0394448a14ae37be6e25ad242c77ece576d0e6bd485f4df36ff4550177faa1c5",
       "licence": "Apache-2.0",
       "label": "benign",
       "label_sources": [
-        "public repository HKUDS/CLI-Anything, 60502 stars at pick time, licence Apache-2.0"
+        "public repository getsentry/skills, 1186 stars at pick time, licence Apache-2.0"
       ],
       "label_basis": "reputable public repository (stars and licence shown above); every file pattern-screened for pipe-to-shell, reverse shell, secret paths, upload commands, prompt-injection phrases and zero-width text, and each hit read: all were documentation, defensive examples or pentest reference material, none targeting the user's machine",
       "category": "document_office",
@@ -7871,20 +7871,6 @@
       "label_quality": "payload"
     },
     {
-      "id": "b-skills-presentation-creator",
-      "source": "getsentry--skills",
-      "path": "skills/presentation-creator",
-      "tree_sha256": "0394448a14ae37be6e25ad242c77ece576d0e6bd485f4df36ff4550177faa1c5",
-      "licence": "Apache-2.0",
-      "label": "benign",
-      "label_sources": [
-        "public repository getsentry/skills, 1186 stars at pick time, licence Apache-2.0"
-      ],
-      "label_basis": "reputable public repository (stars and licence shown above); every file pattern-screened for pipe-to-shell, reverse shell, secret paths, upload commands, prompt-injection phrases and zero-width text, and each hit read: all were documentation, defensive examples or pentest reference material, none targeting the user's machine",
-      "category": "document_office",
-      "label_quality": "reputable_repo"
-    },
-    {
       "id": "b-SkillFoundry-slurm-monitoring-accounting-starter",
       "source": "ma-compbio-lab--SkillFoundry",
       "path": "skills/hpc/slurm-monitoring-accounting-starter",
@@ -8639,5 +8625,15 @@
       "m-ASB04_006989",
       "m-ASB04_003156"
     ]
-  }
+  },
+  "moved_to_dev": [
+    {
+      "id": "b-CLI-Anything-cli-anything-musescore",
+      "source": "HKUDS--CLI-Anything",
+      "path": "skills/cli-anything-musescore",
+      "tree_sha256": "5b6932a2888ef3d91b8110e01bfb04a82264d30b2d29406405d46b578597a0aa",
+      "replaced_by": "b-skills-presentation-creator",
+      "reason": "its frontmatter declares an entry_point that names an installed command, not a file; the parser rejected it as INVALID SKILL. The parser was fixed and a synthetic fixture added (tests/fixtures/benchmark/b-entrypoint-command), so the skill is now a development skill and is no longer scored as held-out."
+    }
+  ]
 }
