@@ -816,6 +816,33 @@
    "category": "entrypoint-command",
    "decided_by": "anchors",
    "note": "entry_point names an installed command, not a file in the package. This shape came from a real skill that was rejected as INVALID SKILL; the fixture is synthetic."
+  },
+  {
+   "id": "m-install-npm-ip",
+   "set": "install",
+   "path": "tests/fixtures/benchmark/malicious/m-install-npm-ip",
+   "label": "malicious",
+   "category": "package-install",
+   "decided_by": "anchors",
+   "note": "npm install from a bare IP, in a script"
+  },
+  {
+   "id": "m-install-pip-index-ip",
+   "set": "install",
+   "path": "tests/fixtures/benchmark/malicious/m-install-pip-index-ip",
+   "label": "malicious",
+   "category": "package-install",
+   "decided_by": "anchors",
+   "note": "pip --index-url pointing at a bare IP, in a fenced shell block"
+  },
+  {
+   "id": "b-install-standard-registry",
+   "set": "install",
+   "path": "tests/fixtures/benchmark/benign/b-install-standard-registry",
+   "label": "benign",
+   "category": "package-install",
+   "decided_by": "anchors",
+   "note": "a standard index and a loopback registry: not flagged"
   }
  ]
 }

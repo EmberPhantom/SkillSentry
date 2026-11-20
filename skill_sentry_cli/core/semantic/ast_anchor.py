@@ -18,6 +18,7 @@ from skill_sentry_cli.core.anchors.confusables import (
     normalise_line,
     normalise_text,
 )
+from skill_sentry_cli.core.anchors.context import relax_findings
 from skill_sentry_cli.core.anchors.credential_flow import RULES_VERSION
 from skill_sentry_cli.core.anchors.cross_file import analyze_cross_file
 from skill_sentry_cli.core.anchors.hidden_text import LONG_RUN, inspect_line
@@ -207,7 +208,10 @@ _RULES: tuple[AnchorRule, ...] = (
     AnchorRule(
         "destructive-command",
         Severity.MEDIUM,
-        re.compile(r"\brm\s+-rf\s+(?:/|~|\$HOME|\*)", re.IGNORECASE),
+        # The root, the home folder or everything here: not a named folder such as /tmp/build.
+        re.compile(
+            r"\brm\s+-rf\s+(?:/\*?|~/?\*?|\$HOME/?\*?|\*)(?=\s|$|[;&|`'\")])", re.IGNORECASE
+        ),
         "Destructive filesystem command detected",
     ),
 )
@@ -217,7 +221,7 @@ _INSTRUCTION_RULES: tuple[AnchorRule, ...] = (
         "instruction-injection",
         Severity.CRITICAL,
         re.compile(
-            r"(?:ignore|disregard|forget)\s+(?:all\s+)?(?:previous|prior|above)\s+"
+            r"(?:ignore|disregard|forget)\s+(?:all\s+)?(?:previous|prior|above|preceding|earlier|former)\s+"
             r"(?:instructions?|rules?|prompts?)",
             re.IGNORECASE,
         ),
@@ -389,7 +393,7 @@ def _flag_hidden_text(
         )
     )
     normalised = normalise_line(decoded)
-    for rule in _RULES + _SHELL_AND_PERSISTENCE_RULES + _INSTRUCTION_RULES:
+    for rule in _RULES + _SHELL_AND_PERSISTENCE_RULES + _INSTALL_RULES + _INSTRUCTION_RULES:
         if not (rule.pattern.search(decoded) or rule.pattern.search(normalised)):
             continue
         rule_key = (rule.type, relative, line_number)
@@ -511,6 +515,64 @@ _SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
     ),
 )
 
+# A package manager told to install from, or to use as its registry, a bare IP address. A real
+# registry has a name; a bare address is how a payload is served from a machine nobody vouches for.
+_NOT_LOOPBACK = r"(?!127\.|0\.0\.0\.0)"
+_BARE_IP = _NOT_LOOPBACK + r"\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?"
+_PACKAGE_MANAGER = r"\b(?:npm|npx|yarn|pnpm|bun|pip3?|pipx|uv|poetry|conda|cargo|go|gem|composer)\b"
+_REGISTRY_FLAG = (
+    r"(?:--(?:extra-)?index-url|--registry|--find-links|--trusted-host|--git|--proxy)(?:=|\s+)"
+)
+_STANDARD_HOSTS = (
+    r"(?:pypi\.org|files\.pythonhosted\.org|registry\.npmjs\.org|registry\.yarnpkg\.com|"
+    r"crates\.io|index\.crates\.io|proxy\.golang\.org|rubygems\.org|download\.pytorch\.org|"
+    r"github\.com|gitlab\.com|localhost|127\.0\.0\.1)\b"
+)
+_INSTALL_RULES: tuple[AnchorRule, ...] = (
+    AnchorRule(
+        "untrusted-install",
+        Severity.HIGH,
+        re.compile(
+            _PACKAGE_MANAGER + r"[^\n]*\b(?:install|add|get|i)\b[^\n]*"
+            r"(?:(?:https?|git\+https?|ssh)://|@|=|\s)(?:[^\s/@]*@)?"
+            + _BARE_IP
+            + r"(?=[/\s'\"`;)]|$)",
+            re.IGNORECASE,
+        ),
+        "package install from a bare IP address",
+    ),
+    AnchorRule(
+        "untrusted-install",
+        Severity.HIGH,
+        re.compile(
+            _PACKAGE_MANAGER
+            + r"[^\n]*"
+            + _REGISTRY_FLAG
+            + r"(?:https?://)?"
+            + _BARE_IP
+            + r"(?=[/\s'\"`;)]|$)|"
+            r"\bregistry\b[^\n]*https?://" + _BARE_IP + r"(?=[/\s'\"`;)]|$)|"
+            r"\bpip3?\b[^\n]*\s-i\s+(?:https?://)?" + _BARE_IP + r"(?=[/\s'\"`;)]|$)",
+            re.IGNORECASE,
+        ),
+        "package manager pointed at a registry that is a bare IP address",
+    ),
+    AnchorRule(
+        "untrusted-install",
+        Severity.MEDIUM,
+        re.compile(
+            _PACKAGE_MANAGER
+            + r"[^\n]*"
+            + _REGISTRY_FLAG
+            + r"https?://(?!"
+            + _STANDARD_HOSTS
+            + r")[\w.-]+",
+            re.IGNORECASE,
+        ),
+        "package manager pointed at a registry that is not a standard one",
+    ),
+)
+
 _SEVERITY_RANK = {
     Severity.NOTE: 0,
     Severity.LOW: 1,
@@ -593,7 +655,7 @@ def scan_anchors(package: SkillPackage) -> StageResult:
     for text_file in ordered:
         _scan_file(
             text_file,
-            _RULES + _SHELL_AND_PERSISTENCE_RULES + _INSTRUCTION_RULES,
+            _RULES + _SHELL_AND_PERSISTENCE_RULES + _INSTALL_RULES + _INSTRUCTION_RULES,
             seen=seen,
             findings=findings,
         )
@@ -620,6 +682,7 @@ def scan_anchors(package: SkillPackage) -> StageResult:
     findings.extend(analyze_credential_flows(package))
     findings.extend(_normalised_credential_flows(package, findings))
     findings.extend(analyze_cross_file(package))
+    findings = relax_findings(findings, package)
 
     score = 0.0
     if findings:
