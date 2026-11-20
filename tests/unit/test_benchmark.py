@@ -44,7 +44,7 @@ def test_every_case_has_a_known_label_and_a_unique_id():
         if case.path is not None:
             assert (case.path / "SKILL.md").is_file(), case.id
         else:
-            assert case.corpus_name, case.id
+            assert case.corpus_name or case.big_name, case.id
         if case.label == "invalid":
             assert case.expected_status == "INVALID SKILL"
 

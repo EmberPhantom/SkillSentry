@@ -282,7 +282,10 @@ def test_calls_beyond_the_profiles_budget_are_gaps_in_the_report(tmp_path: Path)
 
     stage = _run(skill, model)
 
-    assert len(model.calls) == 2
+    # Text the model must read gets the profile's budget times the required-read factor.
+    from skill_sentry_cli.core.semantic.analyzer import REQUIRED_CALL_FACTOR
+
+    assert len(model.calls) == 2 * REQUIRED_CALL_FACTOR
     assert stage.degraded is True
     assert any(
         "not analysed" in f.message and "call budget reached" in f.message for f in stage.findings

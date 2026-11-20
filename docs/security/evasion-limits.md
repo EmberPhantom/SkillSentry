@@ -63,8 +63,17 @@ What is not decoded: an encoding with three or more symbols, a different bit ord
 
 None of the cases above is a known gap today. A case the checks miss is recorded in `tests/expected_verdicts.json` with a `known_gap` entry (a reason and a pointer to a section of this page), and the test suite runs it as a strict expected failure, so it fails when the gap closes and the entry and this page must be updated. Ways around the checks that are not yet cases here are the limits listed above: a path or a command assembled at run time, characters that are not in the confusables table, an invisible-character encoding other than the ones above, and content the sandbox does not reach.
 
+## Long reference text beyond the model's budget
+
+The model reads a bounded amount of a skill: a fixed number of chunks per scan, set by its profile. Real skills are often far bigger (dozens of files, hundreds of kilobytes). The model reads in this order: `SKILL.md`, then scripts and config files, then instruction text, then reference, asset and example text, and a range the static checks flagged is read early wherever it sits.
+
+- **Static-only.** Reference, asset or example text beyond the budget is read only by the static checks (hidden and invisible characters, lookalikes, injection phrases, download-and-run and the other anchors). It is marked *static-only*. The result says what share the model read and what share only the static checks read, `coverage` falls by the share the model did not read, and a `SAFE` verdict says so in its text and in its checks (`semantic-static-only`).
+- **It does not make a scan `UNSCANNED` by itself.** `UNSCANNED` still applies when `SKILL.md`, any script or config file, any instruction text, or any range the static checks flagged was not read by the model, and when a model call failed, was throttled, ran out of quota or timed out.
+- **The known limit.** An attack that is only an instruction, written in a long reference file beyond the budget, and that no static pattern matches, is seen by nobody: the static checks have no pattern for it and the model never read it. A reference-only skill with a payload the static checks do recognise is still flagged, because they read every file. The development benchmark carries one such skill (`big-late-instruction-only`) as a labelled known miss, so the limit is measured and not hidden. To close it, scan with a model profile with a larger budget (a bigger model), and read the reference files yourself when `SAFE` says part of the text was static-only.
+
 ## What this means in practice
 
 - `SAFE` with coverage `1.00` and a sandbox run is the strongest result the tool gives. It is still "nothing was found", not a guarantee.
 - `SAFE` from a scan with the sandbox off, or the model off, is weaker, and the `coverage` and `confidence` fields say so.
+- `SAFE` with a *static-only* note means part of the reference text was not read by the model. See the section above for what that does and does not cover.
 - Read the skill's scripts yourself before you install it if it asks for credentials, network access or a shell. The tool's job is to make that review faster and to catch the common cases, not to replace it.

@@ -161,3 +161,14 @@ def test_read_first_lists_fifteen_real_malicious_entries():
     assert len(ids) == 15 and len(set(ids)) == 15
     for i in ids:
         assert RAW[i]["label"] == "malicious"
+
+
+def test_a_skill_moved_to_the_dev_set_is_no_longer_scored_and_is_replaced():
+    moved = MANIFEST.get("moved_to_dev", [])
+    assert moved, "one skill moved when the parser was fixed"
+    scored = {e["id"] for e in MANIFEST["entries"]} | {e["id"] for e in MANIFEST["reserve"]}
+    entries = {e["id"] for e in MANIFEST["entries"]}
+    for item in moved:
+        assert item["id"] not in scored
+        assert item["replaced_by"] in entries
+        assert item["reason"]

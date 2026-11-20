@@ -69,7 +69,8 @@ def test_small_skill_is_fully_covered(tmp_path: Path) -> None:
 
 def test_skill_beyond_the_call_budget_is_partial_and_degraded(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(analyzer_module, "CHUNK_CHARS", 200)
-    monkeypatch.setattr(analyzer_module, "MAX_CHUNKS", 2)
+    monkeypatch.setattr(analyzer_module, "MAX_CHUNKS", 1)
+    monkeypatch.setattr(analyzer_module, "REQUIRED_CALL_FACTOR", 2)
     big = "".join(f"line {number} padding padding padding\n" for number in range(200))
     package = parse_skill(_skill(tmp_path, {"scripts/big.py": big}))
     model = _RecordingModel()
@@ -77,7 +78,7 @@ def test_skill_beyond_the_call_budget_is_partial_and_degraded(tmp_path: Path, mo
     stage = analyze_semantics(package, _empty_anchors(), model)
 
     assert stage.degraded is True
-    assert stage.telemetry["chunks_analysed"] == 2
+    assert stage.telemetry["chunks_analysed"] == 2  # the profile's budget times the factor
     assert stage.telemetry["chunks_total"] > 2
     assert stage.telemetry["gap_ranges"]
     notes = [f for f in stage.findings if f.finding_type == "semantic-partial-coverage"]
@@ -86,6 +87,8 @@ def test_skill_beyond_the_call_budget_is_partial_and_degraded(tmp_path: Path, mo
 
 def test_oversized_line_becomes_a_gap_not_a_silent_cut(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(analyzer_module, "CHUNK_CHARS", 100)
+    monkeypatch.setattr(analyzer_module, "MAX_CHUNKS", 1)
+    monkeypatch.setattr(analyzer_module, "REQUIRED_CALL_FACTOR", 2)
     package = parse_skill(_skill(tmp_path, {"scripts/wide.py": "x" * 500 + "\n"}))
 
     stage = analyze_semantics(package, _empty_anchors(), _RecordingModel())

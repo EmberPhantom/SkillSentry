@@ -62,6 +62,12 @@ Benign labels rest on the repository's reputation and licence. They are not guar
 
 Benign categories: document and office, creative and design, developer workflow, cloud and DevOps, data science, MCP and agent builders, browser automation, API integrations, security education, finance, writing and research, multilingual, large reference files, shell-heavy installers. A repository contributes at most one skill per category, and ordinary repositories contribute only one skill.
 
+### Skills that moved to the development set
+
+A held-out skill that is read to find a bug in the tool, and then fixed, stops being held-out. The manifest lists each in `moved_to_dev` (with the skill that replaced it, from `reserve`), and it is no longer scored on this set. One so far: a benign skill whose frontmatter has `entry_point: <name>`, a command installed elsewhere. The parser took it for a missing file and rejected the skill as INVALID SKILL. It now records a low-severity note and does not run the command. The dev fixture is synthetic (`tests/fixtures/benchmark/benign/b-entrypoint-command`).
+
+A second benign skill that came back INVALID SKILL has no `name:` in its frontmatter. The Agent Skills format requires it, so that result is correct and nothing was changed; it stays in the set and is reported as INVALID SKILL, not as a false alarm.
+
 ## Fetching
 
 ```

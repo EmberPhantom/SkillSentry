@@ -70,6 +70,11 @@ class Case:
     decided_by: str  # anchors | model
     path: Path | None = None
     corpus_name: str | None = None
+    # source "big": the skill is built by tests/fixtures/benchmark/big_skills.py.
+    big_name: str | None = None
+    # A malicious skill that the tool is known to miss, with the reason in ``note``. It is
+    # reported on its own line and is not counted as a false negative; a flag still counts as a hit.
+    known_miss: bool = False
     expected_status: str | None = None
     note: str = ""
     # Held-out set only (see load_heldout_cases); empty for the development set.
@@ -93,6 +98,8 @@ def load_cases(labels: Path = LABELS, *, repo: Path = REPO) -> list[Case]:
                 decided_by=item["decided_by"],
                 path=path,
                 corpus_name=item.get("name") if item.get("source") == "corpus" else None,
+                big_name=item.get("name") if item.get("source") == "big" else None,
+                known_miss=bool(item.get("known_miss", False)),
                 expected_status=item.get("expected_status"),
                 note=item.get("note", ""),
             )
@@ -105,9 +112,18 @@ def materialise(cases: list[Case], work: Path) -> dict[str, Path]:
 
     folders: dict[str, Path] = {}
     corpus = None
+    big: dict[str, Path] | None = None
     for case in cases:
         if case.path is not None:
             folders[case.id] = case.path
+            continue
+        if case.big_name is not None:
+            if big is None:
+                sys.path.insert(0, str(REPO / "tests" / "fixtures" / "benchmark"))
+                import big_skills
+
+                big = big_skills.build(work / "big")
+            folders[case.id] = big[case.big_name]
             continue
         if corpus is None:
             from verify_corpus import build_corpus
@@ -440,7 +456,7 @@ def confusion(cases: dict[str, Case], status_of: dict[str, str]) -> dict[str, An
     """
 
     cell = Counter()
-    fp, fn, unscanned = [], [], []
+    fp, fn, unscanned, known_misses = [], [], [], []
     by_status: dict[str, Counter[str]] = defaultdict(Counter)
     for skill, status in status_of.items():
         case = cases.get(skill)
@@ -452,7 +468,12 @@ def confusion(cases: dict[str, Case], status_of: dict[str, str]) -> dict[str, An
             unscanned.append(skill)
             continue
         flagged = status in POSITIVE
-        if case.label == "malicious":
+        if case.label == "malicious" and case.known_miss:
+            # Shown, never hidden, but not a false negative: the miss is a documented limit.
+            cell["known_miss_flagged" if flagged else "known_miss"] += 1
+            if not flagged:
+                known_misses.append(skill)
+        elif case.label == "malicious":
             cell["tp" if flagged else "fn"] += 1
             if not flagged:
                 fn.append(skill)
@@ -487,6 +508,8 @@ def confusion(cases: dict[str, Case], status_of: dict[str, str]) -> dict[str, An
         "strict_recall": strict_r,
         "false_positives": sorted(fp),
         "false_negatives": sorted(fn),
+        "known_misses": sorted(known_misses),
+        "known_miss_flagged": cell["known_miss_flagged"],
         "unscanned": sorted(unscanned),
         "by_status": {label: dict(counts) for label, counts in by_status.items()},
     }
@@ -709,6 +732,7 @@ def markdown(
             "",
             f"- False positives ({len(c['false_positives'])}): {', '.join(c['false_positives']) or 'none'}",
             f"- False negatives ({len(c['false_negatives'])}): {', '.join(c['false_negatives']) or 'none'}",
+            f"- Known misses, a documented limit and not counted above ({len(c['known_misses'])}): {', '.join(c['known_misses']) or 'none'}",
             f"- Unscanned ({len(c['unscanned'])}): {', '.join(c['unscanned']) or 'none'}",
             "",
         ]
