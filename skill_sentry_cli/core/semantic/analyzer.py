@@ -35,6 +35,11 @@ from skill_sentry_cli.core.models._json import validate_json
 from skill_sentry_cli.core.models.base import ModelClient, ModelQuotaExhausted, ModelThrottled
 from skill_sentry_cli.core.models.profiles import ModelProfile
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
+from skill_sentry_cli.core.parser.priority import (
+    LAST_REQUIRED_PRIORITY,
+    PRIORITY_ANCHORED,
+)
+from skill_sentry_cli.core.parser.priority import file_priority as _file_priority
 from skill_sentry_cli.core.semantic.plan import SemanticPlan, plan_from_profile
 from skill_sentry_cli.core.semantic.prompts import SEMANTIC_SCHEMA
 
@@ -80,57 +85,6 @@ def plan_for(model: ModelClient | None) -> SemanticPlan:
     if isinstance(profile, ModelProfile):
         return plan_from_profile(profile)
     return _legacy_plan()
-
-
-# Ranking of what the model reads first. Lower is read earlier. A range at or below
-# ``LAST_REQUIRED_PRIORITY`` must be read by the model; only the last tier may be static-only.
-PRIORITY_SKILL = 0
-PRIORITY_ANCHORED = 1
-PRIORITY_EXECUTABLE = 2
-PRIORITY_INSTRUCTION = 3
-PRIORITY_REFERENCE = 4
-LAST_REQUIRED_PRIORITY = PRIORITY_INSTRUCTION
-
-_SCRIPT_SUFFIXES = frozenset(
-    {
-        ".py", ".pyw", ".sh", ".bash", ".zsh", ".fish", ".js", ".mjs", ".cjs", ".ts", ".tsx",
-        ".jsx", ".ps1", ".psd1", ".psm1", ".rb", ".go", ".rs", ".java", ".kt", ".php", ".pl",
-        ".lua", ".c", ".h", ".cc", ".cpp", ".hpp", ".bat", ".cmd", ".vbs", ".sql",
-    }
-)  # fmt: skip
-_CONFIG_SUFFIXES = frozenset(
-    {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".html", ".htm", ".svg"}
-)
-_PROSE_SUFFIXES = frozenset({".md", ".markdown", ".txt"})
-# A folder with one of these names holds material to look things up in, not instructions to follow.
-_REFERENCE_DIRS = frozenset(
-    {
-        "references", "reference", "docs", "doc", "assets", "examples", "example", "templates",
-        "template", "samples", "sample", "resources", "data", "fixtures",
-    }
-)  # fmt: skip
-
-
-def _file_priority(relative: str) -> int:
-    """How early the model should read a file, from its path alone.
-
-    SKILL.md first. Then anything that can run or configure (a script is a script wherever it
-    sits). Then instruction text. Reference, asset and example prose comes last. A file the
-    path does not clearly mark as reference material is treated as instruction-bearing.
-    """
-
-    if relative == "SKILL.md":
-        return PRIORITY_SKILL
-    parts = relative.lower().split("/")
-    suffix = "." + parts[-1].rsplit(".", 1)[-1] if "." in parts[-1] else ""
-    if suffix in _SCRIPT_SUFFIXES:
-        return PRIORITY_EXECUTABLE
-    in_reference = any(part in _REFERENCE_DIRS for part in parts[:-1])
-    if suffix in _CONFIG_SUFFIXES and not in_reference:
-        return PRIORITY_EXECUTABLE
-    if in_reference:
-        return PRIORITY_REFERENCE
-    return PRIORITY_INSTRUCTION
 
 
 @dataclass(frozen=True)
