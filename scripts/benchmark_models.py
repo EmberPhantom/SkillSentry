@@ -399,6 +399,8 @@ def scan_row(
     row["status"] = shown_status(outcome.verdict.verdict, outcome.stage_results)
     row["risk"] = outcome.verdict.risk_score
     row["coverage"] = "partial" if outcome.verdict.coverage_detail is not None else "full"
+    if row["status"] == "UNSCANNED":
+        row["cause"] = unscanned_cause(outcome.stage_results)
     row["confidence"] = outcome.verdict.confidence
     semantic = next((r for r in outcome.stage_results if r.stage is Stage.SEMANTIC), None)
     if semantic is not None:
@@ -423,6 +425,31 @@ def scan_row(
     return row
 
 
+def unscanned_cause(stage_results: Any) -> str:
+    """A coarse reason a skill is UNSCANNED, from the stage's error text. Never a file name."""
+
+    from skill_sentry_cli.core.verdict.status import degraded_reason
+
+    reason = degraded_reason(stage_results).lower()
+    table = (
+        ("call budget reached", "required text beyond the call budget"),
+        ("time limit", "time limit"),
+        ("quota", "provider quota or rate limit"),
+        ("semantic model unavailable", "model unavailable"),
+        ("skill text budget exhausted", "text beyond the 4 MiB text budget"),
+        ("larger than 1 mib", "a text file over 1 MiB"),
+        ("opaque content", "a compiled or oversized file"),
+        ("file not analysed", "a file type the scan cannot read (document, archive, data)"),
+        ("image not analysed", "an image that is not what its name says"),
+        ("sandbox", "sandbox"),
+        ("partial coverage", "required text not read by the model"),
+    )
+    for needle, label in table:
+        if needle in reason:
+            return label
+    return "other"
+
+
 def coverage_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """How many skills finished, and how fully, from the baseline rows. Counts only: no labels, no
     accuracy. The baseline's scripted model reports nothing wrong, so this measures what the scan
@@ -436,7 +463,16 @@ def coverage_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     finished = sum(
         n for k, n in counts.items() if not k.startswith(("UNSCANNED", "INVALID", "ERROR"))
     )
-    return {"skills": len(rows), "finished": finished, "by_status": dict(sorted(counts.items()))}
+    causes: dict[str, int] = {}
+    for row in rows:
+        if row.get("cause"):
+            causes[row["cause"]] = causes.get(row["cause"], 0) + 1
+    return {
+        "skills": len(rows),
+        "finished": finished,
+        "by_status": dict(sorted(counts.items())),
+        "unscanned_causes": dict(sorted(causes.items(), key=lambda item: -item[1])),
+    }
 
 
 def done_keys(rows_file: Path) -> set[tuple[str, str, int]]:

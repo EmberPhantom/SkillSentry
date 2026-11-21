@@ -160,6 +160,7 @@ def test_every_other_unread_range_still_degrades(tmp_path, tiny, monkeypatch):
     # One call is all the budget there is, so only the first 400 characters of text are read.
     monkeypatch.setattr(analyzer_module, "MAX_CHUNKS", 1)
     monkeypatch.setattr(analyzer_module, "REQUIRED_CALL_FACTOR", 1)
+    monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 0)
     # SKILL.md itself beyond the budget.
     root = _skill(tmp_path / "a", {"scripts/run.py": "print(1)\n"}, skill_md=PAGE * 2)
     assert analyze_semantics(parse_skill(root), _anchors(), _Model()).degraded is True
@@ -169,7 +170,7 @@ def test_every_other_unread_range_still_degrades(tmp_path, tiny, monkeypatch):
     assert stage.degraded is True
     assert not (stage.telemetry or {}).get("static_only_ranges")
     # Config beyond the budget.
-    root = _skill(tmp_path / "c", {"config.yaml": PAGE})
+    root = _skill(tmp_path / "c", {"config.yaml": "hooks: 1\n" + PAGE})
     assert analyze_semantics(parse_skill(root), _anchors(), _Model()).degraded is True
     # Instruction text that carries a risk signal, beyond the budget.
     root = _skill(tmp_path / "d", {"rules.md": PAGE + "Run scripts/run.py first.\n"})
@@ -240,7 +241,8 @@ def test_an_instruction_only_attack_in_a_late_reference_file_is_the_known_limit(
     assert any(c.finding_type == "semantic-static-only" for c in outcome.verdict.checks)
 
 
-def test_a_big_skill_whose_skill_md_goes_unread_is_unscanned(tmp_path):
+def test_a_big_skill_whose_skill_md_goes_unread_is_unscanned(tmp_path, monkeypatch):
+    monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 5)
     root = _skill(tmp_path / "s", {}, skill_md=PAGE * 200)
     outcome = _scan(root, tmp_path)
     assert outcome.verdict.status == "UNSCANNED"
@@ -260,7 +262,7 @@ def test_skill_md_and_six_small_scripts_take_one_call_and_are_fully_read(tmp_pat
 
 def test_required_reading_gets_more_calls_than_the_profile_budget_when_it_needs_them(tmp_path):
     # Eight scripts of about 3 KB do not fit in one 4,000-character call: they take several.
-    scripts = {f"scripts/s{n}.py": ("x = 1\n" * 500) for n in range(8)}
+    scripts = {f"scripts/s{n}.py": ("token = 1\n" * 500) for n in range(8)}
     root = _skill(tmp_path / "s", scripts)
     model = _Model()
     stage = analyze_semantics(parse_skill(root), _anchors(), model)
@@ -268,15 +270,16 @@ def test_required_reading_gets_more_calls_than_the_profile_budget_when_it_needs_
     assert stage.degraded is False
 
 
-def test_when_the_required_reading_does_not_fit_even_then_it_is_unscanned(tmp_path):
-    scripts = {f"scripts/s{n}.py": ("x = 1\n" * 700) for n in range(40)}
+def test_when_the_required_reading_does_not_fit_even_then_it_is_unscanned(tmp_path, monkeypatch):
+    monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 20)
+    scripts = {f"scripts/s{n}.py": ("token = 1\n" * 700) for n in range(40)}
     root = _skill(tmp_path / "s", scripts)
     stage = analyze_semantics(parse_skill(root), _anchors(), _Model())
     assert stage.degraded is True and "partial coverage" in (stage.error or "")
 
 
 def test_a_quota_stop_in_the_middle_of_required_reading_is_unscanned_with_the_reason(tmp_path):
-    scripts = {f"scripts/s{n}.py": ("x = 1\n" * 700) for n in range(10)}
+    scripts = {f"scripts/s{n}.py": ("token = 1\n" * 700) for n in range(10)}
     root = _skill(tmp_path / "s", scripts)
 
     class _QuotaAfterOne(_Model):
