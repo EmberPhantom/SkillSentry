@@ -99,7 +99,7 @@ def _scan(tmp_path: Path, server: _Server, folder: Path, *, limits: str = "", ex
     config.write_text(
         '[model]\nbackend = "openai"\n[model.provider]\n'
         f'base_url = "http://127.0.0.1:{port}/v1"\nmodel = "m-1"\napi_key_env = "MY_KEY"\n'
-        f"{limits}[sandbox]\nenabled = false\n",
+        f"{limits}[model.profile]\nsimple_mode = false\n[sandbox]\nenabled = false\n",
         encoding="utf-8",
     )
     home = tmp_path / "home"

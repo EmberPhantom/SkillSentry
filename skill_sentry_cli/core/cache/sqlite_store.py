@@ -44,8 +44,9 @@ SCHEMA_VERSION = 1
 # the parser's read coverage (newly read script suffixes, unread-file issues). Version 3
 # covers the semantic stage's static-only state: a skill is no longer UNSCANNED for reference
 # text beyond the model's budget. Version 4 covers risk-ordered reading: plain text with no risk
-# signal is static-cleared, and a finished result can carry a partial-coverage detail.
-CACHE_KEY_VERSION = 4
+# signal is static-cleared, and a finished result can carry a partial-coverage detail. Version 5
+# covers simple-question mode for small models and the capability probe.
+CACHE_KEY_VERSION = 5
 
 
 def cache_engine_tag(engine_version: str) -> str:

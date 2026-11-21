@@ -96,6 +96,7 @@ class ProfileSettings(_ConfigModel):
     few_shot: bool | None = None
     max_anchors: int | None = Field(default=None, ge=1, le=200)
     compact_schema: bool | None = None
+    simple_mode: bool | None = None
 
     @field_validator("name")
     @classmethod

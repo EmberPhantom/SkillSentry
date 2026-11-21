@@ -318,7 +318,7 @@ def test_a_scan_through_a_provider_in_a_real_process_never_shows_the_key(
     config.write_text(
         '[model]\nbackend = "openai"\n[model.provider]\n'
         f'base_url = "http://127.0.0.1:{port}/v1"\nmodel = "test/model"\napi_key_env = "MY_PROVIDER_KEY"\n'
-        "[sandbox]\nenabled = false\n"
+        "[model.profile]\nsimple_mode = false\n[sandbox]\nenabled = false\n"
     )
     db = tmp_path / "db.sqlite"
     env = {

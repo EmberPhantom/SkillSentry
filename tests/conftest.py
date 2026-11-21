@@ -24,6 +24,9 @@ from skill_sentry_cli.server.demo_backend import DemoBackend
 
 # The mock model is only reachable from tests and development (see cli._refuse_mock_backend).
 os.environ.setdefault("SKILLSENTRY_DEV", "1")
+# Most tests use models that return one canned reply, which the capability probe would (rightly)
+# call unfit. The probe has its own tests, which turn it back on.
+os.environ.setdefault("SKILLSENTRY_NO_PROBE", "1")
 # Tests never touch the user's cache and scan history: the database is a temporary file.
 os.environ.setdefault(
     "SKILLSENTRY_DB", os.path.join(tempfile.mkdtemp(prefix="sks-test-"), "test.db")

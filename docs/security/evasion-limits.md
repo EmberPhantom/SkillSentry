@@ -103,6 +103,13 @@ The model reads the risky text first. A model-free score (`skill_sentry_cli/core
 - **What still blocks a verdict.** `SKILL.md`, any script or config file, any chunk an anchor flagged, any text with a signal, and any failed, throttled or timed-out call. A scan with no model never looks model-reviewed: it stays `UNSCANNED`.
 - **What static-cleared cannot catch.** An instruction attack in plain words that match none of the signals, in text the model never read. For example a paraphrase that tells the agent to do something harmful without override, secrecy, execution or credential wording, or an attack in a language the signal list does not cover. The signal list is deliberately broad and is not a detector: a signal only moves text earlier and makes it required; it is never a finding. Read the files named in the partial-coverage note yourself when the skill is not trusted.
 
+## What the model check and simple-question mode can and cannot do
+
+- A model that fails the built-in check (unfit) is never used: the scan is `UNSCANNED`, as with no model. A model that passes is trusted no further than before: fusion caps a model's claim without independent evidence, drops quotes that are not in the skill, and never lets a model alone reach `MALICIOUS` or turn a flagged skill clean.
+- The check is three cases. It shows a model can follow the format on easy, obvious text. It does not show the model catches subtle attacks. A model that passes can still miss an instruction written in plain words.
+- Simple-question mode asks one question about four behaviours. An attack that does none of those four things in the words of the excerpt is not what the question looks for.
+- A model that answers well on the check and badly on real skills (or changes after the 30-day check) is not caught until the check runs again. `--no-probe` removes the check.
+
 ## Readers for notebooks, documents, PDFs and archives
 
 SkillSentry reads these in memory. Nothing is extracted to disk, run or rendered, and every reader has limits: 32 MiB per file, 2,000 archive members, 64 MiB declared expansion, a compression ratio of 200, 1 MiB per member, 4 MiB of text per container, archives nested one level. A file that reaches a limit is a coverage gap, so the scan is `UNSCANNED`; it is never read as clean.

@@ -178,6 +178,7 @@ def judge_reply(text: str | None, skill_text: str) -> dict[str, Any]:
 
     from skill_sentry_cli.core.models._json import parse_json_object, validate_json
     from skill_sentry_cli.core.semantic.prompts import SEMANTIC_SCHEMA, SEMANTIC_SCHEMA_COMPACT
+    from skill_sentry_cli.core.semantic.simple import SIMPLE_SCHEMA
 
     result = {"valid": False, "quotes": 0, "quotes_found": 0}
     if not text:
@@ -186,7 +187,7 @@ def judge_reply(text: str | None, skill_text: str) -> dict[str, Any]:
         parsed = parse_json_object(text)
     except ValueError:
         return result
-    for schema in (SEMANTIC_SCHEMA, SEMANTIC_SCHEMA_COMPACT):
+    for schema in (SEMANTIC_SCHEMA, SEMANTIC_SCHEMA_COMPACT, SIMPLE_SCHEMA):
         try:
             validate_json(parsed, schema)
             result["valid"] = True
@@ -196,6 +197,13 @@ def judge_reply(text: str | None, skill_text: str) -> dict[str, Any]:
     if not result["valid"]:
         return result
     haystack = " ".join(skill_text.lower().split())
+    if "answer" in parsed:  # simple-question mode: the quote is the one piece of evidence
+        if str(parsed.get("quote", "")).strip():
+            needle = _first_line_needle(str(parsed["quote"]))
+            result["quotes"] += 1
+            if len(needle) >= 4 and needle in haystack:
+                result["quotes_found"] += 1
+        return result
     for pattern in parsed.get("suspicious_patterns", []):
         needle = _first_line_needle(str(pattern.get("evidence", "")))
         result["quotes"] += 1
@@ -348,6 +356,15 @@ class NullModel:
 
     backend = "none"
     model_version = "none"
+    # A stand-in is never probed, and it has the shape of a mid-size model so that packing and
+    # the call budget are measured as they would be for one.
+    stand_in = True
+
+    @property
+    def profile(self) -> Any:
+        from skill_sentry_cli.core.models.profiles import PROFILES
+
+        return PROFILES["mid"]
 
     def generate_json(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         from skill_sentry_cli.core.models.mock import CLEAN_RESPONSE

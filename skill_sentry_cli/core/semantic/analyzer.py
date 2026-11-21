@@ -14,7 +14,7 @@ always produce a degraded stage, never a clean result.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any
 
@@ -41,9 +41,10 @@ from skill_sentry_cli.core.parser.priority import (
     PRIORITY_EXECUTABLE,
     PRIORITY_INSTRUCTION,
     PRIORITY_REFERENCE,
+    PRIORITY_SKILL,
 )
 from skill_sentry_cli.core.parser.priority import file_priority as _file_priority
-from skill_sentry_cli.core.semantic import risk
+from skill_sentry_cli.core.semantic import risk, simple
 from skill_sentry_cli.core.semantic.plan import SemanticPlan, plan_from_profile
 from skill_sentry_cli.core.semantic.prompts import SEMANTIC_SCHEMA
 
@@ -165,6 +166,7 @@ class _Gap:
     # read in full: that is "static-only" and does not make the stage degraded by itself.
     required: bool = True
     chars: int = 0
+    tier: int = PRIORITY_INSTRUCTION
 
 
 def _file_lookup(package: SkillPackage) -> dict[str, TextFile]:
@@ -410,6 +412,10 @@ def _call_prompt(
 ) -> str:
     """A call's prompt. One chunk gives exactly the single-excerpt prompt; several are packed."""
 
+    if plan is not None and plan.simple:
+        return simple.simple_prompt(
+            [(c.file, c.first_line, c.last_line, c.text) for c in call.chunks]
+        )
     if len(call.chunks) == 1:
         return _chunk_prompt(package, call.chunks[0], anchors, plan)
     keyed = "\n".join(f"{c.file}\n{c.text}" for c in call.chunks)
@@ -559,6 +565,24 @@ def _limit_finding(limit: dict[str, str]) -> Finding:
     )
 
 
+_TIER_NAMES = {
+    PRIORITY_SKILL: "SKILL.md",
+    PRIORITY_ANCHORED: "ranges the static checks flagged",
+    PRIORITY_EXECUTABLE: "scripts and config files",
+    PRIORITY_INSTRUCTION: "instruction text with a risk signal",
+}
+
+
+def _cut_tiers(gaps: list[_Gap]) -> dict[str, int]:
+    """How many unread required ranges there are in each tier, so a cut says what it cut."""
+
+    counts: dict[str, int] = {}
+    for gap in gaps:
+        name = _TIER_NAMES.get(gap.tier, "text the model had to read")
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
 def _gap_text(gaps: list[_Gap]) -> str:
     shown = [f"{gap.file}:{gap.first_line}-{gap.last_line} ({gap.reason})" for gap in gaps]
     shown = shown[:MAX_GAP_LINES_IN_NOTE]
@@ -579,7 +603,9 @@ def _static_files_text(gaps: list[_Gap], limit: int = 4) -> str:
 
 
 def _generate(model: ModelClient, prompt: str, plan: SemanticPlan) -> dict[str, Any]:
-    return model.generate_json(plan.system, prompt, plan.schema, retries=plan.retries)
+    raw = model.generate_json(plan.system, prompt, plan.schema, retries=plan.retries)
+    # A simple answer is turned into the full reply shape, so what follows is the same for both.
+    return simple.to_response(raw) if plan.simple else raw
 
 
 def analyze_semantics(
@@ -589,6 +615,7 @@ def analyze_semantics(
     *,
     timeout_s: float | None = None,
     deadline: Deadline | None = None,
+    probe: bool = True,
 ) -> StageResult:
     """Run semantic analysis; never raises for a model or reporting failure.
 
@@ -623,6 +650,38 @@ def analyze_semantics(
             telemetry={"plan": plan.describe()},
         )
 
+    probe_result = None
+    if probe:
+        from skill_sentry_cli.core.semantic.probe import ensure_probed
+
+        probe_result = ensure_probed(model, plan)
+        if probe_result.outcome == "unfit":
+            # Its output is not used, and the scan treats it exactly like no model.
+            return StageResult(
+                stage=Stage.SEMANTIC,
+                degraded=True,
+                error=("the model could not follow the review format; its output was not used"),
+                signals={"semantic": instruction_floor} if instruction_floor else {},
+                findings=[
+                    Finding(
+                        stage=Stage.SEMANTIC,
+                        severity=Severity.NOTE,
+                        message=(
+                            "This model could not follow the review format (a built-in check "
+                            "of three inert cases failed in both the full and the simple-"
+                            "question mode), so its output was not used. The static checks ran."
+                        ),
+                        finding_type="model-unfit",
+                        evidence=FindingEvidence(file="SKILL.md", line=1),
+                    )
+                ],
+                telemetry={"plan": plan.describe(), "probe": probe_result.describe()},
+            )
+        if probe_result.outcome == "downgraded":
+            plan = replace(
+                plan, simple=True, chunk_chars=min(plan.chunk_chars, 2500), pack_chars=None
+            )
+
     try:
         chunks, gaps = _make_chunks(package, anchors, plan)
     except Exception as exc:  # pragma: no cover - defensive only
@@ -633,7 +692,7 @@ def analyze_semantics(
             signals={"semantic": instruction_floor} if instruction_floor else {},
         )
 
-    calls = _pack(chunks, plan.chunk_chars)
+    calls = _pack(chunks, plan.call_chars)
     # The profile's budget applies to optional reading. Text the model must read is packed and then
     # given as many calls as it needs, up to a multiple of that budget; past that it is a gap.
     required_cap = max(plan.max_chunks, plan.max_chunks * REQUIRED_CALL_FACTOR, MAX_REQUIRED_CALLS)
@@ -655,6 +714,7 @@ def analyze_semantics(
                         "call budget reached",
                         required=chunk.priority <= LAST_REQUIRED_PRIORITY,
                         chars=len(chunk.text),
+                        tier=chunk.priority,
                     )
                 )
 
@@ -670,7 +730,15 @@ def analyze_semantics(
     def _fail(skipped: list[_Call], reason: str) -> None:
         for call in skipped:
             for chunk in call.chunks:
-                failed.append(_Gap(chunk.file, chunk.first_line, chunk.last_line, reason))
+                failed.append(
+                    _Gap(
+                        chunk.file,
+                        chunk.first_line,
+                        chunk.last_line,
+                        reason,
+                        tier=chunk.priority,
+                    )
+                )
 
     for index, call in enumerate(selected):
         if budget.expired():
@@ -766,7 +834,8 @@ def analyze_semantics(
                 stage=Stage.SEMANTIC,
                 severity=Severity.NOTE,
                 message=(
-                    f"Semantic coverage is partial: {len(required_gaps)} range(s) not analysed: "
+                    f"Semantic coverage is partial: {len(required_gaps)} range(s) not analysed "
+                    f"(cut: {', '.join(f'{n} in {t}' for t, n in _cut_tiers(required_gaps).items())}): "
                     f"{_gap_text(required_gaps)}"
                 ),
                 finding_type="semantic-partial-coverage",
@@ -880,6 +949,8 @@ def analyze_semantics(
             "model_read_files": sorted({c.file for call, _ in responses for c in call.chunks}),
             "static_only_files": sorted({gap.file for gap in static_gaps}),
             "unverified_model_findings": unverified,
+            "probe": probe_result.describe() if probe_result is not None else None,
+            "cut_tiers": _cut_tiers(required_gaps),
             "time_limit_reached": timed_out,
             "provider_limit": provider_limit,
         },
