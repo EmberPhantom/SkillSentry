@@ -44,6 +44,7 @@ def test_wire_format_is_camel_case(store):
         "findings",
         "checks",
         "activeDefense",
+        "coverageDetail",
         "status",
     }
     assert payload["scanDurationMs"] == 87432

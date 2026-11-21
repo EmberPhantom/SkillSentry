@@ -252,6 +252,24 @@ class ActiveDefense(APIModel):
     ioc_export: str | None = None
 
 
+class CoverageDetail(APIModel):
+    """What part of a skill the model read, when it did not read all of it.
+
+    Present only on a result that finished (not UNSCANNED) where some text was read by the static
+    checks only. ``level`` is ``partial``. SKILL.md and every script and config file were read by
+    the model; the text only the static checks read is listed, with why.
+    """
+
+    level: Literal["partial"] = "partial"
+    files_read_by_model: int = Field(ge=0)
+    files_read_statically: int = Field(ge=0)
+    files_skipped: int = Field(default=0, ge=0)
+    model_read_share: float = Field(ge=0.0, le=1.0)
+    static_only_share: float = Field(ge=0.0, le=1.0)
+    static_only_files: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+
+
 class Verdict(APIModel):
     """Verdict JSON Contract v1 (FROZEN).
 
@@ -281,6 +299,9 @@ class Verdict(APIModel):
     # INVALID SKILL when the package is malformed. `verdict` keeps the stored tier. Defaults to
     # the tier for results that carry no stage information (canned and older cached ones).
     status: VerdictStatus | None = None
+    # Set when the result is complete for everything that can act but some prose was read by the
+    # static checks only (see CoverageDetail). None means the whole skill was read as planned.
+    coverage_detail: CoverageDetail | None = None
 
     @model_validator(mode="after")
     def _split_checks_and_default_status(self) -> Verdict:

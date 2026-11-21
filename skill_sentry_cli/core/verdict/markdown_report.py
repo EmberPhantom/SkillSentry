@@ -196,6 +196,15 @@ def build_markdown(
         f"| Risk score | {verdict.risk_score} / 100 |",
         f"| Confidence | {verdict.confidence:.2f} |",
         *([f"| Coverage | {verdict.coverage:.2f} |"] if verdict.coverage is not None else []),
+        *(
+            [
+                f"| Coverage detail | **partial**: the model read {detail.model_read_share:.1%} of "
+                f"the text; {detail.static_only_share:.1%} ({detail.files_read_statically} "
+                "file(s)) was read by the static checks only |"
+            ]
+            if (detail := verdict.coverage_detail) is not None
+            else []
+        ),
         f"| Cached | {'⚡ yes' if verdict.cached else 'no'} |",
         f"| Scan duration | {verdict.scan_duration_ms} ms |",
         f"| Skill ID | {_code(str(verdict.skill_id))} |",

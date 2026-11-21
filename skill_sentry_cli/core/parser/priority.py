@@ -39,6 +39,12 @@ REFERENCE_DIRS = frozenset(
 )  # fmt: skip
 
 
+# Files that are code to a build or a container tool, whatever they are called.
+BUILD_FILE_NAMES = frozenset(
+    {"makefile", "dockerfile", "jenkinsfile", "rakefile", "procfile", "vagrantfile", "justfile"}
+)
+
+
 def file_priority(relative: str) -> int:
     """How early the model should read a file, from its path alone.
 
@@ -51,6 +57,8 @@ def file_priority(relative: str) -> int:
         return PRIORITY_SKILL
     parts = relative.lower().split("/")
     suffix = "." + parts[-1].rsplit(".", 1)[-1] if "." in parts[-1] else ""
+    if parts[-1] in BUILD_FILE_NAMES:
+        return PRIORITY_EXECUTABLE
     if suffix in SCRIPT_SUFFIXES:
         return PRIORITY_EXECUTABLE
     in_reference = any(part in REFERENCE_DIRS for part in parts[:-1])

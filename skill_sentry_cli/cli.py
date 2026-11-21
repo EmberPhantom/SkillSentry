@@ -213,6 +213,14 @@ def scan(
     output_format: str = typer.Option("text", "--format", help="text | json | sarif | markdown"),
     fail_on: str = typer.Option("suspicious", "--fail-on", help="safe | suspicious | malicious"),
     quiet: bool = typer.Option(False, "-q", "--quiet", help="Verdict line only."),
+    require_full_coverage: bool = typer.Option(
+        False,
+        "--require-full-coverage",
+        help=(
+            "Exit 1 when a result is only partly covered (some text was read by the static "
+            "checks only). Without it a SAFE result with partial coverage exits 0."
+        ),
+    ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Bypass the verdict cache."),
     sandbox: bool = typer.Option(
         True, "--sandbox/--no-sandbox", help="Execute the skill in Docker when available."
@@ -335,6 +343,7 @@ def scan(
             output_format=output_format,
             quiet=quiet,
             fail_on=fail_on,
+            require_full_coverage=require_full_coverage,
             no_cache=no_cache,
             sandbox=sandbox,
             strict_sandbox=strict_sandbox,
@@ -469,7 +478,7 @@ def scan(
             announce=output_format == "text" and not quiet,
             failed_names=failed_names,
         )
-    raise typer.Exit(code=int(_run_exit_code(outcomes, fail_on, failed)))
+    raise typer.Exit(code=int(_run_exit_code(outcomes, fail_on, failed, require_full_coverage)))
 
 
 @app.command("discover")
@@ -963,6 +972,14 @@ def _verdict_text(outcome: ScanOutcome, *, quiet: bool, backend: str) -> str:
     )
     if static_only is not None and not invalid:
         lines.append(f"   {static_only.message}")
+    detail = verdict.coverage_detail
+    if detail is not None and not invalid:
+        lines.append(
+            f"   Coverage: partial - the model read {detail.model_read_share:.0%} of the text; "
+            f"{detail.files_read_statically} file(s) ({detail.static_only_share:.0%}) were read "
+            "by the static checks only. Scan with --require-full-coverage to treat this as a "
+            "failure."
+        )
     active = verdict.active_defense
     if active is not None and active.triggered:
         channel = active.exfil_channel.value if active.exfil_channel else "egress"
@@ -1054,7 +1071,9 @@ def _print_verdict(
     )
 
 
-def _outcome_exit(outcome: ScanOutcome, fail_on: str) -> ExitCode:
+def _outcome_exit(
+    outcome: ScanOutcome, fail_on: str, require_full_coverage: bool = False
+) -> ExitCode:
     """The exit code for one scanned skill.
 
     An INVALID SKILL result is a packaging problem. It exits ``INVALID_SKILL`` whatever
@@ -1066,7 +1085,12 @@ def _outcome_exit(outcome: ScanOutcome, fail_on: str) -> ExitCode:
         outcome.verdict.verdict, outcome.stage_results
     ):
         return ExitCode.INVALID_SKILL
-    return ExitCode.VERDICT if _should_fail(outcome.verdict, fail_on) else ExitCode.OK
+    if _should_fail(outcome.verdict, fail_on):
+        return ExitCode.VERDICT
+    if require_full_coverage and outcome.verdict.coverage_detail is not None:
+        # Strict CI: a result that is only partly covered is not accepted.
+        return ExitCode.VERDICT
+    return ExitCode.OK
 
 
 def _failure_code(exc: ScanError) -> ExitCode:
@@ -1111,7 +1135,10 @@ def _announce_quota(outcomes: Sequence[ScanOutcome], total: int, *, quiet: bool)
 
 
 def _run_exit_code(
-    outcomes: Sequence[ScanOutcome], fail_on: str, failure: ExitCode | None
+    outcomes: Sequence[ScanOutcome],
+    fail_on: str,
+    failure: ExitCode | None,
+    require_full_coverage: bool = False,
 ) -> ExitCode:
     """The exit code for a run of several skills: the most serious thing that happened.
 
@@ -1126,7 +1153,7 @@ def _run_exit_code(
     # fully scanned, try again later". A skill that is unsafe on the static checks still wins.
     limited = [o for o in outcomes if _provider_limit(o) is not None]
     codes = {
-        _outcome_exit(outcome, fail_on)
+        _outcome_exit(outcome, fail_on, require_full_coverage)
         for outcome in outcomes
         if not (outcome in limited and is_unscanned(outcome.verdict.verdict, outcome.stage_results))
     }
@@ -1884,6 +1911,7 @@ def _scan_installed(
     timeout_s: int,
     max_time: int | None = None,
     timings: bool = False,
+    require_full_coverage: bool = False,
 ) -> None:
     """``scan`` with no path: find every installed skill, then scan each one."""
 
@@ -2031,7 +2059,7 @@ def _scan_installed(
             notes=result.skipped,
         )
 
-    raise typer.Exit(code=int(_run_exit_code(outcomes, fail_on, failed)))
+    raise typer.Exit(code=int(_run_exit_code(outcomes, fail_on, failed, require_full_coverage)))
 
 
 def _is_dir(path: Path) -> bool:

@@ -136,6 +136,68 @@
       "title": "ContextCanary",
       "type": "string"
     },
+    "CoverageDetail": {
+      "additionalProperties": false,
+      "description": "What part of a skill the model read, when it did not read all of it.\n\nPresent only on a result that finished (not UNSCANNED) where some text was read by the static\nchecks only. ``level`` is ``partial``. SKILL.md and every script and config file were read by\nthe model; the text only the static checks read is listed, with why.",
+      "properties": {
+        "filesReadByModel": {
+          "minimum": 0,
+          "title": "Filesreadbymodel",
+          "type": "integer"
+        },
+        "filesReadStatically": {
+          "minimum": 0,
+          "title": "Filesreadstatically",
+          "type": "integer"
+        },
+        "filesSkipped": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Filesskipped",
+          "type": "integer"
+        },
+        "level": {
+          "const": "partial",
+          "default": "partial",
+          "title": "Level",
+          "type": "string"
+        },
+        "modelReadShare": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Modelreadshare",
+          "type": "number"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "staticOnlyFiles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Staticonlyfiles",
+          "type": "array"
+        },
+        "staticOnlyShare": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Staticonlyshare",
+          "type": "number"
+        }
+      },
+      "required": [
+        "filesReadByModel",
+        "filesReadStatically",
+        "modelReadShare",
+        "staticOnlyShare"
+      ],
+      "title": "CoverageDetail",
+      "type": "object"
+    },
     "ExfilChannel": {
       "enum": [
         "DNS_TUNNELING",
@@ -432,6 +494,17 @@
       ],
       "default": null,
       "title": "Coverage"
+    },
+    "coverageDetail": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoverageDetail"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "findings": {
       "items": {

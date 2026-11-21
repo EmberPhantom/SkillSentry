@@ -208,7 +208,7 @@ What this says, plainly:
 | You see | Likely cause | What to do |
 |:---|:---|:---|
 | `UNSCANNED`, "partial coverage" | `SKILL.md`, a script, a config file or instruction text needs more calls than the class allows, or the window is too small | Use a larger class or model, or raise `context_tokens` if the server really runs a larger window. |
-| `SAFE` with "Static-only: ..." | Reference, asset or example text beyond the call budget was read by the static checks only | Nothing is wrong. The model read `SKILL.md`, the scripts and the instruction text first. See "Long reference text beyond the model's budget" in `docs/security/evasion-limits.md`. |
+| `SAFE` with "Static-only: ..." and "Coverage: partial" | Plain text with no risk signal, beyond the call budget, was read by the static checks only | Nothing is wrong. Use `--require-full-coverage` in CI if partial results must fail. The model read `SKILL.md`, the scripts and the instruction text first. See "Long reference text beyond the model's budget" in `docs/security/evasion-limits.md`. |
 | `UNSCANNED`, "quota is used up", exit `4` | A daily limit is exhausted | Run again after the reset, or switch provider or model. |
 | `UNSCANNED`, "the request was not sent" | `--max-time` is shorter than the pacing a free tier needs | Raise `--max-time`, or lower the number of skills per run. |
 | `... is not set` | The key variable is empty | `export` it in the shell that runs the scan. |

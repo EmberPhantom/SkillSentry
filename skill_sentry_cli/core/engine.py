@@ -89,6 +89,7 @@ from skill_sentry_cli.core.semantic.laya_analyzer import (
     deterministic_only_stage,
 )
 from skill_sentry_cli.core.semantic.plan import prompt_fingerprint
+from skill_sentry_cli.core.verdict.coverage import coverage_detail
 from skill_sentry_cli.core.verdict.fusion import FusionError, FusionResult, fuse
 from skill_sentry_cli.core.verdict.status import shown_status
 from skill_sentry_cli.core.version import engine_version
@@ -587,6 +588,7 @@ class ScanEngine:
             confidence=fused.confidence,
             coverage=fused.completeness,
             status=shown_status(fused.verdict, ctx.stage_results),
+            coverage_detail=coverage_detail(fused.verdict, ctx.stage_results),
             cached=False,
             scan_duration_ms=duration_ms,
             findings=findings,
