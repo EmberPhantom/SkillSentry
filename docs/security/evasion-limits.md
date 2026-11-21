@@ -95,6 +95,15 @@ The model reads a bounded amount of a skill: a fixed number of chunks per scan, 
 - **It does not make a scan `UNSCANNED` by itself.** `UNSCANNED` still applies when `SKILL.md`, any script or config file, any instruction text, or any range the static checks flagged was not read by the model, and when a model call failed, was throttled, ran out of quota or timed out.
 - **The known limit.** An attack that is only an instruction, written in a long reference file beyond the budget, and that no static pattern matches, is seen by nobody: the static checks have no pattern for it and the model never read it. A reference-only skill with a payload the static checks do recognise is still flagged, because they read every file. The development benchmark carries one such skill (`big-late-instruction-only`) as a labelled known miss, so the limit is measured and not hidden. To close it, scan with a model profile with a larger budget (a bigger model), and read the reference files yourself when `SAFE` says part of the text was static-only.
 
+## Reading order and the text budget
+
+SkillSentry reads at most 4 MiB of text per skill (and 1 MiB per file). That budget is spent in priority order, never in the order paths sort: `SKILL.md` first, then scripts and config files (a file that starts with `#!` counts as a script whatever it is called), then instruction text, then reference, example and data files. Inside a tier the smaller files go first, so one large file cannot starve many small ones.
+
+- **Padding does not hide a script.** A script in a folder that sorts after a large docs folder is read before that docs folder. The text that is left unread when the budget runs out is the reference material at the end of the queue, and it is still reported as a coverage gap.
+- **Plain-text data is read.** `.csv`, `.tsv`, `.jsonl`, `.log`, `.lock`, `.rst`, `.tex` and similar files are read as text, last.
+- **Media is typed and hashed, not decoded.** An image, font, audio or video file whose header matches its name is listed with its type, size and SHA-256 and is a note, not a gap. Audio and video may be up to 40 MiB. Only the header is checked, so hidden data inside a valid media file (for example steganography) is not seen. Nothing reads or runs such a file.
+- **Still a gap:** a program (ELF, PE, Mach-O, under any name), a file whose content does not fit its name, an unrecognised binary, a document or archive the scan has no reader for, and any text file the budget did not reach.
+
 ## What this means in practice
 
 - `SAFE` with coverage `1.00` and a sandbox run is the strongest result the tool gives. It is still "nothing was found", not a guarantee.

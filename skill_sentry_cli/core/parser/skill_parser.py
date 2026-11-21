@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shlex
@@ -14,11 +15,14 @@ import yaml
 from skill_sentry_cli.core.cache.hash_utils import MAX_TOTAL_BYTES, HashError, hash_skill_dir
 from skill_sentry_cli.core.contracts import COVERAGE_GAP
 from skill_sentry_cli.core.parser.opaque import (
+    AUDIO_VIDEO_KINDS,
+    MAX_BENIGN_AV_BYTES,
     MAX_BENIGN_MEDIA_BYTES,
     NEAR_CAP_BYTES,
     classify,
     image_mismatch,
 )
+from skill_sentry_cli.core.parser.priority import PRIORITY_EXECUTABLE, file_priority
 
 MAX_SKILL_MD_BYTES = 1024 * 1024
 MAX_TEXT_FILE_BYTES = 1024 * 1024
@@ -72,6 +76,18 @@ _TEXT_SUFFIXES = frozenset(
         ".xml",
         ".sql",
         ".svg",
+        # Plain-text data and documents. Read as text, last (see ``priority.DATA_SUFFIXES``).
+        ".mdx",
+        ".rst",
+        ".tex",
+        ".csv",
+        ".tsv",
+        ".jsonl",
+        ".ndjson",
+        ".log",
+        ".lock",
+        ".diff",
+        ".patch",
     }
 )
 
@@ -123,6 +139,20 @@ class TextFile:
         return self.text.splitlines()[number - 1]
 
 
+@dataclass(frozen=True)
+class AssetInfo:
+    """A file listed by type and hash, not read: an image, font, audio or video file.
+
+    Only its header was checked. Nothing reads or runs such a file, so it is not a coverage gap;
+    an executable, an unrecognised binary, or a file whose header does not fit its name is.
+    """
+
+    relative: str
+    kind: str
+    size: int
+    sha256: str
+
+
 @dataclass
 class SkillPackage:
     root: Path
@@ -139,6 +169,7 @@ class SkillPackage:
     entrypoint_declared: bool
     content_hash: str
     issues: list[PackageIssue] = field(default_factory=list)
+    assets: list[AssetInfo] = field(default_factory=list)
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -341,7 +372,7 @@ def _opaque_issue(path: Path, relative: str, *, text_reason: str | None) -> Pack
             coverage=True,
             kind=COVERAGE_GAP,
         )
-    if info.kind == "media" and size <= MAX_BENIGN_MEDIA_BYTES:
+    if info.kind == "media" and size <= _media_limit(info):
         return PackageIssue(
             "note",
             f"{relative} is a {info.label} ({size_text}). It is recognised by its header only "
@@ -359,6 +390,51 @@ def _opaque_issue(path: Path, relative: str, *, text_reason: str | None) -> Pack
         coverage=True,
         kind="opaque-content",
     )
+
+
+def _media_kind(info: Any) -> str:
+    """The media format of a recognised file, from its label (``"mp3 file"`` is ``mp3``)."""
+
+    return str(info.label).split(" ", 1)[0]
+
+
+def _media_limit(info: Any) -> int:
+    return MAX_BENIGN_AV_BYTES if _media_kind(info) in AUDIO_VIDEO_KINDS else MAX_BENIGN_MEDIA_BYTES
+
+
+def _asset_info(path: Path, relative: str) -> AssetInfo | None:
+    """Type and hash a recognised, small-enough media file. ``None`` for anything else."""
+
+    size = _size_of(path)
+    info = classify(path, size)
+    if info.kind != "media" or size > _media_limit(info):
+        return None
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+    except OSError:
+        return None
+    return AssetInfo(relative, _media_kind(info), size, digest.hexdigest())
+
+
+def _read_order(path: Path, relative: str) -> tuple[int, int, str]:
+    """Where a text file stands in the budget queue: tier, then smaller first, then path.
+
+    A file that starts with ``#!`` is a script whatever it is called, so it is read with the
+    scripts. Smaller files go first inside a tier, so one large file cannot starve many small ones.
+    """
+
+    tier = file_priority(relative)
+    if tier > PRIORITY_EXECUTABLE:
+        try:
+            with path.open("rb") as handle:
+                if handle.read(2) == b"#!":
+                    tier = PRIORITY_EXECUTABLE
+        except OSError:
+            pass
+    return tier, _size_of(path), relative
 
 
 def _image_issue(path: Path, relative: str) -> PackageIssue | None:
@@ -669,9 +745,21 @@ def parse_skill(path: str | Path) -> SkillPackage:
 
     files: list[Path] = []
     text_files: list[TextFile] = []
-    text_budget = MAX_TEXT_TOTAL_BYTES
+    assets: list[AssetInfo] = []
+    # SKILL.md is already in memory and always counts first against the budget.
+    text_budget = MAX_TEXT_TOTAL_BYTES - len(raw_skill_md)
+    text_files.append(
+        TextFile(
+            path=skill_md_path,
+            relative="SKILL.md",
+            text=skill_md,
+            line_count=len(skill_md.splitlines()) or 1,
+        )
+    )
+    files.append(skill_md_path)
     entries = _walk_entries(root)
     _check_package_size(entries)
+    pending_text: list[tuple[Path, str]] = []
     for candidate in sorted(entries, key=lambda p: p.relative_to(root).as_posix()):
         if candidate.is_symlink():
             issues.append(
@@ -707,48 +795,21 @@ def parse_skill(path: str | Path) -> SkillPackage:
                 )
             )
             continue
-        files.append(candidate)
         relative = candidate.relative_to(root).as_posix()
         if relative == "SKILL.md":
-            text_files.append(
-                TextFile(
-                    path=candidate,
-                    relative=relative,
-                    text=skill_md,
-                    line_count=len(skill_md.splitlines()) or 1,
-                )
-            )
-            text_budget -= len(raw_skill_md)
-            continue
+            continue  # already read above
+        files.append(candidate)
         if _is_text(relative):
-            parsed = _read_text(candidate, relative, text_budget)
-            if parsed is not None:
-                text_files.append(parsed)
-                text_budget -= len(parsed.text.encode("utf-8", "replace"))
-                if parsed.truncated:
-                    # The text budget ran out part-way through this file.  The
-                    # unread tail is a gap, so it degrades the scan like any other.
-                    issues.append(
-                        PackageIssue(
-                            "high",
-                            f"text file only partially analysed: {relative} "
-                            "(skill text budget exhausted)",
-                            file=relative,
-                            coverage=True,
-                            kind=COVERAGE_GAP,
-                        )
-                    )
-            else:
-                # A script the scan did not read is a gap, not a clean file.
-                # The HIGH issue degrades the spec stage, so the verdict cannot be SAFE.
-                issues.append(
-                    _opaque_issue(
-                        candidate, relative, text_reason=_unread_reason(candidate, text_budget)
-                    )
-                )
+            # Reading is deferred: the text budget is spent in priority order, below, and not in
+            # the order the paths happen to sort.
+            pending_text.append((candidate, relative))
         elif Path(relative).suffix.lower() not in IMAGE_SUFFIXES:
-            # Neither text nor an image: the scan has no reader for it.  Images are
-            # covered by the vision stage, so only other files are reported here.
+            # Neither text nor an image: the scan has no reader for it.  A recognised audio,
+            # video or font file is listed by type and hash; anything else is reported.
+            # A recognised one is only a note; the issue says so.
+            asset = _asset_info(candidate, relative)
+            if asset is not None:
+                assets.append(asset)
             issues.append(_opaque_issue(candidate, relative, text_reason=None))
         else:
             # An image is read by the vision stage, but only if it is an image: a program
@@ -756,6 +817,43 @@ def parse_skill(path: str | Path) -> SkillPackage:
             image_issue = _image_issue(candidate, relative)
             if image_issue is not None:
                 issues.append(image_issue)
+            else:
+                asset = _asset_info(candidate, relative)
+                if asset is not None:
+                    assets.append(asset)
+
+    # Spend the text budget on the files that can act first: scripts and config, then
+    # instruction text, then reference material and data. A script that sorts last is read
+    # before a huge docs folder that sorts first.
+    for candidate, relative in sorted(pending_text, key=lambda item: _read_order(item[0], item[1])):
+        parsed = _read_text(candidate, relative, text_budget)
+        if parsed is not None:
+            text_files.append(parsed)
+            text_budget -= len(parsed.text.encode("utf-8", "replace"))
+            if parsed.truncated:
+                # The text budget ran out part-way through this file.  The
+                # unread tail is a gap, so it degrades the scan like any other.
+                issues.append(
+                    PackageIssue(
+                        "high",
+                        f"text file only partially analysed: {relative} "
+                        "(skill text budget exhausted)",
+                        file=relative,
+                        coverage=True,
+                        kind=COVERAGE_GAP,
+                    )
+                )
+        else:
+            # A script the scan did not read is a gap, not a clean file.
+            # The HIGH issue degrades the spec stage, so the verdict cannot be SAFE.
+            issues.append(
+                _opaque_issue(
+                    candidate, relative, text_reason=_unread_reason(candidate, text_budget)
+                )
+            )
+    # Downstream code and tests see files in path order, as before.
+    text_files.sort(key=lambda item: item.relative)
+    files.sort(key=lambda item: item.relative_to(root).as_posix())
 
     try:
         package_hash = hash_skill_dir(root)
@@ -777,11 +875,13 @@ def parse_skill(path: str | Path) -> SkillPackage:
         entrypoint_declared=entrypoint_declared,
         content_hash=package_hash.digest,
         issues=issues,
+        assets=assets,
     )
 
 
 __all__ = [
     "MAX_SKILL_MD_BYTES",
+    "AssetInfo",
     "PackageIssue",
     "SkillPackage",
     "SkillParseError",

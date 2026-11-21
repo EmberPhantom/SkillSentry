@@ -21,6 +21,10 @@ HEADER_BYTES = 4096
 NEAR_CAP_BYTES = 48 * 1024 * 1024
 # Recognised media at or below this size is a NOTE; above it, it is unusual enough to flag.
 MAX_BENIGN_MEDIA_BYTES = 5 * 1024 * 1024
+# Audio and video are normally larger than an icon, and nothing reads or runs them, so they
+# are listed as media up to this size. A file close to the package cap is still flagged.
+MAX_BENIGN_AV_BYTES = 40 * 1024 * 1024
+AUDIO_VIDEO_KINDS = frozenset({"mp3", "wav", "ogg", "flac", "mp4", "webm", "avi"})
 
 _MACHO_MAGICS = (
     b"\xfe\xed\xfa\xce",
@@ -45,6 +49,19 @@ _MEDIA_BY_SUFFIX: dict[str, tuple[str, ...]] = {
     ".woff2": ("woff2",),
     ".ttf": ("ttf",),
     ".otf": ("otf",),
+    ".mp3": ("mp3",),
+    ".wav": ("wav",),
+    ".ogg": ("ogg",),
+    ".oga": ("ogg",),
+    ".opus": ("ogg",),
+    ".flac": ("flac",),
+    ".m4a": ("mp4",),
+    ".mp4": ("mp4",),
+    ".m4v": ("mp4",),
+    ".mov": ("mp4",),
+    ".webm": ("webm",),
+    ".mkv": ("webm",),
+    ".avi": ("avi",),
 }
 
 
@@ -80,6 +97,22 @@ def sniff(header: bytes) -> tuple[str | None, str | None]:
         return None, "tiff"
     if header[:4] == b"\x00\x00\x01\x00":
         return None, "ico"
+    if header.startswith(b"ID3") or (
+        len(header) > 1 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0
+    ):
+        return None, "mp3"
+    if header[:4] == b"RIFF" and header[8:12] == b"WAVE":
+        return None, "wav"
+    if header[:4] == b"RIFF" and header[8:12] == b"AVI ":
+        return None, "avi"
+    if header[:4] == b"OggS":
+        return None, "ogg"
+    if header[:4] == b"fLaC":
+        return None, "flac"
+    if header[4:8] == b"ftyp":
+        return None, "mp4"
+    if header[:4] == b"\x1aE\xdf\xa3":
+        return None, "webm"
     if header[:4] == b"wOFF":
         return None, "woff"
     if header[:4] == b"wOF2":

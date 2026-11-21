@@ -665,6 +665,7 @@ class ScanEngine:
                 "description": package.description,
                 "files": len(package.files),
                 "text_files": len(package.text_files),
+                "assets": len(package.assets),
                 "entrypoint": package.entrypoint,
                 "entrypoint_declared": package.entrypoint_declared,
                 "content_hash": package.content_hash,
