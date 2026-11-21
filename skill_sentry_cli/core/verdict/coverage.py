@@ -8,7 +8,8 @@ from skill_sentry_cli.core.contracts import CoverageDetail, Stage, StageResult, 
 from skill_sentry_cli.core.verdict.status import is_unscanned
 
 PARTIAL_REASON = (
-    "plain text with no risk signal, beyond the model's call budget; read by the static checks only"
+    "text or plain code with no risk signal, beyond the model's call budget; read by the static "
+    "checks only"
 )
 
 

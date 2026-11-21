@@ -151,4 +151,150 @@ def score(text: str) -> int:
     return len(signals(text))
 
 
-__all__ = ["LINE_CAP", "score", "signals"]
+# --- code and config -------------------------------------------------------------------------
+#
+# A script or config file is required reading for the model unless the static checks found
+# nothing in it AND none of the signals below is present. The signals are deliberately broad:
+# any one of them keeps the file required. Only plain code that does none of these things (a
+# formatter, a test file, a JSON schema, a stylesheet, a UI component) is static-cleared.
+
+# Kinds of file that may be cleared at all. Shell, PowerShell, batch, Ruby, Perl, PHP and the like
+# are never cleared: running programs is what they are for.
+CLEARABLE_SUFFIXES = frozenset(
+    {
+        ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".json", ".yaml", ".yml", ".toml",
+        ".ini", ".cfg", ".xml", ".svg", ".html", ".htm", ".css", ".scss", ".sql",
+    }
+)  # fmt: skip
+
+_CODE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "runs programs or evaluates code",
+        re.compile(
+            r"\b(subprocess|os\.(?:system|popen|exec\w*|spawn\w*|fork)|popen|child_process|"
+            r"execsync|execfile|spawn|exec|eval|compile|execv\w*|__import__|importlib|getattr|"
+            r"setattr|globals|locals|vars|pickle|marshal|ctypes|cffi|dlopen|runpy|pty|vm|"
+            r"shell_exec|passthru|proc_open|processbuilder|invoke-expression|start-process|"
+            r"new function|function\s*\(\s*['\"]|settimeout\s*\(\s*['\"]|import\s*\(\s*[^'\"\s)]|"
+            r"require\s*\(\s*[^'\"\s)]|bash -c|sh -c|cmd /c)\b|\$\(|`[^`\n]*`\s*\)",
+            re.I,
+        ),
+    ),
+    (
+        "network access",
+        re.compile(
+            r"\b(socket|requests|urllib|httpx|aiohttp|http\.client|http\.request|https\.request|"
+            r"ftplib|smtplib|telnetlib|paramiko|fetch|axios|xmlhttprequest|websocket|eventsource|"
+            r"sendbeacon|net\.connect|dgram|net/http|curl|wget|invoke-webrequest|invoke-restmethod|"
+            r"netcat|ncat|webhook|boto3|googleapiclient|dns|resolver|upload|download|"
+            r"navigator\.clipboard|window\.open|location\.(?:href|assign|replace))\b|/dev/tcp",
+            re.I,
+        ),
+    ),
+    (
+        "encoding or obfuscation",
+        re.compile(
+            r"\b(base64|b64decode|b64encode|atob|btoa|fromcharcode|rot13|unhexlify|fromhex|"
+            r"zlib|gzip|bz2|lzma|marshal|codecs\.decode|charcodeat)\b|(?:\\x[0-9a-f]{2}){4,}|"
+            r"(?:\\u[0-9a-f]{4}){4,}|[A-Za-z0-9+/=]{80,}|(?:[0-9a-f]{2}){40,}",
+            re.I,
+        ),
+    ),
+    (
+        "credential, secret or home-directory path",
+        re.compile(
+            r"\.ssh|\.aws|\.gnupg|\.npmrc|\.pypirc|\.netrc|\.docker|\.kube|\.config/|\.env\b|"
+            r"id_rsa|keychain|credential|password|passwd|secret|token|api[_-]?key|cookie|wallet|"
+            r"/etc/(?:passwd|shadow|hosts)|os\.environ|process\.env|getenv|expanduser|homedir|"
+            r"path\.home|~/|\$home|%userprofile%|%appdata%|localstorage|sessionstorage|"
+            r"document\.cookie|indexeddb",
+            re.I,
+        ),
+    ),
+    (
+        "persistence or startup hook",
+        re.compile(
+            r"crontab|systemd|launchd|launchagents|schtasks|\.bashrc|\.zshrc|\.profile|autostart|"
+            r"rc\.local|hkey_|atexit|postinstall|preinstall|prepare\b|\binstall\b|\bhooks?\b|"
+            r"entrypoint|entry_point|\bscripts\b|\bcommand\b|\brun\b|\bexecutable\b|"
+            r"onstartup|runonce|service worker|serviceworker",
+            re.I,
+        ),
+    ),
+    (
+        "changes or deletes files, or depends on time, host or chance",
+        re.compile(
+            r"\b(rmtree|unlink|os\.remove|rm -rf|chmod|chown|setuid|shutil|datetime|time\.time|"
+            r"date\.now|new date|random|sleep|setinterval|schedule|getpass|getuser|hostname|"
+            r"platform|uname|isatty|argv|username|writefile|appendfile|createwritestream|"
+            r"fs\.write\w*|open\s*\([^)]*['\"][wa]b?['\"])\b",
+            re.I,
+        ),
+    ),
+)
+_CODE_LONG_LINE = 1000
+
+
+def _top_level_effects(text: str) -> bool:
+    """True when a Python file does something at import time other than define things."""
+
+    import ast
+
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError, RecursionError):
+        return True  # code that does not parse is not understood, so it is not cleared
+    for node in tree.body:
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            continue  # a docstring
+        if isinstance(node, ast.Expr | ast.With | ast.For | ast.While | ast.Try):
+            return True
+        if isinstance(node, ast.If) and not _is_main_guard(node):
+            return True
+    return False
+
+
+def _is_main_guard(node: object) -> bool:
+    import ast
+
+    test = getattr(node, "test", None)
+    return (
+        isinstance(test, ast.Compare)
+        and isinstance(test.left, ast.Name)
+        and test.left.id == "__name__"
+    )
+
+
+def code_signals(text: str, relative: str) -> list[str]:
+    """The reasons a script or config file is not plain. Empty means it may be static-cleared.
+
+    A file kind that can never be cleared (a shell script, say) always reports one.
+    """
+
+    suffix = "." + relative.rsplit(".", 1)[-1].lower() if "." in relative.rsplit("/", 1)[-1] else ""
+    if suffix not in CLEARABLE_SUFFIXES:
+        return ["a kind of file that is never cleared"]
+    if text.startswith("#!"):
+        return ["starts with a #! line"]
+    found: list[str] = []
+    if _INVISIBLE.search(text):
+        found.append("invisible characters")
+    if any(len(line) > _CODE_LONG_LINE for line in text.splitlines()):
+        found.append(f"a line longer than {_CODE_LONG_LINE} characters")
+    if _mixed_script_word(text):
+        found.append("a word that mixes alphabets")
+    for label, pattern in _CODE_RULES:
+        if pattern.search(text):
+            found.append(label)
+    if suffix == ".py" and _top_level_effects(text):
+        found.append("does something when it is imported")
+    if suffix in {".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx"} and re.search(
+        r"^\s*(?:\(\s*(?:async\s*)?(?:function|\()|(?:async\s+)?function\s*\(|!function|void\s+function)",
+        text,
+        re.M,
+    ):
+        found.append("runs at load time")
+    return found
+
+
+__all__ = ["CLEARABLE_SUFFIXES", "LINE_CAP", "code_signals", "score", "signals"]

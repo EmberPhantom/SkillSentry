@@ -71,6 +71,7 @@ def test_skill_beyond_the_call_budget_is_partial_and_degraded(tmp_path: Path, mo
     monkeypatch.setattr(analyzer_module, "CHUNK_CHARS", 200)
     monkeypatch.setattr(analyzer_module, "MAX_CHUNKS", 1)
     monkeypatch.setattr(analyzer_module, "REQUIRED_CALL_FACTOR", 2)
+    monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 0)
     big = "".join(f"line {number} padding padding padding\n" for number in range(200))
     package = parse_skill(_skill(tmp_path, {"scripts/big.py": big}))
     model = _RecordingModel()
@@ -89,6 +90,7 @@ def test_oversized_line_becomes_a_gap_not_a_silent_cut(tmp_path: Path, monkeypat
     monkeypatch.setattr(analyzer_module, "CHUNK_CHARS", 100)
     monkeypatch.setattr(analyzer_module, "MAX_CHUNKS", 1)
     monkeypatch.setattr(analyzer_module, "REQUIRED_CALL_FACTOR", 2)
+    monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 0)
     package = parse_skill(_skill(tmp_path, {"scripts/wide.py": "x" * 500 + "\n"}))
 
     stage = analyze_semantics(package, _empty_anchors(), _RecordingModel())

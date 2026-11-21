@@ -100,6 +100,9 @@ class _Chunk:
     priority: int
     # How many model-free risk signals the text carries; orders chunks inside a priority tier.
     risk: int = 0
+    # A script or config file that the static checks found nothing in and that carries no risk
+    # signal. It is optional reading, ahead of plain prose.
+    cleared_code: bool = False
 
 
 @dataclass(frozen=True)
@@ -119,9 +122,14 @@ class _Call:
 
 # Characters a packed segment adds to a call: its file and line header.
 SEGMENT_OVERHEAD = 80
-# The most calls spent on the text the model must read, as a multiple of the profile's call
-# budget. The budget stays what the profile allows for optional reading (reference text).
+# The profile's call budget is what optional reading may use (text with no risk signal). Text the
+# model must read is not held to that number: it is read in risk order until a real limit stops
+# it (the provider's rate or quota limits, the scan's time limit, a failed call). Two things
+# bound it in advance. ``REQUIRED_CALL_FACTOR`` times the profile's budget is always allowed, and
+# ``MAX_REQUIRED_CALLS`` is a ceiling on calls for required text, so a pathological skill cannot
+# run unbounded. Required text past both is a gap, and the scan is UNSCANNED.
 REQUIRED_CALL_FACTOR = 4
+MAX_REQUIRED_CALLS = 150
 
 
 def _pack(chunks: list[_Chunk], limit: int) -> list[_Call]:
@@ -234,6 +242,7 @@ def _make_chunks(
         # The static rules read only the first characters of a line, and a long line is split into
         # pieces here, so a file with such a line is never static-cleared piece by piece.
         long_line = any(len(line) > risk.LINE_CAP for line in text_file.text.splitlines())
+        code_risk, cleared_code = _code_risk(package, text_file, relative, anchor_lines)
         buffer: list[str] = []
         start = 1
         last = 1
@@ -250,6 +259,8 @@ def _make_chunks(
                             marked,
                             script=script,
                             long_line=long_line,
+                            code_risk=code_risk,
+                            cleared_code=cleared_code,
                         )
                     )
                     buffer, start, size = [], number, 0
@@ -259,11 +270,50 @@ def _make_chunks(
         if buffer:
             chunks.append(
                 _make_chunk(
-                    relative, start, last, buffer, marked, script=script, long_line=long_line
+                    relative,
+                    start,
+                    last,
+                    buffer,
+                    marked,
+                    script=script,
+                    long_line=long_line,
+                    code_risk=code_risk,
+                    cleared_code=cleared_code,
                 )
             )
-    chunks.sort(key=lambda chunk: (chunk.priority, -chunk.risk, chunk.file, chunk.first_line))
+    chunks.sort(
+        key=lambda chunk: (
+            chunk.priority,
+            -chunk.risk,
+            not chunk.cleared_code,
+            chunk.file,
+            chunk.first_line,
+        )
+    )
     return chunks, gaps
+
+
+def _code_risk(
+    package: SkillPackage,
+    text_file: TextFile,
+    relative: str,
+    anchor_lines: dict[str, set[int]],
+) -> tuple[int, bool]:
+    """How many signals a script or config file carries, and whether it may be static-cleared.
+
+    Cleared means all of: it is not SKILL.md or a file the manifest runs; no static check found
+    anything in it (anchors, AST, credential flow, cross-file); and ``risk.code_signals`` is empty.
+    The count orders the required files when the budget runs out.
+    """
+
+    if _file_priority(relative) != PRIORITY_EXECUTABLE:
+        return 0, False
+    signals = risk.code_signals(text_file.text, relative)
+    runs = any(
+        token == relative or token.endswith("/" + relative) for token in (package.entrypoint or [])
+    )
+    cleared = not signals and relative not in anchor_lines and not runs
+    return len(signals), cleared
 
 
 def _pieces(line: str, limit: int) -> list[str]:
@@ -299,6 +349,8 @@ def _make_chunk(
     *,
     script: bool = False,
     long_line: bool = False,
+    code_risk: int = 0,
+    cleared_code: bool = False,
 ) -> _Chunk:
     text = "\n".join(buffer)
     priority = _file_priority(relative)
@@ -311,10 +363,17 @@ def _make_chunk(
         # (read by the static checks only, and not a reason to refuse a verdict).
         risk_score = risk.score(text) + int(long_line)
         priority = PRIORITY_INSTRUCTION if risk_score else PRIORITY_REFERENCE
+    if priority == PRIORITY_EXECUTABLE:
+        if cleared_code:
+            # Plain code with nothing found and no signal: optional, read when calls are left.
+            priority = PRIORITY_REFERENCE
+        else:
+            risk_score = code_risk
     if priority > PRIORITY_ANCHORED and any(first <= number <= last for number in marked):
         # A range the deterministic checks flagged is instruction-bearing wherever it sits.
         priority = PRIORITY_ANCHORED
-    return _Chunk(relative, first, last, text, priority, risk_score)
+        cleared_code = False
+    return _Chunk(relative, first, last, text, priority, risk_score, cleared_code)
 
 
 def _anchor_rows(chunk: _Chunk, anchors: StageResult, limit: int) -> tuple[list[str], int]:
@@ -577,7 +636,7 @@ def analyze_semantics(
     calls = _pack(chunks, plan.chunk_chars)
     # The profile's budget applies to optional reading. Text the model must read is packed and then
     # given as many calls as it needs, up to a multiple of that budget; past that it is a gap.
-    required_cap = max(plan.max_chunks, plan.max_chunks * REQUIRED_CALL_FACTOR)
+    required_cap = max(plan.max_chunks, plan.max_chunks * REQUIRED_CALL_FACTOR, MAX_REQUIRED_CALLS)
     selected: list[_Call] = []
     required_used = 0
     for call in calls:
@@ -720,11 +779,11 @@ def analyze_semantics(
             stage=Stage.SEMANTIC,
             severity=Severity.NOTE,
             message=(
-                f"Static-only: {static_share:.1%} of the skill's text (reference, asset or "
-                f"example files: {_static_files_text(static_gaps)}) was read by the static "
+                f"Static-only: {static_share:.1%} of the skill's text (text and plain code with no "
+                f"risk signal: {_static_files_text(static_gaps)}) was read by the static "
                 f"checks only, not by the model; the model read {read_share:.1%}. An attack "
-                "that is only an instruction in that text is outside what the static checks "
-                "can see."
+                "that is only an instruction in that text, or code that does nothing the static "
+                "checks recognise, is outside what they can see."
             ),
             finding_type="semantic-static-only",
             evidence=FindingEvidence(

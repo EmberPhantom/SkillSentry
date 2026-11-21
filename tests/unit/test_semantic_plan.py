@@ -275,7 +275,10 @@ def test_a_split_line_keeps_its_line_number_and_the_lines_around_it(tmp_path: Pa
     assert max(last for _, last in numbers) == len(package.text_files[0].text.splitlines())
 
 
-def test_calls_beyond_the_profiles_budget_are_gaps_in_the_report(tmp_path: Path):
+def test_calls_beyond_the_profiles_budget_are_gaps_in_the_report(tmp_path: Path, monkeypatch):
+    from skill_sentry_cli.core.semantic import analyzer as analyzer_module
+
+    monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 0)
     files = {f"scripts/f{i}.py": f"print({i})\n" * 400 for i in range(6)}
     skill = _skill(tmp_path / "s", "Run the scripts.", files)
     model = Spy("tiny", max_chunks=2)
