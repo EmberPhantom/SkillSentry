@@ -20,7 +20,7 @@ SCRIPT_SUFFIXES = frozenset(
     {
         ".py", ".pyw", ".sh", ".bash", ".zsh", ".fish", ".js", ".mjs", ".cjs", ".ts", ".tsx",
         ".jsx", ".ps1", ".psd1", ".psm1", ".rb", ".go", ".rs", ".java", ".kt", ".php", ".pl",
-        ".lua", ".c", ".h", ".cc", ".cpp", ".hpp", ".bat", ".cmd", ".vbs", ".sql",
+        ".lua", ".c", ".h", ".cc", ".cpp", ".hpp", ".bat", ".cmd", ".vbs", ".sql", ".ipynb",
     }
 )  # fmt: skip
 CONFIG_SUFFIXES = frozenset(

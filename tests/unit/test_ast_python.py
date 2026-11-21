@@ -60,7 +60,7 @@ def test_unparseable_file_returns_an_error_not_silence() -> None:
     assert error is not None and "could not parse" in error
 
 
-def test_scan_anchors_degrades_on_unparseable_python(tmp_path: Path) -> None:
+def test_scan_anchors_notes_unparseable_python_and_leaves_it_to_the_model(tmp_path: Path) -> None:
     root = tmp_path / "skill"
     (root / "scripts").mkdir(parents=True)
     (root / "SKILL.md").write_text(
@@ -70,8 +70,13 @@ def test_scan_anchors_degrades_on_unparseable_python(tmp_path: Path) -> None:
 
     stage = scan_anchors(parse_skill(root))
 
-    assert stage.degraded is True
-    assert stage.error is not None and "bad.py" in stage.error
+    # The pattern checks still read the file and the model reads it as required text, so it is a
+    # note and not a reason to refuse a verdict.
+    assert stage.degraded is False
+    assert any(
+        f.finding_type == "python-unparsed" and f.evidence.file == "scripts/bad.py"
+        for f in stage.findings
+    )
 
 
 def test_ast_and_regex_findings_are_not_duplicated(tmp_path: Path) -> None:

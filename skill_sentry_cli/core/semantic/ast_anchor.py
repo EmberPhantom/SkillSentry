@@ -579,6 +579,82 @@ _INSTALL_RULES: tuple[AnchorRule, ...] = (
     ),
 )
 
+# Resources a page or style sheet loads from outside the skill, and script that runs on load.
+_REMOTE_URL = r"(?:https?:)?//" + _USERINFO
+_REMOTE_RULES: tuple[AnchorRule, ...] = (
+    AnchorRule(
+        "remote-resource",
+        Severity.HIGH,
+        re.compile(
+            r"(?:@import|url\(|\bsrc\s*=|\bhref\s*=|\bimport\s+)\s*[\"']?\s*"
+            + _REMOTE_URL
+            + _BARE_IP,
+            re.IGNORECASE,
+        ),
+        "a script or style sheet loaded from a bare IP address",
+    ),
+    AnchorRule(
+        "remote-resource",
+        Severity.MEDIUM,
+        re.compile(
+            r"<script\b[^>]*\bsrc\s*=\s*[\"']?(?:https?:)?//[^\s\"'>]+|"
+            r"@import\s+(?:url\()?\s*[\"']?(?:https?:)?//[^\s\"')]+|"
+            r"<link\b[^>]*rel\s*=\s*[\"']?stylesheet[^>]*href\s*=\s*[\"']?(?:https?:)?//[^\s\"'>]+",
+            re.IGNORECASE,
+        ),
+        "a script or style sheet loaded from another site",
+    ),
+    AnchorRule(
+        "inline-script-handler",
+        Severity.HIGH,
+        re.compile(
+            r"\bon(?:load|error|click|mouseover|focus|begin|end)\s*=\s*[\"'][^\"']*"
+            r"(?:fetch|xmlhttprequest|sendbeacon|eval|document\.cookie|localstorage|location|"
+            r"atob|import\()",
+            re.IGNORECASE,
+        ),
+        "an inline handler that runs script when the page or image loads",
+    ),
+    AnchorRule(
+        "inline-script-handler",
+        Severity.MEDIUM,
+        re.compile(
+            r"href\s*=\s*[\"']\s*javascript:|<svg\b[^>]*>(?:(?!</svg>).)*<script\b", re.IGNORECASE
+        ),
+        "a javascript: link or a script inside an SVG image",
+    ),
+    AnchorRule(
+        "exfiltration",
+        Severity.HIGH,
+        re.compile(
+            r"(?:sendbeacon|fetch|xmlhttprequest|\.open|\.src\s*=)[^\n]{0,160}https?://[^\n]{0,200}"
+            r"(?:document\.cookie|localstorage|sessionstorage|document\.body|innerhtml|"
+            r"navigator\.|indexeddb)|"
+            r"(?:document\.cookie|localstorage|sessionstorage|indexeddb)[^\n]{0,200}"
+            r"(?:sendbeacon|fetch\(|xmlhttprequest|\.src\s*=)[^\n]{0,160}https?://",
+            re.IGNORECASE,
+        ),
+        "page or storage data sent to another site",
+    ),
+    AnchorRule(
+        "exfiltration",
+        Severity.MEDIUM,
+        re.compile(r"navigator\.sendBeacon\s*\(", re.IGNORECASE),
+        "a beacon request, which sends data without waiting for an answer",
+    ),
+    AnchorRule(
+        "shell-exec",
+        Severity.MEDIUM,
+        re.compile(
+            r"^\s*\w+\s*=\s*(?:os\.(?:system|popen)|subprocess\.(?:run|Popen|call|check_output|"
+            r"check_call)|eval|exec|__import__)\s*(?:#.*)?$",
+            re.IGNORECASE,
+        ),
+        "a program-running function stored under another name",
+    ),
+)
+_INSTALL_RULES = _INSTALL_RULES + _REMOTE_RULES
+
 _SEVERITY_RANK = {
     Severity.NOTE: 0,
     Severity.LOW: 1,
@@ -674,6 +750,8 @@ def scan_anchors(package: SkillPackage) -> StageResult:
             continue
         ast_findings, error = scan_python_ast(text_file.relative, text_file.text)
         if error:
+            # The pattern checks still read the file. A file that does not parse is not cleared
+            # for the model either (see ``risk.code_signals``), so it is not a coverage gap.
             parse_errors.append(error)
         for item in ast_findings:
             _merge(findings, item)
@@ -688,6 +766,19 @@ def scan_anchors(package: SkillPackage) -> StageResult:
     findings.extend(analyze_credential_flows(package))
     findings.extend(_normalised_credential_flows(package, findings))
     findings.extend(analyze_cross_file(package))
+    for error in parse_errors[:20]:
+        findings.append(
+            Finding(
+                stage=Stage.DETERMINISTIC_ANCHOR,
+                severity=Severity.NOTE,
+                message=f"Python syntax checks skipped: {error}. The pattern checks and the model read it",
+                finding_type="python-unparsed",
+                evidence=FindingEvidence(
+                    file=(re.match(r"could not parse (.+?): \w+$", error) or [None, "SKILL.md"])[1],
+                    line=1,
+                ),
+            )
+        )
     findings = relax_findings(findings, package)
 
     score = 0.0
@@ -698,8 +789,8 @@ def scan_anchors(package: SkillPackage) -> StageResult:
         stage=Stage.DETERMINISTIC_ANCHOR,
         findings=findings,
         signals={"anchors": score},
-        degraded=bool(parse_errors),
-        error="; ".join(parse_errors)[:1000] if parse_errors else None,
+        degraded=False,
+        error=None,
         telemetry={
             "files_scanned": len(package.text_files),
             "findings": len(findings),

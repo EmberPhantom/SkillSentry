@@ -103,6 +103,19 @@ The model reads the risky text first. A model-free score (`skill_sentry_cli/core
 - **What still blocks a verdict.** `SKILL.md`, any script or config file, any chunk an anchor flagged, any text with a signal, and any failed, throttled or timed-out call. A scan with no model never looks model-reviewed: it stays `UNSCANNED`.
 - **What static-cleared cannot catch.** An instruction attack in plain words that match none of the signals, in text the model never read. For example a paraphrase that tells the agent to do something harmful without override, secrecy, execution or credential wording, or an attack in a language the signal list does not cover. The signal list is deliberately broad and is not a detector: a signal only moves text earlier and makes it required; it is never a finding. Read the files named in the partial-coverage note yourself when the skill is not trusted.
 
+## Readers for notebooks, documents, PDFs and archives
+
+SkillSentry reads these in memory. Nothing is extracted to disk, run or rendered, and every reader has limits: 32 MiB per file, 2,000 archive members, 64 MiB declared expansion, a compression ratio of 200, 1 MiB per member, 4 MiB of text per container, archives nested one level. A file that reaches a limit is a coverage gap, so the scan is `UNSCANNED`; it is never read as clean.
+
+| File | What is read | What is flagged |
+|:---|:---|:---|
+| Notebook (`.ipynb`) | Every cell's source and every output's text, including HTML and tracebacks. Embedded images (base64) are skipped. | A payload in a cell or an output is found by the same checks as any text. A notebook that is not valid JSON is a gap. |
+| Office (`.docx`, `.pptx`, `.xlsx`, and the macro-enabled and template forms) | Text from the document, slide, sheet, comment, header, footer and note parts, and the targets of hyperlinks. | A macro or ActiveX control (HIGH), an external attached template, OLE object, external link or frame (HIGH), an embedded object (MEDIUM). |
+| PDF | Text from text-showing operators, in plain and Flate-compressed streams. Compressed streams are searched for actions too. | `/JavaScript`, `/JS`, `/Launch`, `/SubmitForm`, `/RichMedia`, `/XFA` (HIGH); `/OpenAction`, `/AA`, `/GoToR`, `/EmbeddedFile` (MEDIUM); an encrypted PDF or one with over 400 streams is a gap. |
+| Archive (`.zip`, `.tar`, `.tgz`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.gz`) | Text members, and text members of one nested archive. | A path with `..` or an absolute path, a symlink or device, a compiled executable (all HIGH); a bomb, an encrypted member, a binary member or a deeper nesting is a gap. |
+
+**What these readers cannot see.** Text drawn as shapes or images in a PDF or a slide, text in fonts that map characters oddly (so extracted PDF text can be garbled), content in legacy binary formats (`.doc`, `.xls`, `.ppt`), text inside a media file, and anything past a limit. A plain-looking document with an instruction in plain words that no signal matches is read by the static checks and, when calls are left, by the model; it is not a detection of that attack.
+
 ## Static-cleared scripts and config files
 
 A script or config file is optional reading for the model, instead of required, only when **all** of these hold: the static checks (anchors, syntax-tree checks, credential flow, cross-file checks) found nothing in it; it is not a file the manifest runs; it is a kind of file that can be cleared at all (Python, JavaScript and TypeScript, JSON, YAML, TOML, INI, XML, SVG, HTML, CSS, SQL); and none of the model-free code signals is present. Shell, PowerShell, batch, Ruby, Perl and PHP files, and any file that starts with `#!`, are never cleared.

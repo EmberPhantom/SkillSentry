@@ -175,6 +175,17 @@ _VENDOR_INSTALL_HOSTS = frozenset(
         "istio.io", "run.linkerd.io", "linkerd.io", "get.submariner.io",
     }
 )  # fmt: skip
+# Content delivery networks that publish libraries and fonts. A script or style sheet from one of
+# these, by name and exactly, is ordinary. Anyone can publish on raw.githubusercontent.com or a
+# gist host, so those are not here.
+_VENDOR_CDN_HOSTS = frozenset(
+    {
+        "cdnjs.cloudflare.com", "cdn.jsdelivr.net", "unpkg.com", "fonts.googleapis.com",
+        "fonts.gstatic.com", "ajax.googleapis.com", "code.jquery.com", "cdn.tailwindcss.com",
+        "stackpath.bootstrapcdn.com", "maxcdn.bootstrapcdn.com", "cdn.skypack.dev", "esm.sh",
+        "use.fontawesome.com", "kit.fontawesome.com", "www.googletagmanager.com",
+    }
+)  # fmt: skip
 _LITERAL_SHELL_CALL = re.compile(
     r"\bos\.(?:system|popen)\(\s*(?:r?\"[^\"{}%$`\\]*\"|r?'[^'{}%$`\\]*')\s*\)"
     r"|\bsubprocess\.\w+\(\s*(?:r?\"[^\"{}%$`\\]*\"|r?'[^'{}%$`\\]*')\s*,\s*shell\s*=\s*True"
@@ -300,6 +311,10 @@ def _reason(
     in_fence = number in file.fenced
     prose = file.is_markdown and not in_fence
 
+    if kind == "remote-resource" and finding.severity.value == "medium":
+        host = first_host(line)
+        if host in _VENDOR_CDN_HOSTS and not suspect_url(line):
+            return "a script or style sheet from a well-known CDN"
     if kind == "dns-lookup" and prose and not line.lstrip().startswith(("$", ">")):
         return "the words host or dig in a sentence, not a command"
     if (
