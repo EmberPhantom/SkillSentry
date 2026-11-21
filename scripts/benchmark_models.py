@@ -894,10 +894,11 @@ def markdown(
 DEFAULT_HELDOUT_MANIFEST = REPO / "tests" / "heldout" / "manifest.json"
 CHECK_PATHS = ("skill_sentry_cli/core", "skill_sentry_cli/rules", "skill_sentry_cli/data")
 UNSCANNED_STATUSES = {"UNSCANNED", "ERROR", "INVALID SKILL"}
-GROUPS = ("benign", "payload", "study_only", "ambiguous")
+GROUPS = ("benign", "payload", "confirmed", "study_only", "ambiguous")
 GROUP_TITLES = {
     "benign": "Benign (reputable repositories)",
     "payload": "Malicious, payload-confirmed (the headline group)",
+    "confirmed": "Malicious, confirmed by someone else (a dataset's human review and runtime check, or a published write-up), no payload string of our own (a second recall, reported apart)",
     "study_only": "Malicious, study-labelled, unverified (reported apart, never a false negative)",
     "ambiguous": "Ambiguous (left out of precision and recall)",
 }
@@ -923,7 +924,9 @@ def group_of(case: Case) -> str:
     if case.label == "benign":
         return "benign"
     if case.label == "malicious":
-        return "payload" if case.label_quality == "payload" else "study_only"
+        if case.label_quality in {"payload", "confirmed"}:
+            return case.label_quality
+        return "study_only"
     return "ambiguous"
 
 
@@ -945,8 +948,10 @@ def load_heldout_cases(
     for entry in fh.iter_entries(data, which):
         r = raw[entry.id]
         quality = r.get("label_quality", "")
-        if entry.label == "malicious" and quality not in {"payload", "study_only"}:
-            raise ValueError(f"{entry.id}: malicious entries need label_quality payload|study_only")
+        if entry.label == "malicious" and quality not in {"payload", "confirmed", "study_only"}:
+            raise ValueError(
+                f"{entry.id}: malicious entries need label_quality payload|confirmed|study_only"
+            )
         folder = fh.skill_dir(cache, entry)
         if not folder.is_dir():
             raise FileNotFoundError(
@@ -1115,6 +1120,24 @@ def summarize_heldout(cases: list[Case], rows: list[dict[str, Any]]) -> dict[str
             ),
             "by_source": _split(pay, statuses, lambda c: c.source, want="flagged"),
         }
+        # Confirmed by someone else, with no payload string of ours: a second recall, apart.
+        conf = by_group["confirmed"]
+        conf_scanned = [
+            c for c in conf if c.id in statuses and statuses[c.id] not in UNSCANNED_STATUSES
+        ]
+        conf_hits = [c for c in conf_scanned if statuses[c.id] in POSITIVE]
+        conf_open = sorted(
+            c.id for c in conf if c.id in statuses and statuses[c.id] in UNSCANNED_STATUSES
+        )
+        t["confirmed"] = {
+            "recall": _rate(len(conf_hits), len(conf_scanned)),
+            "strict_recall": _rate(
+                len(conf_hits) + len(conf_open), len(conf_scanned) + len(conf_open)
+            ),
+            "false_negatives": sorted(c.id for c in conf_scanned if statuses[c.id] not in POSITIVE),
+            "unscanned": conf_open,
+            "by_attack_class": _split(conf, statuses, lambda c: c.attack_class, want="flagged"),
+        }
         # Study-labelled and ambiguous: what the tool said, with no right or wrong.
         for name in ("study_only", "ambiguous"):
             members = by_group[name]
@@ -1184,6 +1207,25 @@ def heldout_markdown(
             f"| {name} | {_ci(t['payload']['recall'])} | {_ci(t['payload']['strict_recall'])} "
             f"| {_ci(t['benign']['false_alarm'])} | {_ci(t['benign']['strict_false_alarm'])} |"
         )
+    if g.get("confirmed"):
+        lines += [
+            "",
+            "## Confirmed by someone else, no payload string of our own",
+            "",
+            "| Target | Recall | Strict recall |",
+            "|:---|:--|:--|",
+        ]
+        for name, t in summary["targets"].items():
+            lines.append(
+                f"| {name} | {_ci(t['confirmed']['recall'])} | {_ci(t['confirmed']['strict_recall'])} |"
+            )
+        for name, t in summary["targets"].items():
+            c = t["confirmed"]
+            lines.append(
+                f"- {name}: missed ({len(c['false_negatives'])}): "
+                f"{', '.join(c['false_negatives']) or 'none'}; unscanned ({len(c['unscanned'])}): "
+                f"{', '.join(c['unscanned']) or 'none'}"
+            )
     lines += ["", "## Study-labelled, unverified", ""]
     lines += [
         "What each target said about the skills a study labelled malicious but that have no payload we can "

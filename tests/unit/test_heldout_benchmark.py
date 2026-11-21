@@ -230,7 +230,13 @@ def test_a_run_with_the_static_checks_writes_only_ids_and_a_guard(tmp_path, caps
     folder = out / "2099-01-01-heldout"
     assert folder.is_dir()
     summary = json.loads((folder / "summary.json").read_text())
-    assert summary["groups"] == {"benign": 2, "payload": 1, "study_only": 1, "ambiguous": 1}
+    assert summary["groups"] == {
+        "benign": 2,
+        "payload": 1,
+        "confirmed": 0,
+        "study_only": 1,
+        "ambiguous": 1,
+    }
     assert summary["targets"]["baseline"]["payload"]["recall"]["n"] == 1
     assert len(summary["guard"]["git_head"]) == 40 and summary["guard"]["trees"]
     text = "\n".join(p.read_text() for p in folder.iterdir())
