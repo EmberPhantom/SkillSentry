@@ -354,6 +354,13 @@ class NullModel:
 
         return dict(CLEAN_RESPONSE)
 
+    def analyze_image(self, path: Any, prompt: str) -> Any:
+        """An image with nothing in it, so the vision stage can finish without a model."""
+
+        from skill_sentry_cli.core.contracts import ImageAnalysis
+
+        return ImageAnalysis(ocr="", bboxes=[], findings=[])
+
     def health(self) -> bool:
         return True
 
@@ -438,6 +445,11 @@ def unscanned_cause(stage_results: Any) -> str:
         ("semantic model unavailable", "model unavailable"),
         ("skill text budget exhausted", "text beyond the 4 MiB text budget"),
         ("larger than 1 mib", "a text file over 1 MiB"),
+        ("expands too much", "an archive too large to open safely"),
+        ("is encrypted", "an encrypted document or archive"),
+        ("nested more than", "archives nested more than one level"),
+        ("image budget", "images beyond the vision budget"),
+        ("image limit", "images beyond the vision budget"),
         ("opaque content", "a compiled or oversized file"),
         ("file not analysed", "a file type the scan cannot read (document, archive, data)"),
         ("image not analysed", "an image that is not what its name says"),

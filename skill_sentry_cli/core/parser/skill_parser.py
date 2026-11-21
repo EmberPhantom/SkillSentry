@@ -22,7 +22,9 @@ from skill_sentry_cli.core.parser.opaque import (
     classify,
     image_mismatch,
 )
+from skill_sentry_cli.core.parser.opaque import sniff as _sniff
 from skill_sentry_cli.core.parser.priority import PRIORITY_EXECUTABLE, file_priority
+from skill_sentry_cli.core.parser.readers import is_reader_file, read_special
 
 MAX_SKILL_MD_BYTES = 1024 * 1024
 MAX_TEXT_FILE_BYTES = 1024 * 1024
@@ -88,6 +90,14 @@ _TEXT_SUFFIXES = frozenset(
         ".lock",
         ".diff",
         ".patch",
+        # Style sheets and property files, read as text.
+        ".css",
+        ".scss",
+        ".sass",
+        ".less",
+        ".plist",
+        ".properties",
+        ".conf",
     }
 )
 
@@ -483,6 +493,46 @@ def _read_text(path: Path, relative: str, remaining: int) -> TextFile | None:
     )
 
 
+_BINARY_SUFFIXES = frozenset(
+    {
+        ".exe", ".dll", ".so", ".dylib", ".bin", ".o", ".a", ".class", ".pyc", ".pyd", ".jar",
+        ".war", ".apk", ".wasm", ".db", ".sqlite", ".sqlite3", ".pkl", ".pickle", ".npy", ".npz",
+        ".parquet", ".onnx", ".pt", ".pth", ".safetensors", ".ckpt", ".h5", ".7z", ".rar", ".iso",
+        ".dmg", ".ico", ".icns", ".mp3", ".mp4", ".wav", ".ogg", ".flac", ".mov", ".webm", ".avi",
+        ".mkv", ".woff", ".woff2", ".ttf", ".otf", ".eot", ".doc", ".xls", ".ppt", ".pdf",
+    }
+)  # fmt: skip
+
+
+def classify_header(head: bytes) -> bool:
+    """True when the bytes start like a program or a known media file."""
+
+    executable, media = _sniff(head)
+    return bool(executable or media)
+
+
+def _looks_like_text(path: Path, relative: str) -> bool:
+    """A file with a suffix the scan does not know, but whose bytes are plain text.
+
+    Source and template files come in many suffixes (``.xsd``, ``.j2``, ``.tmpl``, ``.vue``,
+    ``.swift``, ``.gd``). Reading them as text costs nothing, and a file with a NUL byte, a
+    program header or mostly undecodable bytes is not text, so it stays an unread file.
+    """
+
+    suffix = Path(relative).suffix.lower()
+    if suffix in _BINARY_SUFFIXES or suffix in IMAGE_SUFFIXES:
+        return False
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(8192)
+    except OSError:
+        return False
+    if not head or b"\x00" in head or classify_header(head):
+        return False
+    decoded = head.decode("utf-8", "replace")
+    return decoded.count("\ufffd") <= max(2, len(decoded) // 100)
+
+
 def _is_text(relative: str) -> bool:
     suffix = Path(relative).suffix.lower()
     if suffix in _TEXT_SUFFIXES:
@@ -760,6 +810,7 @@ def parse_skill(path: str | Path) -> SkillPackage:
     entries = _walk_entries(root)
     _check_package_size(entries)
     pending_text: list[tuple[Path, str]] = []
+    pending_special: list[tuple[Path, str]] = []
     for candidate in sorted(entries, key=lambda p: p.relative_to(root).as_posix()):
         if candidate.is_symlink():
             issues.append(
@@ -803,6 +854,11 @@ def parse_skill(path: str | Path) -> SkillPackage:
             # Reading is deferred: the text budget is spent in priority order, below, and not in
             # the order the paths happen to sort.
             pending_text.append((candidate, relative))
+        elif _looks_like_text(candidate, relative) and not is_reader_file(relative):
+            pending_text.append((candidate, relative))
+        elif is_reader_file(relative):
+            # A notebook, an office document, a PDF or an archive: read in memory below.
+            pending_special.append((candidate, relative))
         elif Path(relative).suffix.lower() not in IMAGE_SUFFIXES:
             # Neither text nor an image: the scan has no reader for it.  A recognised audio,
             # video or font file is listed by type and hash; anything else is reported.
@@ -851,6 +907,45 @@ def parse_skill(path: str | Path) -> SkillPackage:
                     candidate, relative, text_reason=_unread_reason(candidate, text_budget)
                 )
             )
+    # Notebooks, documents, PDFs and archives are read in memory, after the text, with what is
+    # left of the budget. Nothing is extracted to disk or run.
+    for candidate, relative in pending_special:
+        outcome = read_special(candidate, relative)
+        issues.extend(outcome.issues)
+        for label, text in outcome.texts:
+            room = text_budget
+            if room <= 0:
+                issues.append(
+                    PackageIssue(
+                        "high",
+                        f"text file not analysed: {label} (skill text budget exhausted)",
+                        file=relative,
+                        coverage=True,
+                        kind=COVERAGE_GAP,
+                    )
+                )
+                continue
+            clipped = text.encode("utf-8", "replace")[:room].decode("utf-8", "ignore")
+            text_files.append(
+                TextFile(
+                    path=candidate,
+                    relative=label,
+                    text=clipped,
+                    line_count=len(clipped.splitlines()) or 1,
+                    truncated=len(clipped) < len(text),
+                )
+            )
+            text_budget -= len(clipped.encode("utf-8", "replace"))
+            if len(clipped) < len(text):
+                issues.append(
+                    PackageIssue(
+                        "high",
+                        f"text file only partially analysed: {label} (skill text budget exhausted)",
+                        file=relative,
+                        coverage=True,
+                        kind=COVERAGE_GAP,
+                    )
+                )
     # Downstream code and tests see files in path order, as before.
     text_files.sort(key=lambda item: item.relative)
     files.sort(key=lambda item: item.relative_to(root).as_posix())
