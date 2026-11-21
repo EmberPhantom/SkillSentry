@@ -596,7 +596,9 @@ def test_a_quota_stop_is_its_own_exit_code_and_is_never_a_safe_run(monkeypatch):
     )
     monkeypatch.setattr(cli, "is_unscanned", lambda verdict, stages: True)
     monkeypatch.setattr(
-        cli, "_outcome_exit", lambda o, fail_on: ExitCode.VERDICT if o.fails else ExitCode.OK
+        cli,
+        "_outcome_exit",
+        lambda o, fail_on, *_rest: ExitCode.VERDICT if o.fails else ExitCode.OK,
     )
     cut_short = [_Outcome(limited=True, fails=True), _Outcome(limited=True, fails=True)]
 

@@ -99,6 +99,10 @@ def build_sarif(
         "engineVersion": ENGINE_VERSION,
         "generatedAt": format_utc(generated_at or utc_now()),
     }
+    if verdict.coverage_detail is not None:
+        run_properties["coverageDetail"] = verdict.coverage_detail.model_dump(
+            mode="json", by_alias=True
+        )
     if verdict.active_defense is not None:
         run_properties["activeDefense"] = verdict.active_defense.model_dump(
             by_alias=True, mode="json", exclude_none=False

@@ -251,6 +251,7 @@ The verdict object is the one shape shared by the engine, the API, the cache, an
 | `riskScore` | An integer from 0 to 100. |
 | `confidence` | From 0.0 to 1.0: how certain the verdict is. An override is `1.0`; a verdict backed by a deterministic finding and the model is about `0.95`; one only the model supports is lower; a failed stage caps it at `0.5`. It is not the share of stages that ran. The formula is in the [user guide](../user/guide.md). |
 | `coverage` | Optional, 0.0 to 1.0: the share of the analyses that apply to this skill that ran. Absent or `null` on verdicts cached or canned before the field existed. |
+| `coverageDetail` | Optional object, present only on a finished (not UNSCANNED) result where some text was read by the static checks only: `level` (`partial`), `filesReadByModel`, `filesReadStatically`, `filesSkipped`, `modelReadShare`, `staticOnlyShare`, `staticOnlyFiles`, `reasons`. Absent means the skill was read as planned. |
 | `findings` | What a person needs to look at. Checks that passed (frontmatter valid, no contradiction found, no anchor hit) are not findings; they are in `checks`. |
 | `checks` | Checks that passed, in the same shape as a finding, always at severity `note`. They are the finding types `spec-valid`, `semantic-clean` and `anchors-clean`. Optional; empty when none. |
 | `findings[].severity` | `low`, `medium`, `high`, `critical`, or `note`. |

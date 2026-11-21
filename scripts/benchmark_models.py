@@ -398,6 +398,7 @@ def scan_row(
     row["wall_s"] = round(time.monotonic() - started, 2)
     row["status"] = shown_status(outcome.verdict.verdict, outcome.stage_results)
     row["risk"] = outcome.verdict.risk_score
+    row["coverage"] = "partial" if outcome.verdict.coverage_detail is not None else "full"
     row["confidence"] = outcome.verdict.confidence
     semantic = next((r for r in outcome.stage_results if r.stage is Stage.SEMANTIC), None)
     if semantic is not None:
@@ -420,6 +421,22 @@ def scan_row(
     if meter is not None:
         row["calls"] = meter.calls
     return row
+
+
+def coverage_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """How many skills finished, and how fully, from the baseline rows. Counts only: no labels, no
+    accuracy. The baseline's scripted model reports nothing wrong, so this measures what the scan
+    can finish and not what it detects."""
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        status = row.get("status", "ERROR")
+        key = f"{status} (partial coverage)" if row.get("coverage") == "partial" else status
+        counts[key] = counts.get(key, 0) + 1
+    finished = sum(
+        n for k, n in counts.items() if not k.startswith(("UNSCANNED", "INVALID", "ERROR"))
+    )
+    return {"skills": len(rows), "finished": finished, "by_status": dict(sorted(counts.items()))}
 
 
 def done_keys(rows_file: Path) -> set[tuple[str, str, int]]:
@@ -1277,6 +1294,14 @@ def run(args: argparse.Namespace) -> int:
             store.close()
 
     rows = read_rows(rows_file)
+    if getattr(args, "coverage_only", False):
+        counts = coverage_counts([r for r in rows if r["target"] == "baseline"])
+        (out_dir / "coverage.json").write_text(
+            json.dumps(counts, indent=2) + "\n", encoding="utf-8"
+        )
+        print(json.dumps(counts, indent=2))
+        print(f"wrote {out_dir}/coverage.json and rows.jsonl (coverage only; no accuracy computed)")
+        return 0
     if heldout:
         ids = {c.id for c in cases}
         held = summarize_heldout(cases, [r for r in rows if r["skill"] in ids])
@@ -1364,10 +1389,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--cache", type=Path, help="fetch cache for --manifest (outside the repo)")
     parser.add_argument("--heldout-set", choices=["entries", "reserve", "all"], default="entries")
+    parser.add_argument(
+        "--coverage-only",
+        action="store_true",
+        help="run only the scripted stand-in model (no network, no provider) and print counts of "
+        "how many skills finished and how fully. No accuracy is computed. Use --out outside the "
+        "repository for a real set",
+    )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--date", default=dt.date.today().isoformat())
     args = parser.parse_args(argv)
-    if not args.model:
+    if getattr(args, "coverage_only", False):
+        args.model = []
+    elif not args.model:
         args.model = ["ollama=gemma3:1b", "ollama=qwen2.5-coder:1.5b"]
     return run(args)
 

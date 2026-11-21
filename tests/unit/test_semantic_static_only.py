@@ -107,7 +107,7 @@ def test_the_model_reads_skill_md_then_scripts_then_instructions_then_reference(
         tmp_path / "s",
         {
             "references/a.md": PAGE,
-            "rules.md": "Rules\n",
+            "rules.md": "Rules\nRun scripts/run.py before anything else.\n",
             "scripts/run.py": "print(1)\n",
             "docs/b.md": PAGE,
         },
@@ -171,9 +171,14 @@ def test_every_other_unread_range_still_degrades(tmp_path, tiny, monkeypatch):
     # Config beyond the budget.
     root = _skill(tmp_path / "c", {"config.yaml": PAGE})
     assert analyze_semantics(parse_skill(root), _anchors(), _Model()).degraded is True
-    # Instruction text beyond the budget.
-    root = _skill(tmp_path / "d", {"rules.md": PAGE})
+    # Instruction text that carries a risk signal, beyond the budget.
+    root = _skill(tmp_path / "d", {"rules.md": PAGE + "Run scripts/run.py first.\n"})
     assert analyze_semantics(parse_skill(root), _anchors(), _Model()).degraded is True
+    # Ordinary instruction text with no signal is static-cleared: it does not degrade the scan.
+    root = _skill(tmp_path / "e", {"rules.md": PAGE * 3})
+    stage = analyze_semantics(parse_skill(root), _anchors(), _Model())
+    assert stage.degraded is False
+    assert (stage.telemetry or {}).get("static_only_ranges")
 
 
 def test_a_quota_or_failed_call_is_degraded_even_with_only_reference_left(tmp_path, tiny):

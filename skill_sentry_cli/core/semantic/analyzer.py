@@ -38,8 +38,12 @@ from skill_sentry_cli.core.parser import SkillPackage, TextFile
 from skill_sentry_cli.core.parser.priority import (
     LAST_REQUIRED_PRIORITY,
     PRIORITY_ANCHORED,
+    PRIORITY_EXECUTABLE,
+    PRIORITY_INSTRUCTION,
+    PRIORITY_REFERENCE,
 )
 from skill_sentry_cli.core.parser.priority import file_priority as _file_priority
+from skill_sentry_cli.core.semantic import risk
 from skill_sentry_cli.core.semantic.plan import SemanticPlan, plan_from_profile
 from skill_sentry_cli.core.semantic.prompts import SEMANTIC_SCHEMA
 
@@ -94,6 +98,8 @@ class _Chunk:
     last_line: int
     text: str
     priority: int
+    # How many model-free risk signals the text carries; orders chunks inside a priority tier.
+    risk: int = 0
 
 
 @dataclass(frozen=True)
@@ -223,6 +229,11 @@ def _make_chunks(
     for text_file in package.text_files:
         relative = text_file.relative.replace("\\", "/")
         marked = anchor_lines.get(relative, set())
+        # A file that starts with ``#!`` is a script whatever it is called.
+        script = text_file.text.startswith("#!")
+        # The static rules read only the first characters of a line, and a long line is split into
+        # pieces here, so a file with such a line is never static-cleared piece by piece.
+        long_line = any(len(line) > risk.LINE_CAP for line in text_file.text.splitlines())
         buffer: list[str] = []
         start = 1
         last = 1
@@ -230,14 +241,28 @@ def _make_chunks(
         for number, line in enumerate(text_file.text.splitlines(), start=1):
             for piece in _pieces(line, limit):
                 if buffer and size + len(piece) + 1 > limit:
-                    chunks.append(_make_chunk(relative, start, last, buffer, marked))
+                    chunks.append(
+                        _make_chunk(
+                            relative,
+                            start,
+                            last,
+                            buffer,
+                            marked,
+                            script=script,
+                            long_line=long_line,
+                        )
+                    )
                     buffer, start, size = [], number, 0
                 buffer.append(piece)
                 size += len(piece) + 1
                 last = number
         if buffer:
-            chunks.append(_make_chunk(relative, start, last, buffer, marked))
-    chunks.sort(key=lambda chunk: (chunk.priority, chunk.file, chunk.first_line))
+            chunks.append(
+                _make_chunk(
+                    relative, start, last, buffer, marked, script=script, long_line=long_line
+                )
+            )
+    chunks.sort(key=lambda chunk: (chunk.priority, -chunk.risk, chunk.file, chunk.first_line))
     return chunks, gaps
 
 
@@ -271,12 +296,25 @@ def _make_chunk(
     last: int,
     buffer: list[str],
     marked: set[int],
+    *,
+    script: bool = False,
+    long_line: bool = False,
 ) -> _Chunk:
+    text = "\n".join(buffer)
     priority = _file_priority(relative)
+    if script and priority > PRIORITY_EXECUTABLE:
+        priority = PRIORITY_EXECUTABLE
+    risk_score = 0
+    if priority >= PRIORITY_INSTRUCTION:
+        # Prose and reference text is ranked by what it says, not by where it sits: text with a
+        # signal is read by the model as required, and ordinary text with none is static-cleared
+        # (read by the static checks only, and not a reason to refuse a verdict).
+        risk_score = risk.score(text) + int(long_line)
+        priority = PRIORITY_INSTRUCTION if risk_score else PRIORITY_REFERENCE
     if priority > PRIORITY_ANCHORED and any(first <= number <= last for number in marked):
         # A range the deterministic checks flagged is instruction-bearing wherever it sits.
         priority = PRIORITY_ANCHORED
-    return _Chunk(relative, first, last, "\n".join(buffer), priority)
+    return _Chunk(relative, first, last, text, priority, risk_score)
 
 
 def _anchor_rows(chunk: _Chunk, anchors: StageResult, limit: int) -> tuple[list[str], int]:
@@ -780,6 +818,8 @@ def analyze_semantics(
             ],
             "model_read_share": read_share,
             "static_only_share": static_share,
+            "model_read_files": sorted({c.file for call, _ in responses for c in call.chunks}),
+            "static_only_files": sorted({gap.file for gap in static_gaps}),
             "unverified_model_findings": unverified,
             "time_limit_reached": timed_out,
             "provider_limit": provider_limit,
