@@ -524,7 +524,9 @@ class ScanEngine:
             self._check_cancel(cancel)
         else:
             model = self._get_model()
-            semantic = self._semantic_stage(ctx.package, anchors, model, ctx.deadline)
+            semantic = self._semantic_stage(
+                ctx.package, anchors, model, ctx.deadline, probe=ctx.options.probe
+            )
             self._record(ctx, semantic, emit)
             self._check_cancel(cancel)
 
@@ -1369,6 +1371,8 @@ class ScanEngine:
         anchors: StageResult,
         model: ModelClient | None,
         deadline: Deadline | None = None,
+        *,
+        probe: bool = True,
     ) -> StageResult:
         """Route the semantic stage: typed decision backend, then legacy model."""
 
@@ -1407,7 +1411,7 @@ class ScanEngine:
                 }
             )
         if selection.backend == "legacy":
-            return self._legacy_semantic(package, anchors, model, deadline)
+            return self._legacy_semantic(package, anchors, model, deadline, probe)
         if selection.backend == "none":
             off_values = {"none", "off", "disabled"}
             explicitly_off = self.config.decision.backend.strip().lower() in off_values
@@ -1416,7 +1420,7 @@ class ScanEngine:
             return degraded_semantic_stage(
                 anchors, selection.reason or "semantic decision backend unavailable"
             )
-        return self._legacy_semantic(package, anchors, model, deadline)
+        return self._legacy_semantic(package, anchors, model, deadline, probe)
 
     def _legacy_semantic(
         self,
@@ -1424,13 +1428,14 @@ class ScanEngine:
         anchors: StageResult,
         model: ModelClient | None,
         deadline: Deadline | None = None,
+        probe: bool = True,
     ) -> StageResult:
         """Legacy analysis; with no model, the reason the model could not be selected is kept."""
 
         if model is None:
             reason = self._model_error or "no model backend is configured"
             return degraded_semantic_stage(anchors, f"model unavailable: {reason}")
-        return analyze_semantics(package, anchors, model, deadline=deadline)
+        return analyze_semantics(package, anchors, model, deadline=deadline, probe=probe)
 
     def _decision_selection(self, model: ModelClient | None) -> DecisionSelection:
         """Select the typed decision backend once per engine, not once per scan.

@@ -46,6 +46,7 @@ skill-sentry-cli scan [PATH] [OPTIONS]
 |:---|:---|:---|
 | `--format` | `text` | Output format: `text`, `json`, `sarif`, or `markdown`. |
 | `--fail-on` | `suspicious` | Exit `1` when a verdict is at or above this level: `safe` (any verdict other than SAFE), `suspicious`, or `malicious`. |
+| `--probe` / `--no-probe` | `--probe` | Check once, with three built-in inert cases, that the model can follow the review format; the outcome is cached for 30 days. `--no-probe` skips it. See `docs/user/models.md`. |
 | `--require-full-coverage` | off | Exit `1` for a result whose coverage is partial (some text was read by the static checks only, see "Order of reading" below). Without it a `SAFE` result with partial coverage exits `0`. |
 | `-q`, `--quiet` | off | Print only the verdict line. |
 | `--no-cache` | off | Ignore saved results and scan again. |

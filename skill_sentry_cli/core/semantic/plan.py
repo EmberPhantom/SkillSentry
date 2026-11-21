@@ -25,9 +25,10 @@ from skill_sentry_cli.core.semantic.prompts import (
     SEMANTIC_SCHEMA_COMPACT,
     SYSTEM_PROMPT,
 )
+from skill_sentry_cli.core.semantic.simple import SIMPLE_SCHEMA, SIMPLE_SYSTEM
 
 # Bump when the prompt, the examples or the schemas change in a way that changes replies.
-PLAN_REVISION = 1
+PLAN_REVISION = 2
 # Source code and prose tokenise to about this many characters per token.
 CHARS_PER_TOKEN = 3.2
 # The intent line (up to 2,048 characters), the markers, and the instructions around a chunk.
@@ -53,14 +54,29 @@ class SemanticPlan:
     context_tokens: int | None = None
     # Set when the model's window cannot hold even a small chunk.
     unusable_reason: str | None = None
+    # Simple-question mode: one yes/no question per call instead of the full review format. Set
+    # for the tiny and small classes, and by the capability probe for a model that fails the
+    # full format.
+    simple: bool = False
+    # Characters of text packed into one call. None means one chunk's worth. A model with a large
+    # window takes several chunks in a call, so required reading needs fewer calls.
+    pack_chars: int | None = None
 
     @property
     def schema(self) -> dict[str, object]:
+        if self.simple:
+            return SIMPLE_SCHEMA
         return SEMANTIC_SCHEMA_COMPACT if self.compact_schema else SEMANTIC_SCHEMA
 
     @property
     def system(self) -> str:
+        if self.simple:
+            return SIMPLE_SYSTEM
         return SYSTEM_PROMPT + FEW_SHOT if self.few_shot else SYSTEM_PROMPT
+
+    @property
+    def call_chars(self) -> int:
+        return self.pack_chars or self.chunk_chars
 
     def describe(self) -> dict[str, object]:
         return {
@@ -72,6 +88,8 @@ class SemanticPlan:
             "few_shot": self.few_shot,
             "compact_schema": self.compact_schema,
             "context_tokens": self.context_tokens,
+            "simple": self.simple,
+            "pack_chars": self.call_chars,
         }
 
 
@@ -118,6 +136,7 @@ def plan_from_profile(profile: ModelProfile) -> SemanticPlan:
     input_chars = int((profile.context_tokens - reply_tokens) * CHARS_PER_TOKEN)
     room = input_chars - fixed_chars
     chunk_chars = min(profile.chunk_chars, room)
+    small = profile.simple_mode
     unusable = None
     if chunk_chars < MIN_CHUNK_CHARS:
         unusable = (
@@ -136,6 +155,9 @@ def plan_from_profile(profile: ModelProfile) -> SemanticPlan:
         profile=profile.name,
         context_tokens=profile.context_tokens,
         unusable_reason=unusable,
+        simple=small,
+        # A larger model takes three chunks in a call, bounded by what its window leaves.
+        pack_chars=chunk_chars if small else max(chunk_chars, min(room, chunk_chars * 3)),
     )
 
 

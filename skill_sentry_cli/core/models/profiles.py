@@ -41,6 +41,9 @@ class ModelProfile:
     # Findings listed in one call's prompt, and whether the reply schema is the short one.
     max_anchors: int
     compact_schema: bool
+    # Ask one short yes/no question per excerpt instead of the full review format. On for the
+    # classes whose models often cannot follow the full format.
+    simple_mode: bool = False
 
     @property
     def fingerprint(self) -> str:
@@ -64,8 +67,8 @@ PROFILES: dict[str, ModelProfile] = {
     # long skill that was fully read before is not a partial read (and so UNSCANNED) on a small
     # model. The split between size and count is a guess until the benchmark measures it: smaller
     # chunks cost more calls (about 40% more time on a 7,000-character script with a 1B model).
-    "tiny": ModelProfile("tiny", 4096, 1024, "auto", 3000, 4, 1, 0.0, True, 8, True),
-    "small": ModelProfile("small", 8192, 1536, "auto", 4000, 3, 1, 0.0, True, 12, True),
+    "tiny": ModelProfile("tiny", 4096, 1024, "auto", 3000, 4, 1, 0.0, True, 8, True, True),
+    "small": ModelProfile("small", 8192, 1536, "auto", 4000, 3, 1, 0.0, True, 12, True, True),
     "mid": ModelProfile("mid", 32768, 2048, "auto", 4000, 4, 1, 0.0, False, 20, False),
     "large": ModelProfile("large", 128000, 4096, "auto", 8000, 6, 1, 0.0, False, 40, False),
     # A reasoning model spends part of its output on thinking, so it needs a large budget, and a

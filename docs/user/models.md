@@ -51,6 +51,25 @@ context_tokens = 16384  # a value you know your server runs with
 
 A long line is read in pieces, so a skill with one very long paragraph is read in full on every class. A skill that needs more calls than the class allows is reported `UNSCANNED` with the range that was not read; it is never quietly marked `SAFE`.
 
+## The capability check and simple-question mode
+
+Small models often cannot follow the full review format: they cut the reply short, invent fields or answer in prose. Two things make results hold with any model.
+
+**The capability check.** The first time a model is used, SkillSentry asks it three built-in questions: a clean snippet, an instruction override, and a script with a hidden line that sends a private key away. Only this built-in text is sent, never anything from a skill. The outcome is remembered for 30 days in `~/.cache/skillsentry/model-probe.json` (or under `XDG_CACHE_HOME`), by provider, model id, profile and check version. It costs three calls, once. The outcome is one of:
+
+| Outcome | Meaning | What the scan does |
+|:---|:---|:---|
+| ok | The model answers the format and tells the cases apart | Normal scan |
+| downgraded | The full format fails, the short yes/no questions work | Runs in simple-question mode with smaller chunks |
+| unfit | Neither works (invalid replies, prose, flags everything, flags nothing, invents quotes) | The scan says "the model could not follow the review format; its output was not used", and treats the model exactly like no model: `UNSCANNED`, never clean |
+| unknown | The provider could not be asked (quota, rate limit, timeout) | Nothing is remembered; the scan goes on as without the check |
+
+Stand-in models used in tests and benchmarks are not checked. `--no-probe` (or `SKILLSENTRY_NO_PROBE=1`) skips the check and uses the model as its profile says.
+
+**Simple-question mode.** The `tiny` and `small` classes (and a downgraded model) get one short question per excerpt: does this text tell the reader to hide something from the user, send data elsewhere, run or install something, or ignore earlier rules, and which line? The answer is parsed strictly (`YES`, `Yes.`, `no`, `YES - line 3`; anything else is a failed call, not a guess). A YES whose quoted line is not in the excerpt is dropped, as in the full format. The result goes through the same verdict rules, so a model alone never makes a skill `MALICIOUS`. Set `[model.profile] simple_mode = false` to use the full format on a small model.
+
+Larger classes take up to three chunks in one call, bounded by the model's window, so required reading needs fewer calls. When required reading is cut (the provider's limits, the time limit, or the ceiling of 150 calls), the note names the tier that was cut: `SKILL.md`, flagged ranges, scripts and config, or instruction text with a signal.
+
 ## Configuration for each provider
 
 Put these in `skillsentry.toml` (or the file named by `SKILLSENTRY_CONFIG`). Set the key in your shell, not in the file.

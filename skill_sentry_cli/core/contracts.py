@@ -374,6 +374,9 @@ class ScanOptions(RequestModel):
     timeout_s: int = Field(default=60, ge=5, le=600)
     # Wall-clock cap for the whole scan of one skill, in seconds; None uses `[scan] max_time_s`.
     max_time_s: int | None = Field(default=None, ge=5, le=86400)
+    # Ask the model three built-in questions once (cached) to see whether it can follow the
+    # review format. False skips that check and uses the profile's mode as it is.
+    probe: bool = True
 
 
 class ScanRequest(RequestModel):

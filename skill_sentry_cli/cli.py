@@ -239,6 +239,14 @@ def scan(
     timeout_s: int = typer.Option(
         60, "--timeout", min=5, max=600, help="Sandbox timeout (seconds)."
     ),
+    probe: bool = typer.Option(
+        True,
+        "--probe/--no-probe",
+        help=(
+            "Check once, with three built-in inert cases, that the model can follow the review "
+            "format (the result is cached for 30 days). --no-probe skips it."
+        ),
+    ),
     max_time: int | None = typer.Option(
         None,
         "--max-time",
@@ -350,6 +358,7 @@ def scan(
             backend=backend,
             timeout_s=timeout_s,
             max_time=max_time,
+            probe=probe,
             timings=timings,
         )
         return
@@ -420,6 +429,7 @@ def scan(
         strict_sandbox=strict_sandbox,
         timeout_s=timeout_s,
         max_time_s=max_time,
+        probe=probe,
     )
     outcomes, indexes, failed = _scan_roots(
         engine,
@@ -1912,6 +1922,7 @@ def _scan_installed(
     max_time: int | None = None,
     timings: bool = False,
     require_full_coverage: bool = False,
+    probe: bool = True,
 ) -> None:
     """``scan`` with no path: find every installed skill, then scan each one."""
 
@@ -1979,6 +1990,7 @@ def _scan_installed(
         strict_sandbox=strict_sandbox,
         timeout_s=timeout_s,
         max_time_s=max_time,
+        probe=probe,
     )
     outcomes, indexes, failed = _scan_roots(
         engine,

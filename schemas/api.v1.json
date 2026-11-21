@@ -359,6 +359,11 @@
             "title": "Poisoned Well",
             "type": "boolean"
           },
+          "probe": {
+            "default": true,
+            "title": "Probe",
+            "type": "boolean"
+          },
           "sandbox": {
             "default": true,
             "title": "Sandbox",

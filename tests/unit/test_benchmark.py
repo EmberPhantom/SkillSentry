@@ -393,7 +393,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self._send(200, {"data": [{"id": "m-1"}]})
 
     def do_POST(self) -> None:
-        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode(
+            "utf-8", "replace"
+        )
         type(self).requests += 1
         if type(self).requests > type(self).quota_after:
             self._send(429, {"error": {"message": "requests per day (RPD) reached"}})
@@ -405,6 +407,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             "is_deceptive": False,
             "confidence": 0.5,
         }
+        if "Answer with JSON only" in body:  # simple-question mode, used by small models
+            clean = {"answer": "NO", "quote": ""}
         self._send(
             200,
             {

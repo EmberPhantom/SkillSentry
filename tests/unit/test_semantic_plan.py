@@ -70,6 +70,7 @@ class Spy(MockGemma):
 
     def __init__(self, profile_name: str, **overrides: Any) -> None:
         super().__init__(profile="benign")
+        overrides.setdefault("simple_mode", False)  # these tests are about the full format
         self.profile = resolve_profile("x", name=profile_name, overrides=overrides)
         self.calls: list[dict[str, Any]] = []
 
@@ -124,7 +125,10 @@ def test_a_window_too_small_for_any_chunk_is_unusable_and_says_why():
 def test_the_compact_schema_is_smaller_and_has_the_same_required_keys():
     assert SEMANTIC_SCHEMA_COMPACT["required"] == SEMANTIC_SCHEMA["required"]
     assert len(json.dumps(SEMANTIC_SCHEMA_COMPACT)) < len(json.dumps(SEMANTIC_SCHEMA))
-    assert plan_from_profile(PROFILES["tiny"]).schema is SEMANTIC_SCHEMA_COMPACT
+    assert (
+        plan_from_profile(PROFILES["tiny"].with_overrides({"simple_mode": False})).schema
+        is SEMANTIC_SCHEMA_COMPACT
+    )
     assert plan_from_profile(PROFILES["large"]).schema is SEMANTIC_SCHEMA
 
 
@@ -279,7 +283,7 @@ def test_calls_beyond_the_profiles_budget_are_gaps_in_the_report(tmp_path: Path,
     from skill_sentry_cli.core.semantic import analyzer as analyzer_module
 
     monkeypatch.setattr(analyzer_module, "MAX_REQUIRED_CALLS", 0)
-    files = {f"scripts/f{i}.py": f"print({i})\n" * 400 for i in range(6)}
+    files = {f"scripts/f{i}.py": f"print({i})\n" * 400 for i in range(12)}
     skill = _skill(tmp_path / "s", "Run the scripts.", files)
     model = Spy("tiny", max_chunks=2)
 
