@@ -1,3 +1,137 @@
+# Held-out measurements at a glance
+
+Every measurement of the static checks (no model) on real skills we did not write. One row per set. Each row is one measurement, made once, on the checks as they were then. Intervals are in the section for each set.
+
+| Set | What it was | Recall, payload-confirmed | Recall, confirmed by someone else | False alarms on finished benign | Strict false alarms | Tuned on afterwards? |
+|:---|:---|:--|:--|:--|:--|:--|
+| First (`tests/heldout`), before the reading-order change | 188 benign, 43 payload skills; many large skills unfinished | 26/27 = 0.963 (16 of 43 unfinished) | not a group yet | 9/78 = 0.115 | 119/188 = 0.633 | Yes: partly used for tuning, so it is not a held-out claim |
+| First, after the reading-order change | the same set | 37/40 = 0.925 (3 of 43 unfinished) | not a group yet | 20/151 = 0.132 | 57/188 = 0.303 | Yes, as above |
+| Second (`tests/heldout2`) | 229 benign, 61 payload; most large and document skills unfinished | 53/56 = **0.946** | not a group yet | 5/161 = **0.031** | 73/229 = 0.319 | Its unfinished lists drove the coverage work; the detection checks were not tuned on it |
+| Third (`tests/heldout3`, now `tests/devreal3`) | 243 benign, hard-shape-heavy; 67 payload, 29 confirmed by others | 64/67 = **0.955** | 12/27 = **0.444** | 46/201 = **0.229** | 88/243 = 0.362 | Yes: moved to the tuning side and tuned on |
+| Fourth (`tests/heldout4`) | 246 benign, 76% ordinary shapes; 60 payload, 24 confirmed by others | 57/60 = **0.950** | 6/22 = **0.273** | 33/224 = **0.147** | 55/246 = 0.224 | Not yet |
+
+How to read it:
+
+- **Recall on skills with a payload string is steady, 92% to 96%,** across the four sets. It is recall on payloads that patterns of the kind the checks use can find, so it may be flattered.
+- **Recall on skills confirmed by someone else, with no payload string of ours, is 27% to 44%.** The ones that are an instruction and nothing else (model-only) are not found by static checks: 0 of 9 on the third set and 0 of 13 on the fourth. A model is needed for them, and no model run has finished on any set.
+- **The false-alarm rate depends on the mix of skills, not only on the checks.** It was 3.1% on the second set because most large, document and installer skills did not finish, so they were not counted. It was 22.9% on the third set, which was built full of those shapes and they were read. It was 14.7% on the fourth, which is mostly ordinary skills: about 9% of ordinary skills were flagged and about 38% of the hard shapes.
+- **Which numbers are out of sample.** The second and fourth rows were not tuned on before they were measured. The third was too, but it has been tuned on since, so no new claim can use it. The first set was partly tuned on.
+
+---
+
+# Results on the sealed fourth held-out set
+
+One measurement of the static checks on `tests/heldout4/manifest.json` (see `docs/operations/heldout4-set.md`), run once, on 2026-12-02. This section holds ids and counts only, no skill content.
+
+- **Checks measured:** git `1d3048e` (the commit that added the set). The set was sealed at `5f7c281`; the checks did not change in between.
+- **What ran:** the deterministic checks only, with the sandbox off. **No language model finished a run** (see "What this does not measure").
+- **Nothing was tuned on this set.** What happens to it next is for the owners to decide: tuning on it would make it a tuning set and end its use for a held-out claim.
+- Intervals are Wilson 95%. A skill the scan could not finish (UNSCANNED, INVALID SKILL) is not a hit or a false alarm in the plain rates. The strict rates count it as a flag.
+
+## Headline
+
+| Measure | Result |
+|:---|:--|
+| Recall on payload-confirmed malicious skills | 57/60 = **0.950** (0.863 to 0.983) |
+| Recall on skills confirmed by someone else, no payload string of ours | 6/22 = **0.273** (0.132 to 0.481); strict 8/24 = 0.333 (0.180 to 0.533) |
+| False-alarm rate on benign skills that finished | 33/224 = **0.147** (0.107 to 0.200) |
+| Strict false-alarm rate (not finished counted as flagged) | 55/246 = **0.224** (0.176 to 0.280) |
+
+The set: 246 benign, 60 payload-confirmed malicious, 24 confirmed by someone else, 32 ambiguous (listed, never scored). 224 of the 246 benign skills finished; 22 did not (13 UNSCANNED, 9 INVALID SKILL). Of the 33 false alarms, 24 are `SUSPICIOUS` and 9 `MALICIOUS`.
+
+## Ordinary skills and hard shapes
+
+The set was built to be mostly ordinary skills. The two are reported apart:
+
+| Group | Skills | Finished | Flagged | False-alarm rate on finished | Not finished | Strict |
+|:---|--:|--:|--:|:--|--:|:--|
+| Ordinary shapes (prose-only, small script helpers, API, DevOps, developer workflow, MCP builders, finance, creative, writing, data science, security education, languages) | 188 | 179 | 16 | **0.089** (0.056 to 0.140) | 9 | 0.133 |
+| Hard shapes (100 or more files, notebooks, CSS/HTML/SVG, Office/PDF/archive, shell installers) | 58 | 45 | 17 | **0.378** (0.251 to 0.524) | 13 | 0.517 |
+
+## What changed against the second and third sets, as measured
+
+False alarms on finished benign skills were 3.1% on the second set, 22.9% on the third and 14.7% on the fourth.
+
+- The second set's low rate comes from what did not finish: its large, document and installer skills were mostly unfinished, so the 161 skills it counted were the easy ones. The checks have been changed since to read those skills, and they flag at a high rate.
+- The third set was full of those shapes (hard shapes were most of the set), so its rate is the hard-shape rate. The fourth is the realistic mix, and its two rows above show the two populations: about 9% for ordinary skills and 38% for the hard shapes. The fourth set's overall 14.7% sits between the two earlier numbers because its mix does.
+- The ordinary-skill rate (8.9%) is the figure to compare with the second set's 3.1%. It is higher, and the intervals (0.056 to 0.140 against 0.013 to 0.071) barely overlap; we do not have a full explanation. Part is that the checks read more of each skill than they did on the second set, and part may be the sample.
+- INVALID SKILL fell from 17 of 243 on the third set to 9 of 246 here, because a skill with no `name` in its frontmatter is now accepted.
+
+## Skills that did not finish
+
+- **Benign: 22 of 246.** 9 INVALID SKILL (malformed packages: a missing description, no frontmatter or frontmatter that does not parse) and 13 UNSCANNED. Of the 13 UNSCANNED: a file type the scan cannot read 4, images beyond the vision budget 4, a text file over 1 MiB 2, text beyond the 4 MiB text budget 1, required text not read 1, other 1.
+- **Payload-confirmed malicious: 0 did not finish.** Confirmed by someone else: 2 did not finish (the two in-the-wild skills).
+
+## Splits
+
+False alarms on benign skills that finished, by category:
+
+| Category | Flagged | Not finished |
+|:---|:--|--:|
+| prose_only | 0/26 | 1 |
+| small_script_helpers | 7/25 | 2 |
+| api_integration | 1/18 | 0 |
+| devops_infra | 1/13 | 1 |
+| developer_workflow | 0/14 | 0 |
+| mcp_builders | 0/13 | 0 |
+| creative_design | 3/12 | 0 |
+| finance | 0/11 | 1 |
+| writing_research | 1/10 | 0 |
+| data_science | 1/7 | 1 |
+| security_education | 1/8 | 0 |
+| lang_de | 0/4 | 0 |
+| lang_es | 0/4 | 0 |
+| lang_fr | 0/1 | 2 |
+| lang_ja | 0/4 | 1 |
+| lang_zh | 0/5 | 0 |
+| english_misc | 1/4 | 0 |
+| large_100plus | 7/13 | 6 |
+| shell_installer | 3/12 | 0 |
+| web_css_html_svg | 5/11 | 1 |
+| office_pdf_archive | 2/9 | 3 |
+| notebook | 0/0 | 3 |
+
+Most cells hold under 15 skills, so the intervals are wide. The hard-shape cells are the ones above 25%, and small script helpers (7 of 25) are the ordinary shape that flags most.
+
+False alarms by pattern type (a skill can have several): secret-access 6, remote-resource 6, credential-path 5, exfil-http-post 4, shell-exec 4, credential-flow-unverified 3, raw-socket 3, dynamic-code 3, and 10 other types with 2 or fewer.
+
+Recall by attack class (payload-confirmed): download_and_run 8/8, exfiltration 8/8, hidden_text 8/8, prompt_injection 6/6, reverse_shell 6/6, social_engineering 8/8, typosquat_supply_chain 10/10, **persistence 3/6**. Recall by provenance group: injected 28/31, mixed_unresolved 29/29.
+
+Recall on skills confirmed by someone else, by form: remote-resource 6/8, **model-only (instruction-only) 0/13**, archive form 0/1, in the wild 0 of 2 finished (both unfinished). The model-only group is not measured by this run: those attacks have no string for the static checks to find, so only a model could catch them.
+
+## Every miss, false alarm and unfinished skill
+
+- **False alarms (33):** b-Forge-CallIntelligence, b-GLM-V-glmv-stock-analyst, b-GitHubClawToolkit-gemini-image-describer, b-Orryx-orryx-creation-suite, b-agent-skills-ai, b-agentic-dev-team-docker-image-audit, b-ai-agent-skills-comfyui, b-ai-agent-skills-github-auth, b-ai-brain-starter-secret-warn, b-ai-toolkit-skill-creator, b-ai-vision-mcp-performance, b-ccboard-performance, b-claude-agent-builder-agent-builder, b-claude-video-skills-motion-design-edit, b-claude-video-skills-video-edit, b-hermes-automotive-skills-automotive-commands, b-hermes-automotive-skills-automotive-knowledge, b-hq-core-import-context, b-huaweicloud-skills-huawei-cloud-clouddocs-aipage, b-humanizer-ru-humanizer-ru, b-master-skills-build, b-mcp-server-trello-skill, b-nest-turbo-starter-skill-creator, b-open-webui-plugins-inline-visualizer-v2, b-roast-my-design-system-roast-my-design-system, b-skills-for-teachers-ppt-grid-deck, b-spaceapp-skill-creator, b-standards-secrets-management, b-superPM-skills, b-tau-job-research-skills-fit-review, b-tools-create, b-total-agent-memory-memory-protocol, b-vietnam-agentic-skills-agent-observability
+- **Missed payload skills (3):** `m-ASB04_000066`, `m-ASB04_001088`, `m-ASB04_003540` (all three persistence class).
+- **Missed, confirmed by someone else (16):** m-ASB04_000039, m-ASB04_001823, m-ASB04_001847, m-ASB04_002147, m-ASB04_002657, m-ASB04_002900, m-ASB04_003273, m-ASB04_003494, m-ASB04_004425, m-ASB04_004806, m-ASB04_005028, m-ASB04_005082, m-ASB04_005655, m-ASB04_006362, m-ASB04_007109, m-ASB04_007414. Unfinished (2): `m-ASB04_000511`, `m-ASB04_004539`.
+- **Unfinished benign skills (22):** b-3dviz-pro-max-3dviz-pro-max, b-CleanMyPosts-drawio, b-Happycapy-skills-latex-document, b-Skills-illustration-flat-with-black, b-agent-plugins-skills-improving-skills-in-lab, b-ai-marketing-market-competitors, b-ai-marketing-market-social, b-animate-animate, b-autocode-fix, b-claude-thai-skills-thai-invoice, b-context-cascade-when-managing-token-budget-use-token-budget-advisor, b-cumcm-AI-workflow--cumcm-code-reviewer, b-curation-bench-flamingo-a-visual-language-model-for-few-shot-learning-arxiv-2204-14198v2, b-cursor-1c-skills-1c-bsp-api, b-diagram-design-diagram-design, b-dotfiles-statechart, b-effekseer-vfx-skill-effekseer-vfx, b-ocx-commit, b-polyakov-claude-skills-blogger-ads-skill, b-readmedaddy-readmedaddy, b-roughcut-harness-review, b-wjx-ai-kit-wjx-survey-ppt
+- **Ambiguous (32, not scored):** the checks called 10 MALICIOUS, 9 SUSPICIOUS, 12 SAFE and left 1 UNSCANNED. These say nothing about accuracy.
+
+## Stated shortfalls of this set
+
+The shortfalls are in `docs/operations/heldout4-set.md`; the ones that affect how to read these numbers:
+
+- **In the wild: only 2 skills, and both did not finish.** No public set of confirmed malicious skills from the large incident campaigns was found.
+- **No credential-theft skills.** That class is not measured.
+- **Typosquat is 10 entries from one template.**
+- **No malicious notebook, Word, PowerPoint or Excel skill.** The readers are covered on the malicious side by the remote-resource skills and one archive skill only.
+- **Hard benign shapes are thin:** notebooks 3 (all unfinished), Office documents 3, PDFs 4 and archives 5.
+- **Benign labels are a reputation and a detector screen.** Nobody read all 246 skills.
+- **The payload group may flatter recall:** its payloads were located by patterns of the kind the checks use.
+
+## What this does not measure
+
+The model-assisted scan could not be run on this set: the hosted free-tier quota is too small for a set of this size, the small local models fail the built-in capability check (their output is not used), and the 6 GB local model cannot be loaded on the machine used. So every number above is for the static checks alone. Instruction-only attacks, what a model adds on large skills, and the sandbox are unmeasured.
+
+## What this means for use
+
+- **SkillSentry is an advisory pre-screening tool.** Do not treat it as a gate that blocks or approves installs on its own.
+- **About 9% of ordinary skills are flagged and about 38% of complex ones** (100 or more files, web files, documents, installers). A reviewer should expect to look at roughly one in eleven ordinary skills and more than one in three complex skills, plus the skills that did not finish (5% of ordinary and 22% of complex).
+- **Recall on skills with a payload string is high (95.0%).** On skills confirmed by someone else with no payload string of ours it is 27%, and **instruction-only attacks are not found at all by the static checks** (0 of 13 here, 0 of 9 on the third set). They need a model, and no model measurement exists.
+- **Use `--require-full-coverage` and read `UNSCANNED` and `INVALID SKILL` as "not checked", never as clean.**
+
+---
+
 # Results on the sealed second held-out set
 
 One measurement of the static checks on `tests/heldout2/manifest.json` (see `docs/operations/heldout2-set.md`), run once, on 2026-11-20.
