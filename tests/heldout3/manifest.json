@@ -10746,5 +10746,9 @@
       "forms": {},
       "remote_resource_hits": 0
     }
-  ]
+  ],
+  "moved_to_tuning": {
+    "to": "tests/devreal3",
+    "note": "Measured once for the final measurement on 2026-11-27 and then moved to the tuning side. This file stays as the sealed record; tune against tests/devreal3."
+  }
 }

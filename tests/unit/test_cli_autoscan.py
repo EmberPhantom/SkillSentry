@@ -162,7 +162,7 @@ def test_fail_on_gates_the_whole_batch(
 
 def _invalid_skill(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
-    (path / "SKILL.md").write_text("---\ndescription: no name\n---\n# Broken\n", encoding="utf-8")
+    (path / "SKILL.md").write_text("---\nname: broken\n---\n# Broken\n", encoding="utf-8")
     return path
 
 

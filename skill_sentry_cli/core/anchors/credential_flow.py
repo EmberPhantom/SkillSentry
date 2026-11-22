@@ -402,6 +402,123 @@ class _Tracker(ast.NodeVisitor):
             )
 
 
+# A real read of a credential: an environment variable named like one, a variable expansion of such
+# a name, or one of the credential file paths. The bare word "token" or "secret" in a comment, a
+# string or an unrelated name is not a read.
+CREDENTIAL_NAME_PATTERN = r"[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|ACCESS_?KEY|CREDENTIAL|PRIVATE_?KEY)[A-Z0-9_]*"
+_CREDENTIAL_NAME = r"[A-Za-z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|ACCESS_?KEY|CREDENTIAL|PRIVATE_?KEY)[A-Za-z0-9_]*"
+_SCRIPT_READ = re.compile(
+    r"process\.env(?:\.|\[\s*['\"])"
+    + _CREDENTIAL_NAME
+    + r"|\$\{?"
+    + _CREDENTIAL_NAME
+    + r"|(?:getenv|environ(?:\.get)?)\(?\[?\s*['\"]"
+    + _CREDENTIAL_NAME
+    + r"|\bos\.environ\b|Deno\.env",
+    re.IGNORECASE,
+)
+_NEAR_LINES = 40
+
+
+_URL = re.compile(r"https://[^\s\"'`)\\<>]+")
+_ENV_NAME = re.compile(CREDENTIAL_NAME_PATTERN)
+
+
+def _line_hosts(lines: list[str], index: int) -> set[str] | None:
+    """The hosts a send on ``lines[index]`` goes to: https URLs on the line or within three lines
+    after it (a command is often continued), with a variable resolved to its one literal https
+    assignment in the same file. None when any part cannot be resolved or is odd."""
+
+    window = lines[index : index + 4]
+    hosts: set[str] = set()
+    for text in window:
+        for url in _URL.findall(text):
+            host = _host_of(url)
+            if not host or "$" in host or "{" in host or re.fullmatch(r"[\d.]+", host):
+                return None
+            hosts.add(host)
+    if hosts:
+        return hosts
+    names = {
+        m.group(1) or m.group(2)
+        for text in window
+        for m in re.finditer(r"\$\{?(\w+)\}?|\{(\w+)\}", text)
+    }
+    for name in names:
+        found = [
+            m.group(1)
+            for text in lines
+            if (
+                m := re.match(
+                    rf"\s*(?:export\s+|const\s+|let\s+|var\s+)?{re.escape(name)}\s*[:=]\s*[\"']?(https://[^\s\"'`)]+)",
+                    text,
+                )
+            )
+        ]
+        if len(found) == 1:
+            host = _host_of(found[0])
+            if host and "$" not in host:
+                return {host}
+    return None
+
+
+def _brand_named(host: str, words: set[str]) -> bool:
+    parts = host.lower().strip(".").split(".")
+    brand = parts[-2] if len(parts) >= 2 else parts[0]
+    return len(brand) >= 3 and (brand in words or host.lower() in words)
+
+
+def _script_flow(
+    text: str, declared: set[str] | None = None, words: set[str] | None = None
+) -> tuple[Severity, int] | None:
+    """Whether a shell or JavaScript file may send a credential, and how sure that is.
+
+    There must be a real read of a credential (an environment variable named like one, or a
+    credential path) and a sink that sends. MEDIUM when a read and a sink are within 40 lines of
+    each other; LOW when both exist but far apart; nothing when there is no read.
+    """
+
+    lines = text.splitlines()
+    reads = [
+        number
+        for number, line in enumerate(lines, start=1)
+        if _SCRIPT_READ.search(line) or any(g.replace("*", "") in line for g in RULES.path_globs)
+    ]
+    if not reads:
+        return None
+    sinks = [
+        number
+        for number, line in enumerate(lines, start=1)
+        if any(pattern.search(line) for pattern in RULES.script_sinks)
+    ]
+    if not sinks:
+        return None
+    near = [(read, sink) for read in reads for sink in sinks if abs(read - sink) <= _NEAR_LINES]
+    if not near:
+        return Severity.LOW, reads[0]
+    # The send goes to a host the skill itself names (its description or its declared hosts), or
+    # the vendor the credential belongs to, over https, and every near send resolves to one.
+    known = {h.lower() for h in (declared or set())}
+    for read, sink in near:
+        hosts = _line_hosts(lines, sink - 1)
+        if not hosts:
+            return Severity.MEDIUM, min(near[0])
+        env = frozenset(
+            ("env", m.group(0))
+            for text_line in lines[max(0, read - 1) : read + 1]
+            for m in _ENV_NAME.finditer(text_line)
+        )
+        for host in hosts:
+            if not (
+                host in known
+                or any(host == k or host.endswith("." + k) for k in known)
+                or _brand_named(host, words or set())
+                or (env and is_credential_bound(env, host))
+            ):
+                return Severity.MEDIUM, min(near[0])
+    return Severity.LOW, min(near[0])
+
+
 def analyze_credential_flows(package: SkillPackage) -> list[Finding]:
     """Return credential-flow findings for every script in the package."""
 
@@ -420,18 +537,24 @@ def analyze_credential_flows(package: SkillPackage) -> list[Finding]:
             tracker.visit(tree)
             findings.extend(tracker.findings)
         elif lowered.endswith((".sh", ".bash", ".js", ".mjs", ".ts", ".ps1")):
-            has_source = any(p.search(text_file.text) for p in RULES.env_patterns) or any(
-                glob.replace("*", "") in text_file.text for glob in RULES.path_globs
+            verdict = _script_flow(
+                text_file.text,
+                declared,
+                set(re.split(r"[^a-z0-9]+", f"{package.name} {package.description}".lower())),
             )
-            has_sink = any(p.search(text_file.text) for p in RULES.script_sinks)
-            if has_source and has_sink:
+            if verdict is not None:
+                severity, near_line = verdict
                 findings.append(
                     Finding(
                         stage=Stage.DETERMINISTIC_ANCHOR,
-                        severity=Severity.MEDIUM,
-                        message=f"Possible credential flow in {relative} (unverified pattern match)",
+                        severity=severity,
+                        message=(
+                            f"Possible credential flow in {relative} (unverified pattern match"
+                            + ("" if severity == Severity.MEDIUM else ", source and sink far apart")
+                            + ")"
+                        ),
                         finding_type="credential-flow-unverified",
-                        evidence=_evidence(relative, 1, text_file.text[:200]),
+                        evidence=_evidence(relative, near_line, text_file.text[:200]),
                     )
                 )
     return findings

@@ -562,7 +562,7 @@ Each message below was produced on purpose and quoted exactly. The first line of
 
 | What you see | Cause | Fix |
 |:---|:---|:---|
-| `INVALID SKILL - frontmatter is missing required field: name (SKILL.md:1)` | The SKILL.md has no `name:` (or `description:`) in its frontmatter | Add the field between the `---` lines at the top of SKILL.md, then scan again |
+| `INVALID SKILL - frontmatter is missing required field: description (SKILL.md:1)` | The SKILL.md has no `description:` (or no frontmatter at all, or frontmatter that is not valid YAML, or a name with control characters or a path) | Add the field between the `---` lines at the top of SKILL.md, then scan again. A skill with frontmatter and no `name:` is valid: the folder name is used and a note says so |
 | `Warning: … is a skill itself; its N nested skill(s) were not scanned` | The folder has its own SKILL.md, so only that skill was scanned | Pass `--recursive` to scan the nested skills too, or point at a subfolder |
 | `UNSCANNED … sandbox degraded: Docker unavailable … Permission denied` | Your shell is not in the `docker` group | Section 4: join the group and open a new terminal |
 | `FAIL model: cannot reach the model server at …` | Ollama is not running, or `ollama_url` is wrong | Start Ollama; check `ollama_url` |
