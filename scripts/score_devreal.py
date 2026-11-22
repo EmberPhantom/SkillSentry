@@ -63,7 +63,11 @@ def scan_all(manifest: Path, cache: Path, *, with_code: bool) -> dict[str, Any]:
                 folder = cache / "skills" / entry["id"]
                 if not folder.is_dir():
                     folder = cache / entry["id"]
-                row: dict[str, Any] = {"label": entry["label"], "category": entry["category"]}
+                row: dict[str, Any] = {
+                    "label": entry["label"],
+                    "category": entry["category"],
+                    "quality": entry.get("label_quality", ""),
+                }
                 try:
                     outcome = engine.scan(folder, options=ScanOptions(sandbox=False, no_cache=True))
                 except Exception as exc:  # a scan that fails is a result, not a crash
@@ -94,7 +98,19 @@ def scan_all(manifest: Path, cache: Path, *, with_code: bool) -> dict[str, Any]:
 
 def summarise(results: dict[str, Any]) -> dict[str, Any]:
     benign = {k: v for k, v in results.items() if v["label"] == "benign"}
-    malicious = {k: v for k, v in results.items() if v["label"] == "malicious"}
+    # Recall is on payload-confirmed skills. A skill confirmed only by someone else's review (no
+    # payload string of ours) is reported apart: a static check cannot find an instruction that
+    # has no string to find.
+    malicious = {
+        k: v
+        for k, v in results.items()
+        if v["label"] == "malicious" and v.get("quality", "payload") != "confirmed"
+    }
+    confirmed = {
+        k: v
+        for k, v in results.items()
+        if v["label"] == "malicious" and v.get("quality") == "confirmed"
+    }
 
     def split(group: dict[str, Any]) -> tuple[list[str], list[str]]:
         done = [k for k, v in group.items() if v["status"] not in NOT_FINISHED]
@@ -112,7 +128,16 @@ def summarise(results: dict[str, Any]) -> dict[str, Any]:
             if f["severity"] in {"medium", "high", "critical"}
         }
         by_type.update(kinds)
+    c_done, c_open = split(confirmed)
+    c_hits = [k for k in c_done if confirmed[k]["status"] in POSITIVE]
     return {
+        "confirmed": {
+            "total": len(confirmed),
+            "scanned": len(c_done),
+            "not_finished": len(c_open),
+            "flagged": len(c_hits),
+            "recall": round(len(c_hits) / len(c_done), 3) if c_done else None,
+        },
         "benign": {
             "total": len(benign),
             "scanned": len(b_done),
@@ -152,6 +177,12 @@ def show(label: str, s: dict[str, Any]) -> None:
         f"flagged {m['flagged']} = recall {m['recall']} {m['interval']}"
     )
     print(f"  missed: {m['missed_ids']}")
+    c = s["confirmed"]
+    if c["total"]:
+        print(
+            f"confirmed by others {c['total']}: scanned {c['scanned']}, flagged {c['flagged']} "
+            f"= recall {c['recall']} (reported apart)"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:

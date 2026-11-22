@@ -495,7 +495,7 @@ _SHELL_AND_PERSISTENCE_RULES: tuple[AnchorRule, ...] = (
         "persistence",
         Severity.MEDIUM,
         re.compile(
-            r"\.config/autostart/|\.(?:bash|zsh)rc\b|\.profile\b|"
+            r"\.config/autostart/|\.(?:bash|zsh)rc\b|(?<=[/~\s'\"=])\.profile\b|"
             r"\bcrontab\s+-|/etc/cron\.|\bsystemctl\s+enable\b"
         ),
         "writes to a startup, shell-profile or scheduled-task location",

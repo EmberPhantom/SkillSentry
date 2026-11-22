@@ -80,6 +80,14 @@ What is lowered, and what is still HIGH:
 | HTTP POST | In a document, or to a host the description names | A bare IP or tunnel; a credential read anywhere in the skill; an address from settings |
 | `base64 -d`, `eval(`, `rm -rf` | In a document and not run as code | Piped into a shell; in a script |
 | "Never tell the user ..." | No action, address or secret within two lines | An action nearby |
+| `.exec(` in JavaScript | A regular expression match (`/re/.exec(x)`, `NAME.exec(x)`) | `child_process`, a shell word, any other argument |
+| `db.exec(` | The statement is SQL (the string or the next line starts with `SELECT`, `CREATE`, `ALTER`, `BEGIN` and the like) | A program word on the line; any other argument |
+| `.eval()` in Python | No argument (a model's evaluation mode) | Any argument: `eval(code)`, `model.eval(code)` |
+| `__import__(` | A named module's `__version__`, or a dependency check inside an `ImportError` handler | `__import__('os').system(...)`, a name from input with no handler |
+| Vendor key in a header, in a document | The key belongs to the vendor behind the `https` host in the command (`ANTHROPIC_API_KEY` to `api.anthropic.com`) | Any other host, a bare IP, `http`, a placeholder host, a host with a userinfo trick, a key of another vendor |
+| Install line in a comment, or on a host the description names | A comment (`# Usage: curl ... \| bash`) or a document, with every host a known vendor or named by the description | A real command in a script; a bare IP; a host the description does not name |
+| Credential flow in a script | A real credential read and a sink within 40 lines is MEDIUM; both but far apart is LOW; the word "token" with no read is nothing | A read beside a send: `$GITHUB_TOKEN` in a `curl`, `process.env.API_KEY` in a `fetch`, a credential path |
+| `.profile` | Not a startup file when it is a member access (`options.profile`) | `~/.profile`, `$HOME/.profile`, `source .profile` |
 
 A destination is read the way a client reads it: the authority ends at the first `/`, `?` or `#`, anything before the last `@` is userinfo and is dropped (`https://brew.sh@203.0.113.9/` goes to `203.0.113.9`), and the host is compared to the vendor list by exact equality. A backslash, a percent escape, a space or a non-ASCII character in the authority, a host-like name before the `@`, a punycode label, a bad port, or a bare address in any form (dotted, decimal or hex) makes the destination suspect, never a vendor. A trailing dot is genuine. A template such as `https://$TARGET/` in a document is a placeholder, and is lowered only when the file holds no bare address. Every address a download-to-shell line fetches must be a vendor host for the line to be lowered.
 

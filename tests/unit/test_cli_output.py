@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 runner = CliRunner()
 
 GOOD = "---\nname: {name}\ndescription: a fine skill\n---\n# {name}\n"
-NO_NAME = "---\ndescription: a skill without a name\n---\n# Broken\n"
+NO_NAME = "---\nname: broken\n---\n# Broken\n"  # no description: still malformed
 
 
 def _skill(path: Path, body: str) -> Path:
@@ -35,7 +35,7 @@ def test_missing_name_is_invalid_not_malicious(tmp_path: Path) -> None:
     result = _scan(tmp_path, str(skill))
 
     assert f"- {INVALID} - " in result.output
-    assert "missing required field: name" in result.output
+    assert "missing required field: description" in result.output
     assert "not a malware finding" in result.output
     assert "MALICIOUS" not in result.output
 
@@ -73,7 +73,7 @@ def test_nested_skills_warning_and_recursive_flag(tmp_path: Path) -> None:
 def test_report_dir_writes_one_report_per_skill_and_a_summary(tmp_path: Path) -> None:
     folder = tmp_path / "skills"
     _skill(folder / "alpha", GOOD.format(name="alpha"))
-    _skill(folder / "beta", NO_NAME)
+    _skill(folder / "beta", NO_NAME.replace("broken", "beta"))
     reports = tmp_path / "reports"
 
     result = _scan(tmp_path, str(folder), "--report-dir", str(reports))
@@ -112,7 +112,7 @@ def test_is_invalid_ignores_behaviour_findings() -> None:
     manifest = Finding(
         stage=Stage.SPEC,
         severity=Severity.HIGH,
-        message="frontmatter is missing required field: name",
+        message="frontmatter is missing required field: description",
         type="manifest-issue",
         evidence=FindingEvidence(file="SKILL.md", line=1),
     )

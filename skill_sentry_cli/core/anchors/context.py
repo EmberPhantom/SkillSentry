@@ -23,6 +23,7 @@ import re
 from collections.abc import Iterable
 from typing import NamedTuple
 
+from skill_sentry_cli.core.anchors.credential_flow import is_credential_bound
 from skill_sentry_cli.core.contracts import Finding, Severity
 from skill_sentry_cli.core.parser import SkillPackage, TextFile
 
@@ -231,6 +232,128 @@ class _FileContext:
         self.bare_address = bool(_BARE_ADDRESS_ANYWHERE.search(self.text))
 
 
+# Code that reads like a program run but is not one.
+_REGEX_EXEC = re.compile(r"(?:/[^/\n]+/[gimsuy]*|\b[A-Z][A-Z0-9_]{2,})\s*\.exec\(")
+_SQL_START = re.compile(
+    r"^\s*[`'\"(]?\s*(?:SELECT|INSERT|CREATE|ALTER|BEGIN|COMMIT|ROLLBACK|PRAGMA|DROP|UPDATE|"
+    r"DELETE|WITH|REPLACE|VACUUM)\b",
+    re.IGNORECASE,
+)
+_DB_EXEC = re.compile(r"\b(?:db|database|conn|connection|sqlite|sql|client)\.exec\(", re.IGNORECASE)
+_REGEX_LOOP_EXEC = re.compile(
+    r"(?:\bwhile\s*\(\s*\(?|\bif\s*\(\s*\(?|\b(?:const|let|var)\s+)?\w+\s*=\s*\w+\.exec\([^)]*\)\s*\)?"
+    r"\s*(?:!==?\s*null|\)|;|$)|\b\w+\.exec\([^)]*\)\s*!==?\s*null|\bmatch\w*\s*=\s*\w+\.exec\("
+)
+_SAFE_MODULES = frozenset(
+    {"pathlib", "re", "sys", "json", "math", "time", "datetime", "collections", "itertools",
+     "functools", "typing", "string", "textwrap", "shutil", "tempfile"}
+)  # fmt: skip
+_LITERAL_IMPORT = re.compile(r"__import__\(\s*['\"]([A-Za-z_][\w]*)['\"]\s*\)")
+_PROGRAM_WORDS = re.compile(
+    r"child_process|\bcp\.exec|\bsh\b|\bbash\b|\bcurl\b|\bwget\b|\bsudo\b|rm\s+-|"
+    r"\.system\(|\.popen\(|subprocess|execSync|spawn",
+    re.IGNORECASE,
+)
+_MODEL_EVAL = re.compile(r"\b[\w.]+\.eval\(\s*\)")
+_VERSION_IMPORT = re.compile(
+    r"getattr\(\s*__import__\(\s*['\"][\w.-]+['\"]\s*\)\s*,\s*['\"]__version__['\"]"
+)
+_IMPORT_GUARD = re.compile(r"except\s*\(?\s*(?:ImportError|ModuleNotFoundError)")
+_AUTH_HEADER = re.compile(
+    r"(?:-H\s+['\"]?|--header\s+['\"]?)?(?:x-api-key|authorization|api-key)\s*:[^\n$]*"
+    r"\$\{?(?P<var>[A-Z][A-Z0-9_]+)\}?",
+    re.IGNORECASE,
+)
+_HTTPS_URL = re.compile(r"https://[^\s'\"`)\\]+")
+_COMMENT_START = re.compile(r"^\s*(?:#|//|\*|<!--)")
+
+
+_EXISTENCE_TEST = re.compile(
+    r"\[\[?\s*-[nz]\s+[\"']?\$\{?[A-Z][A-Z0-9_]+(?::-[^}]*)?\}?[\"']?\s*\]\]?"
+)
+
+
+def _only_checked_or_mentioned(line: str, file: _FileContext, number: int) -> bool:
+    """A credential variable that is only tested (``[ -n "$TOKEN" ]``) or named in a comment, with
+    no send, no address and no ``$(...)`` within three lines."""
+
+    stripped = line.strip()
+    if not (_EXISTENCE_TEST.search(line) or stripped.startswith(("#", "//"))):
+        return False
+    around = _window(file, number, 3, 3)
+    return not re.search(
+        r"https?://|\bcurl\b|\bwget\b|\bfetch\b|\bnc\s|\bsocat\b|requests\.", around
+    )
+
+
+_VAR_IN_URL = re.compile(
+    r"[\"']?\$\{?(\w+)\}?|\{(\w+)\}|\b(\w*(?:BASE|URL|ENDPOINT|HOST)\w*)\b", re.IGNORECASE
+)
+
+
+def _resolved_host(line: str, file: _FileContext) -> str | None:
+    """The host behind a variable in a request line, when the same file assigns that variable one
+    literal https URL and nothing else. A name assigned twice, or to an address read from settings,
+    is not resolved."""
+
+    names = {g for m in _VAR_IN_URL.finditer(line) for g in m.groups() if g}
+    for name in names:
+        pattern = re.compile(
+            rf"^\s*(?:export\s+|const\s+|let\s+|var\s+|readonly\s+)?{re.escape(name)}\s*[:=]\s*"
+            r"[\"']?(?P<url>https://[^\s\"'`)]+)",
+            re.IGNORECASE,
+        )
+        found = [m.group("url") for text in file.lines if (m := pattern.match(text))]
+        if len(found) == 1:
+            where = parse_destination(found[0])
+            if not where.odd and not where.placeholder:
+                return where.host
+    return None
+
+
+def _window(file: _FileContext, number: int, before: int, after: int) -> str:
+    return "\n".join(file.lines[max(0, number - 1 - before) : number + after])
+
+
+def _code_reason(line: str, file: _FileContext, number: int) -> str | None:
+    """Why a dynamic-code finding is ordinary code: a regular expression, a database, a model."""
+
+    if file.relative.lower().endswith(
+        (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".html", ".htm")
+    ):
+        if (
+            _REGEX_EXEC.search(line) or _REGEX_LOOP_EXEC.search(line)
+        ) and not _PROGRAM_WORDS.search(line):
+            return "a regular expression match (exec), not a program run"
+        if _DB_EXEC.search(line) and not _PROGRAM_WORDS.search(line):
+            tail = line.split("exec(", 1)[-1]
+            following = file.lines[number] if number < len(file.lines) else ""
+            if _SQL_START.search(tail) or _SQL_START.search(following):
+                return "a database statement, not a program run"
+    if file.relative.lower().endswith((".py", ".ipynb")):
+        if _MODEL_EVAL.search(line) and "eval(" in line and not re.search(r"eval\(\s*[^\s)]", line):
+            return "a model switched to evaluation mode: eval() with no argument runs nothing"
+        if _VERSION_IMPORT.search(line) and not re.search(r"\.(?:system|popen|run|call)\b", line):
+            return "the version of a named module is read"
+        literal = _LITERAL_IMPORT.search(line)
+        if (
+            literal is not None
+            and literal.group(1) in _SAFE_MODULES
+            and line.count("__import__(") == 1
+            and not re.search(r"\beval\b|\bexec\b", line)
+        ):
+            return f"a standard module ({literal.group(1)}) imported by name"
+        if (
+            "__import__(" in line
+            and not re.search(
+                r"__import__\([^)]*\)\s*\.|\.(?:system|popen|run|call|Popen)\b|eval|exec", line
+            )
+            and _IMPORT_GUARD.search(_window(file, number, 3, 6))
+        ):
+            return "a dependency check inside an ImportError handler"
+    return None
+
+
 _NEARBY_ACTION = re.compile(
     r"\bcurl\b|\bwget\b|https?://|\bssh\b|\btoken\b|\bpassword\b|\bcredential|\bsecret\b|"
     r"\bupload|\bexfil|\bsend\b|\bpost\b|\binstall|\bexecute\b|\brun\b|\bdelete\b|"
@@ -256,6 +379,20 @@ def _only_a_wording_rule(finding: Finding, file: _FileContext) -> bool:
 def _brand(host: str) -> str:
     parts = host.lower().strip(".").split(".")
     return parts[-2] if len(parts) >= 2 else parts[0]
+
+
+def _named_by_description(host: str, description: str) -> bool:
+    """The skill's declared description names this host or its brand. SKILL.md as a whole does not
+    count: the line being judged is in it, so every host on it would name itself."""
+
+    host = host.lower().strip(".")
+    brand = _brand(host)
+    tokens = set(re.split(r"[^a-z0-9]+", description))
+    return bool(
+        host
+        and (host in description or (len(brand) >= 4 and brand in description) or brand in tokens)
+        and len(brand) >= 3
+    )
 
 
 def _documented(host: str, description: str, skill_md: str) -> bool:
@@ -351,6 +488,26 @@ def _reason(
         return "a wording rule for the agent's replies, with no action or secret near it"
     if kind == "dynamic-code" and file.is_markdown:
         return "code shown in documentation"
+    if kind == "dynamic-code":
+        reason = _code_reason(line, file, number)
+        if reason is not None:
+            return reason
+    if kind == "secret-access" and _only_checked_or_mentioned(line, file, number):
+        return "the variable is tested for or named in a comment, and nothing near it sends"
+    if kind == "secret-access" and not file.suspect_destination:
+        header = _AUTH_HEADER.search(line)
+        if header is not None:
+            urls = _HTTPS_URL.findall(_window(file, number, 8, 4))
+            hosts = [parse_destination(u) for u in urls]
+            if (
+                hosts
+                and all(not h.odd and not h.placeholder for h in hosts)
+                and all(
+                    is_credential_bound(frozenset({("env", header.group("var"))}), h.host)
+                    for h in hosts
+                )
+            ):
+                return "a vendor's own key sent in a header to that vendor's host, shown in documentation"
     if kind == "destructive-command" and file.is_markdown and not file.can_send:
         return "a cleanup command named in documentation"
     if kind == "shell-exec":
@@ -361,13 +518,15 @@ def _reason(
             # to keep the finding.
             urls = [m.group(0) for m in _URL_TOKEN.finditer(piped.group("fetch"))]
             hosts = [parse_destination(url) for url in urls]
-            if (
-                file.is_markdown
-                and hosts
-                and all(not h.odd and h.host in _VENDOR_INSTALL_HOSTS for h in hosts)
-                and not suspect_destination(line)
-            ):
+            vendor_or_named = bool(hosts) and all(
+                not h.odd
+                and (h.host in _VENDOR_INSTALL_HOSTS or _named_by_description(h.host, description))
+                for h in hosts
+            )
+            if file.is_markdown and vendor_or_named and not suspect_destination(line):
                 return f"a documented install script from {hosts[0].host}"
+            if _COMMENT_START.match(line) and vendor_or_named and not suspect_destination(line):
+                return "an install command written in a comment, which is not run"
         elif _LITERAL_SHELL_CALL.search(line) and not _RISKY_LITERAL.search(line):
             return "a fixed command string with nothing built from input"
     if kind == "exfil-http-post":
@@ -380,7 +539,7 @@ def _reason(
             ):
                 return None  # the address behind a placeholder may be the bare one in this file
             return "an API call shown in documentation"
-        host = first_host(line)
+        host = first_host(line) or _resolved_host(line, file)
         if package_credential or host is None:
             return None  # an address from settings or input says nothing about where data goes
         if _documented(host, description, skill_md):

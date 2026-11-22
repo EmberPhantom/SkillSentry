@@ -210,6 +210,25 @@ class SkillPackage:
         return values
 
 
+_UNPRINTABLE = re.compile(
+    "[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\u00ad"
+    "\U000e0000-\U000e007f]"
+)
+
+
+def _plain_label(value: str) -> bool:
+    """A name that is odd but harmless: printable, one line, short, and not a path."""
+
+    text = value.strip()
+    return (
+        0 < len(text) <= 100
+        and _UNPRINTABLE.search(text) is None
+        and "/" not in text
+        and "\\" not in text
+        and ".." not in text
+    )
+
+
 def _split_frontmatter(text: str) -> tuple[str, str, bool]:
     """Return ``(yaml_text, body, present)`` for a leading YAML block."""
 
@@ -772,12 +791,34 @@ def parse_skill(path: str | Path) -> SkillPackage:
         name = name_raw.strip()
     else:
         name = root.name
-        if name_raw is None:
-            issues.append(PackageIssue("high", "frontmatter is missing required field: name"))
-        else:
-            issues.append(PackageIssue("high", "frontmatter name is not a valid skill identifier"))
         if not _NAME_RE.match(name):
             name = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "unknown-skill"
+        if name_raw is None and present:
+            # A skill with frontmatter and no ``name`` is valid in the tools that load skills: the
+            # folder name is the name. It is recorded, and it is not an error.
+            issues.append(
+                PackageIssue(
+                    "note",
+                    f"frontmatter has no name; the folder name {name!r} is used",
+                    kind="manifest-defaulted",
+                )
+            )
+        elif name_raw is None:
+            issues.append(PackageIssue("high", "frontmatter is missing required field: name"))
+        elif isinstance(name_raw, str) and _plain_label(name_raw):
+            # A display-style name (spaces, capitals, a colon) is odd, not hostile. The folder name
+            # is used and the odd name is recorded. A name with control or invisible characters,
+            # a newline or a very long one is still an error: it can mislead a terminal or a list.
+            issues.append(
+                PackageIssue(
+                    "note",
+                    "frontmatter name is not a plain skill identifier "
+                    f"(lowercase letters, digits, hyphens); the folder name {name!r} is used",
+                    kind="manifest-defaulted",
+                )
+            )
+        else:
+            issues.append(PackageIssue("high", "frontmatter name is not a valid skill identifier"))
 
     description_raw = manifest.get("description")
     if not isinstance(description_raw, str) or not description_raw.strip():
